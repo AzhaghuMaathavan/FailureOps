@@ -1,0 +1,22 @@
+# Ignore Python files, virtual environments, and heavy ML requirements
+requirements.txt
+requirements-dev.txt
+Pipfile
+Pipfile.lock
+pyproject.toml
+poetry.lock
+.python-version
+*.py
+backend/
+scripts/
+.venv/
+venv/
+env/
+__pycache__/
+*.pyc
+
+# Local files & docs
+.git
+.agents/
+.gemini/
+*.log

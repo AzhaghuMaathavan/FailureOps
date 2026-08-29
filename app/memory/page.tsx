@@ -1,0 +1,77 @@
+'use client';
+
+import React, { useState } from 'react';
+import Link from 'next/link';
+import { Database, Search, PlusCircle, ShieldCheck, Tag } from 'lucide-react';
+import { useApp } from '@/context/AppContext';
+import { MemoryCard } from '@/components/memory/MemoryCard';
+import { AppSidebar } from '@/components/layout/AppSidebar';
+import { TopHeader } from '@/components/layout/TopHeader';
+
+export default function OrganizationalMemoryPage() {
+  const { memoryEntries } = useApp();
+  const [searchQuery, setSearchQuery] = useState('');
+
+  const filteredEntries = memoryEntries.filter(
+    m =>
+      m.pattern.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      m.intervention.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      m.tags.some(t => t.toLowerCase().includes(searchQuery.toLowerCase()))
+  );
+
+  return (
+    <div className="min-h-screen flex w-full bg-background text-foreground">
+      <AppSidebar />
+      <div className="flex-1 flex flex-col min-w-0 overflow-hidden">
+        <TopHeader />
+        <main className="flex-1 overflow-y-auto p-4 sm:p-6 lg:p-8 space-y-8 max-w-6xl mx-auto w-full">
+          {/* Header */}
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-6 border-b border-border">
+            <div>
+              <div className="flex items-center gap-2">
+                <span className="text-xs font-mono font-bold uppercase tracking-wider text-primary">
+                  Institutional Vault
+                </span>
+                <span className="px-2.5 py-0.5 rounded-full text-xs font-mono bg-emerald-500/10 text-emerald-400 border border-emerald-500/30">
+                  {memoryEntries.length} Validated Learnings
+                </span>
+              </div>
+              <h1 className="text-2xl lg:text-3xl font-extrabold text-foreground tracking-tight mt-1">
+                Organizational Memory
+              </h1>
+              <p className="text-sm text-muted-foreground mt-0.5">
+                Searchable repository of empirical failure patterns, verified interventions, and validated recovery playbooks.
+              </p>
+            </div>
+
+            <Link
+              href="/projects/aurora/overview"
+              className="inline-flex items-center gap-1.5 px-4 py-2 rounded-xl bg-surface-feed hover:bg-card border border-border text-xs font-mono font-bold text-foreground transition-all shadow-sm"
+            >
+              <span>Current Aurora Case</span>
+            </Link>
+          </div>
+
+          {/* Search Bar */}
+          <div className="relative w-full">
+            <Search className="absolute left-4 top-3.5 w-4 h-4 text-muted-foreground" />
+            <input
+              type="text"
+              value={searchQuery}
+              onChange={e => setSearchQuery(e.target.value)}
+              placeholder="Search organizational learnings, failure patterns, tags, or interventions..."
+              className="w-full pl-11 pr-4 py-3 rounded-2xl bg-card border border-border text-foreground text-sm focus:outline-none focus:border-primary shadow-sm font-medium"
+            />
+          </div>
+
+          {/* Learnings Grid */}
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+            {filteredEntries.map(entry => (
+              <MemoryCard key={entry.id} entry={entry} />
+            ))}
+          </div>
+        </main>
+      </div>
+    </div>
+  );
+}

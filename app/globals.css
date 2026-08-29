@@ -1,0 +1,134 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  :root {
+    --background: #f8fafc;
+    --foreground: #0f172a;
+    --surface-feed: #f1f5f9;
+    --surface-base: #f8fafc;
+    --card: #ffffff;
+    --card-foreground: #0f172a;
+    --card-hover: #f8fafc;
+    --popover: #ffffff;
+    --popover-foreground: #0f172a;
+    --primary: #ff7a00;
+    --primary-foreground: #ffffff;
+    --primary-hover: #ff9533;
+    --primary-muted: #fff4eb;
+    --secondary: #f1f5f9;
+    --secondary-foreground: #0f172a;
+    --muted: #f1f5f9;
+    --muted-foreground: #64748b;
+    --accent: #ff9533;
+    --accent-foreground: #0f172a;
+    --destructive: #e11d48;
+    --destructive-foreground: #ffffff;
+    --warning: #ea580c;
+    --warning-foreground: #ffffff;
+    --success: #059669;
+    --success-foreground: #ffffff;
+    --info: #0284c7;
+    --info-foreground: #ffffff;
+    --magic: #7c3aed;
+    --magic-foreground: #ffffff;
+    --border: #e2e8f0;
+    --input: #e2e8f0;
+    --ring: #ff7a00;
+    --radius: 0.625rem;
+
+    --sidebar: #0f172a;
+    --sidebar-foreground: #f8fafc;
+    --sidebar-primary: #ff7a00;
+    --sidebar-primary-foreground: #ffffff;
+    --sidebar-border: #1e293b;
+
+    --chart-1: #ff7a00;
+    --chart-2: #0284c7;
+    --chart-3: #059669;
+    --chart-4: #7c3aed;
+    --chart-5: #e11d48;
+  }
+
+  .dark {
+    --background: #090b0e;
+    --foreground: #f8fafc;
+    --surface-feed: #0f1319;
+    --surface-base: #090b0e;
+    --card: #161b22;
+    --card-foreground: #f8fafc;
+    --card-hover: #1c232d;
+    --popover: #232b36;
+    --popover-foreground: #f8fafc;
+    --primary: #ff7a00;
+    --primary-foreground: #ffffff;
+    --primary-hover: #ff9533;
+    --primary-muted: #3d1a04;
+    --secondary: #161b22;
+    --secondary-foreground: #f8fafc;
+    --muted: #161b22;
+    --muted-foreground: #94a3b8;
+    --accent: #ff9533;
+    --accent-foreground: #f8fafc;
+    --destructive: #fb7185;
+    --destructive-foreground: #090b0e;
+    --warning: #f97316;
+    --warning-foreground: #090b0e;
+    --success: #10b981;
+    --success-foreground: #090b0e;
+    --info: #38bdf8;
+    --info-foreground: #090b0e;
+    --magic: #a855f7;
+    --magic-foreground: #090b0e;
+    --border: #2e3846;
+    --input: #2e3846;
+    --ring: #ff7a00;
+
+    --sidebar: #090b0e;
+    --sidebar-foreground: #f8fafc;
+    --sidebar-primary: #ff7a00;
+    --sidebar-primary-foreground: #ffffff;
+    --sidebar-border: #2e3846;
+
+    --chart-1: #ff8800;
+    --chart-2: #38bdf8;
+    --chart-3: #10b981;
+    --chart-4: #a855f7;
+    --chart-5: #fb7185;
+  }
+}
+
+@layer base {
+  * {
+    @apply border-border;
+  }
+  body {
+    @apply bg-background text-foreground antialiased;
+    font-feature-settings: "cv02", "cv03", "cv04", "cv11";
+  }
+}
+
+/* Custom scrollbar for dense enterprise UI */
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+::-webkit-scrollbar-thumb {
+  background: rgba(148, 163, 184, 0.2);
+  border-radius: 9999px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: rgba(148, 163, 184, 0.35);
+}
+
+.radar-grid-bg {
+  background-image: radial-gradient(rgba(255, 122, 0, 0.12) 1px, transparent 1px);
+  background-size: 24px 24px;
+}
