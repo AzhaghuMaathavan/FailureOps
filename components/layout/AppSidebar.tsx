@@ -23,6 +23,7 @@ import {
   Shield,
   Sparkles,
   MessageSquare,
+  Binary,
 } from 'lucide-react';
 import { useApp } from '@/context/AppContext';
 import { RiskBadge } from '@/components/common/RiskBadge';
@@ -38,8 +39,10 @@ export const AppSidebar: React.FC = () => {
       group: 'PROJECT INTELLIGENCE',
       items: [
         { name: 'Overview', href: `/projects/${projectId}/overview`, icon: LayoutDashboard },
+        { name: 'Evidence Upload', href: `/projects/${projectId}/upload`, icon: UploadCloud },
         { name: 'Evidence Intelligence', href: `/projects/${projectId}/evidence`, icon: FileText },
         { name: 'Evidence Ask', href: `/projects/${projectId}/ask`, icon: MessageSquare },
+        { name: 'RAG Pipeline', href: `/projects/${projectId}/pipeline`, icon: Binary },
         { name: 'Signal Explorer', href: `/projects/${projectId}/signals`, icon: Activity },
         { name: 'Failure DNA', href: `/projects/${projectId}/dna`, icon: Dna },
         { name: 'Truth Engine', href: `/projects/${projectId}/truth-engine`, icon: Scale },

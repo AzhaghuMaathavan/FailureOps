@@ -6,7 +6,7 @@ import { Search, Database, FileSearch, FolderKanban, ArrowRight, Filter, Loader2
 import { PrivacyBadge } from '@/components/common/PrivacyBadge';
 import { AppSidebar } from '@/components/layout/AppSidebar';
 import { TopHeader } from '@/components/layout/TopHeader';
-import { apiClient } from '@/lib/api/client';
+import { apiClient, isRagUnavailable } from '@/lib/api/client';
 import { useApp } from '@/context/AppContext';
 
 export default function GlobalSearchPage() {
@@ -18,6 +18,7 @@ export default function GlobalSearchPage() {
   const [evidenceHits, setEvidenceHits] = useState<any[]>([]);
   const [projectMatches, setProjectMatches] = useState<any[]>([]);
   const [isLoading, setIsLoading] = useState(false);
+  const [searchError, setSearchError] = useState<string | null>(null);
 
   const FILTERS = [
     { value: 'ALL', label: 'ALL' },
@@ -30,6 +31,7 @@ export default function GlobalSearchPage() {
   useEffect(() => {
     let mounted = true;
     setIsLoading(true);
+    setSearchError(null);
     const timeout = setTimeout(() => {
       apiClient.search(query, selectedFilter, project.id)
         .then(res => {
@@ -41,8 +43,15 @@ export default function GlobalSearchPage() {
             setIsLoading(false);
           }
         })
-        .catch(() => {
-          if (mounted) setIsLoading(false);
+        .catch((err) => {
+          if (mounted) {
+            setCases([]);
+            setMemoryMatches([]);
+            setEvidenceHits([]);
+            setProjectMatches([]);
+            setSearchError(isRagUnavailable(err) ? 'RAG unavailable' : err?.message || 'Search failed');
+            setIsLoading(false);
+          }
         });
     }, 250);
 
@@ -107,6 +116,12 @@ export default function GlobalSearchPage() {
               ))}
             </div>
           </div>
+
+          {searchError && (
+            <div role="alert" className="p-4 rounded-xl bg-rose-500/10 border border-rose-500/30 text-rose-300 text-xs font-mono">
+              {searchError}
+            </div>
+          )}
 
           {/* Search Results */}
           <div className="space-y-4">

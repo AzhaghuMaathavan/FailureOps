@@ -14,6 +14,7 @@ export default function EvidenceIntelligencePage() {
   const projectId = (params?.id as string) || 'aurora';
   const [evidenceList, setEvidenceList] = useState<EvidenceItem[]>([]);
   const [isLoading, setIsLoading] = useState<boolean>(true);
+  const [hasCompletedAnalysis, setHasCompletedAnalysis] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   const [selectedCategory, setSelectedCategory] = useState<string>('ALL');
@@ -42,6 +43,7 @@ export default function EvidenceIntelligencePage() {
           }));
 
           setEvidenceList(mapped);
+          setHasCompletedAnalysis(Boolean(res?.analysis_id && res.analysis_id !== 'none'));
           const hashId = typeof window !== 'undefined' ? window.location.hash.replace('#', '') : '';
           if (hashId) {
             const matched = mapped.find((item) => item.id === hashId);
@@ -135,13 +137,21 @@ export default function EvidenceIntelligencePage() {
         </div>
       ) : filteredList.length === 0 ? (
         <div className="p-12 rounded-2xl bg-card border border-border text-center space-y-3">
-          <p className="text-sm font-bold text-foreground">No evidence items in this category</p>
-          <p className="text-xs text-muted-foreground mt-1">Upload additional project documents to populate citations</p>
+          <p className="text-sm font-bold text-foreground">
+            {hasCompletedAnalysis
+              ? 'No sufficiently supported evidence found.'
+              : 'No completed analysis yet'}
+          </p>
+          <p className="text-xs text-muted-foreground mt-1">
+            {hasCompletedAnalysis
+              ? 'The Evidence Agent found no grounded citations in the retrieved chunks for this filter.'
+              : 'Upload documents, wait until chunk and embedding counts are non-zero, then run project analysis.'}
+          </p>
           <Link
-            href={`/projects/${projectId}/upload`}
-            className="inline-block mt-2 px-4 py-2 rounded-xl bg-primary text-white text-xs font-bold"
+            href={hasCompletedAnalysis ? `/projects/${projectId}/upload` : `/projects/${projectId}/analysis`}
+            className="inline-block mt-2 px-4 py-2 rounded-xl bg-primary text-white text-xs font-bold cursor-pointer"
           >
-            Upload Evidence
+            {hasCompletedAnalysis ? 'Upload Evidence' : 'Run Analysis'}
           </Link>
         </div>
       ) : (

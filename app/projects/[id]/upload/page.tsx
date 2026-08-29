@@ -21,8 +21,9 @@ import {
   FolderOpen
 } from 'lucide-react';
 import { EvidenceSourceType } from '@/types';
-import { apiClient } from '@/lib/api/client';
+import { apiClient, isRagUnavailable } from '@/lib/api/client';
 import { useApp } from '@/context/AppContext';
+import { RagPipelinePanel } from '@/components/evidence/RagPipelinePanel';
 
 interface PendingFileItem {
   id: string;
@@ -37,6 +38,8 @@ export default function EvidenceUploadPage() {
   const { project } = useApp();
 
   const [backendDocs, setBackendDocs] = useState<any[]>([]);
+  const [pipeline, setPipeline] = useState<any>(null);
+  const [ragUnavailable, setRagUnavailable] = useState(false);
   const [isLoadingDocs, setIsLoadingDocs] = useState(true);
   const [pendingFiles, setPendingFiles] = useState<PendingFileItem[]>([]);
   const [isUploading, setIsUploading] = useState(false);
@@ -94,22 +97,40 @@ export default function EvidenceUploadPage() {
     },
   ];
 
-  const fetchBackendDocuments = async () => {
+  const fetchBackendDocuments = async (silent = false) => {
     try {
-      setIsLoadingDocs(true);
-      const docs = await apiClient.listDocuments(projectId);
-      setBackendDocs(docs || []);
-    } catch (err: any) {
+      if (!silent) setIsLoadingDocs(true);
+      const data = await apiClient.getRagPipeline(projectId);
+      setPipeline(data);
+      setBackendDocs(data.documents || []);
+      setRagUnavailable(false);
+    } catch (err: unknown) {
       console.error('Failed to load project documents:', err);
-      setBackendDocs([]);
+      if (isRagUnavailable(err)) {
+        setRagUnavailable(true);
+        setBackendDocs([]);
+        setPipeline(null);
+      } else if (!silent) {
+        setUploadError(err instanceof Error ? err.message : 'Failed to load project documents.');
+        setBackendDocs([]);
+      }
     } finally {
-      setIsLoadingDocs(false);
+      if (!silent) setIsLoadingDocs(false);
     }
   };
 
   useEffect(() => {
     fetchBackendDocuments();
   }, [projectId]);
+
+  useEffect(() => {
+    const indexing = backendDocs.some(
+      (d) => d.status === 'PENDING' || d.status === 'PROCESSING' || (d.chunk_count > 0 && d.embedded_count < d.chunk_count)
+    );
+    if (!indexing && !ragUnavailable) return;
+    const id = setInterval(() => fetchBackendDocuments(true), 2500);
+    return () => clearInterval(id);
+  }, [projectId, ragUnavailable, backendDocs.map((d) => `${d.id}:${d.status}:${d.chunk_count}:${d.embedded_count}`).join('|')]);
 
   const handleSelectFiles = (e: React.ChangeEvent<HTMLInputElement>) => {
     const selected = e.target.files;
@@ -266,10 +287,25 @@ export default function EvidenceUploadPage() {
         </div>
       </div>
 
+      {ragUnavailable && (
+        <div
+          role="alert"
+          tabIndex={-1}
+          className="p-4 rounded-xl bg-rose-500/10 border border-rose-500/30 text-rose-300 text-xs font-mono"
+        >
+          RAG unavailable. Document indexing, chunk counts, and embeddings cannot be loaded until the RAG backend is reachable.
+        </div>
+      )}
+
       {uploadError && (
-        <div className="p-4 rounded-xl bg-rose-500/10 border border-rose-500/30 text-rose-300 text-xs font-mono flex items-center justify-between">
+        <div
+          role="alert"
+          className="p-4 rounded-xl bg-rose-500/10 border border-rose-500/30 text-rose-300 text-xs font-mono flex items-center justify-between"
+        >
           <span>{uploadError}</span>
-          <button onClick={() => setUploadError(null)} className="text-rose-400 hover:text-rose-200 cursor-pointer">✕</button>
+          <button type="button" onClick={() => setUploadError(null)} className="text-rose-400 hover:text-rose-200 cursor-pointer">
+            ✕
+          </button>
         </div>
       )}
 
@@ -340,7 +376,14 @@ export default function EvidenceUploadPage() {
         </div>
       )}
 
-      {/* Persisted Uploaded Documents in Backend */}
+      {pipeline && !ragUnavailable && (
+        <RagPipelinePanel
+          projectId={projectId}
+          stages={pipeline.stages}
+          reachable
+          database={pipeline.health?.database}
+        />
+      )}
       {backendDocs.length > 0 && (
         <div className="space-y-4">
           <div className="flex items-center justify-between">
@@ -348,7 +391,7 @@ export default function EvidenceUploadPage() {
               Persisted Evidence Documents ({backendDocs.length})
             </h3>
             <button
-              onClick={fetchBackendDocuments}
+              onClick={() => fetchBackendDocuments()}
               className="text-xs font-mono text-muted-foreground hover:text-foreground flex items-center gap-1 cursor-pointer"
             >
               <RefreshCw className={`w-3.5 h-3.5 ${isLoadingDocs ? 'animate-spin' : ''}`} />
@@ -369,14 +412,28 @@ export default function EvidenceUploadPage() {
                   <div className="truncate">
                     <h4 className="text-xs font-bold text-foreground truncate">{doc.filename}</h4>
                     <p className="text-[10px] font-mono text-muted-foreground mt-0.5">
-                      Type: <span className="text-foreground">{doc.document_type || 'PROJECT_DOC'}</span> • Chunks: <span className="text-foreground font-bold">{doc.chunk_count || 0}</span>
-                      {typeof doc.embedded_count === 'number' && (
-                        <> • Embedded: <span className="text-foreground font-bold">{doc.embedded_count}</span></>
-                      )}
+                      Type: <span className="text-foreground">{doc.document_type || 'PROJECT_DOC'}</span>
+                      {' '}• Chunks: <span className="text-foreground font-bold">{Number(doc.chunk_count ?? 0)}</span>
+                      {' '}• Embedded: <span className="text-foreground font-bold">{Number(doc.embedded_count ?? 0)}</span>
                     </p>
-                    <span className="inline-block mt-2 px-2 py-0.5 rounded text-[9px] font-mono font-bold bg-emerald-500/10 text-emerald-400 border border-emerald-500/30">
-                      {doc.status || 'INDEXED'}
+                    <span
+                      className={`inline-block mt-2 px-2 py-0.5 rounded text-[9px] font-mono font-bold border ${
+                        doc.status === 'FAILED'
+                          ? 'bg-rose-500/10 text-rose-400 border-rose-500/30'
+                          : doc.status === 'PENDING' || doc.status === 'PROCESSING'
+                            ? 'bg-amber-500/10 text-amber-400 border-amber-500/30'
+                            : doc.status === 'COMPLETED' && Number(doc.chunk_count || 0) === 0
+                              ? 'bg-amber-500/10 text-amber-400 border-amber-500/30'
+                              : 'bg-emerald-500/10 text-emerald-400 border-emerald-500/30'
+                      }`}
+                    >
+                      {doc.status || 'UNKNOWN'}
                     </span>
+                    {doc.error_message && (
+                      <p role="alert" className="text-[10px] text-rose-400 mt-1 font-mono">
+                        {doc.error_message}
+                      </p>
+                    )}
                   </div>
                 </div>
 
@@ -474,7 +531,7 @@ export default function EvidenceUploadPage() {
       </div>
 
       {/* Empty State when no documents are uploaded */}
-      {!isLoadingDocs && backendDocs.length === 0 && pendingFiles.length === 0 && (
+      {!isLoadingDocs && !ragUnavailable && backendDocs.length === 0 && pendingFiles.length === 0 && (
         <div className="p-12 rounded-2xl bg-card border border-border/80 text-center space-y-4">
           <UploadCloud className="w-12 h-12 text-primary mx-auto opacity-70" />
           <h3 className="text-base font-bold text-foreground">No Evidence Uploaded Yet</h3>

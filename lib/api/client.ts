@@ -23,14 +23,31 @@ class ApiError extends Error {
   public status: number;
   public requestId?: string;
   public details?: { field: string; message: string }[];
+  public code?: string;
 
-  constructor(message: string, status: number, requestId?: string, details?: { field: string; message: string }[]) {
+  constructor(
+    message: string,
+    status: number,
+    requestId?: string,
+    details?: { field: string; message: string }[],
+    code?: string
+  ) {
     super(message);
     this.name = 'ApiError';
     this.status = status;
     this.requestId = requestId;
     this.details = details;
+    this.code = code;
   }
+}
+
+export { ApiError };
+
+export function isRagUnavailable(err: unknown): boolean {
+  if (err instanceof ApiError) {
+    return err.status === 503 || err.code === 'RAG Unavailable' || /RAG unavailable/i.test(err.message);
+  }
+  return err instanceof Error && /RAG unavailable/i.test(err.message);
 }
 
 async function request<T>(endpoint: string, options: RequestInit = {}): Promise<T> {
@@ -65,7 +82,8 @@ async function request<T>(endpoint: string, options: RequestInit = {}): Promise<
       detailedMessage,
       response.status,
       body.requestId,
-      body.details
+      body.details,
+      body.error
     );
   }
 
@@ -134,9 +152,21 @@ export const apiClient = {
 
 
   // Signals
-  async getSignals(projectId: string = 'aurora', analysisId?: string): Promise<Signal[]> {
+  async getSignals(projectId: string = 'aurora', analysisId?: string): Promise<{
+    analysisId: string | null;
+    signals: Signal[];
+  }> {
     const q = analysisId ? `&analysisId=${encodeURIComponent(analysisId)}` : '';
-    return request<Signal[]>(`/api/signals?projectId=${encodeURIComponent(projectId)}${q}`);
+    const data = await request<{ analysisId: string | null; signals: Signal[] } | Signal[]>(
+      `/api/signals?projectId=${encodeURIComponent(projectId)}${q}`
+    );
+    if (Array.isArray(data)) {
+      return { analysisId: null, signals: data };
+    }
+    return {
+      analysisId: data?.analysisId ?? null,
+      signals: data?.signals || [],
+    };
   },
 
   // Analysis
@@ -157,7 +187,46 @@ export const apiClient = {
       progressPercent?: number;
       stages: any[];
       resultSummary?: any;
+      errorMessage?: string;
     }>(`/api/analysis/status?jobId=${encodeURIComponent(jobId)}&projectId=${encodeURIComponent(projectId)}`);
+  },
+
+  async getRagHealth() {
+    return request<{
+      reachable: boolean;
+      service?: string;
+      ragStatus?: string;
+      database?: string;
+      vectorStore?: boolean;
+      error?: string;
+    }>('/api/rag/health');
+  },
+
+  async getRagPipeline(projectId: string = 'aurora') {
+    return request<{
+      projectId: string;
+      health: { reachable: boolean; ragStatus?: string; database?: string; vectorStore?: boolean };
+      documents: any[];
+      totals: {
+        documents: number;
+        chunks: number;
+        embedded: number;
+        evidence: number;
+        signals: number;
+        chunksSearched: number;
+      };
+      evidenceAnalysisId: string | null;
+      signalAnalysisId: string | null;
+      metrics: any;
+      stages: {
+        key: string;
+        label: string;
+        status: string;
+        detail: string;
+        count?: number;
+        error?: string | null;
+      }[];
+    }>(`/api/rag/pipeline?projectId=${encodeURIComponent(projectId)}`);
   },
 
   // Truth Engine

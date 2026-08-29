@@ -714,6 +714,7 @@ def list_project_documents(
             "title": d.title,
             "document_type": d.document_type,
             "status": d.status,
+            "error_message": d.error_message,
             "visibility": d.visibility,
             "chunk_count": db.query(Chunk).filter(Chunk.document_id == d.id).count(),
             "embedded_count": db.query(Chunk).filter(

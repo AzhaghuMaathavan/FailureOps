@@ -189,6 +189,6 @@ export interface AnalysisStage {
   id: string;
   name: string;
   description: string;
-  status: 'WAITING' | 'RUNNING' | 'COMPLETED';
+  status: 'WAITING' | 'RUNNING' | 'COMPLETED' | 'FAILED';
   logMessages: string[];
 }

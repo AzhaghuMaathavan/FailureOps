@@ -2,7 +2,7 @@ import 'server-only';
 import { NextResponse } from 'next/server';
 import { ZodError } from 'zod';
 import { AuthorizationError } from './authorization';
-import { RagBackendError } from './rag';
+import { RagBackendError, RagUnreachableError } from './rag';
 
 /**
  * Standardized, sanitized server response helpers.
@@ -84,6 +84,18 @@ export function apiError(error: unknown, fallbackMessage: string = 'An error occ
         requestId,
       },
       { status: 404 }
+    );
+  }
+
+  if (error instanceof RagUnreachableError) {
+    return NextResponse.json(
+      {
+        success: false,
+        error: 'RAG Unavailable',
+        message: 'RAG unavailable',
+        requestId,
+      },
+      { status: 503 }
     );
   }
 

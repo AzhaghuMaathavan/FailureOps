@@ -23,7 +23,7 @@ import { StatCard } from '@/components/common/StatCard';
 import { RiskBadge } from '@/components/common/RiskBadge';
 import { PrivacyBadge } from '@/components/common/PrivacyBadge';
 import { IntelligencePipeline } from '@/components/common/IntelligencePipeline';
-import { apiClient } from '@/lib/api/client';
+import { apiClient, isRagUnavailable } from '@/lib/api/client';
 import { Signal } from '@/types';
 
 export default function ProjectOverviewPage() {
@@ -33,6 +33,8 @@ export default function ProjectOverviewPage() {
   const { project: contextProject, setProject } = useApp();
   const [project, setCurrentProject] = React.useState<any>(contextProject);
   const [signals, setSignals] = React.useState<Signal[]>([]);
+  const [signalAnalysisId, setSignalAnalysisId] = React.useState<string | null>(null);
+  const [ragUnavailable, setRagUnavailable] = React.useState(false);
   const [prediction, setPrediction] = React.useState<any>(null);
   const [topConflict, setTopConflict] = React.useState<any>(null);
   const [isLoading, setIsLoading] = React.useState<boolean>(true);
@@ -43,22 +45,26 @@ export default function ProjectOverviewPage() {
 
     Promise.all([
       apiClient.getProject(projectId).catch(() => null),
-      apiClient.getSignals(projectId).catch(() => []),
-      apiClient.getPredictions(projectId).catch(() => null),
-      apiClient.getEvidence(projectId).catch(() => null),
+      apiClient.getSignals(projectId).then((r) => ({ ...r, ragDown: false })).catch((err) => ({
+        analysisId: null,
+        signals: [] as Signal[],
+        ragDown: isRagUnavailable(err),
+      })),
+      apiClient.getPredictions(projectId).catch((err) => (isRagUnavailable(err) ? 'RAG_DOWN' : null)),
+      apiClient.getEvidence(projectId).catch((err) => (isRagUnavailable(err) ? 'RAG_DOWN' : null)),
     ]).then(([projData, sigs, predData, evData]) => {
       if (isMounted) {
         if (projData && projData.id) {
           setCurrentProject(projData);
           setProject(projData);
         }
-        if (sigs) {
-          setSignals(sigs);
-        }
-        if (predData) {
+        setRagUnavailable(Boolean(sigs.ragDown || predData === 'RAG_DOWN' || evData === 'RAG_DOWN'));
+        setSignals(sigs.signals || []);
+        setSignalAnalysisId(sigs.analysisId);
+        if (predData && predData !== 'RAG_DOWN') {
           setPrediction(predData);
         }
-        if (evData && evData.conflicts && evData.conflicts.length > 0) {
+        if (evData && evData !== 'RAG_DOWN' && evData.conflicts && evData.conflicts.length > 0) {
           setTopConflict(evData.conflicts[0]);
         }
         setIsLoading(false);
@@ -254,11 +260,22 @@ export default function ProjectOverviewPage() {
               </div>
             </div>
           ))}
-          {signals.length === 0 && (
-            <div className="p-4 text-center text-xs font-mono text-muted-foreground">
-              No active operational signals extracted yet.
+          {ragUnavailable ? (
+            <div role="alert" className="p-4 text-center text-xs font-mono text-rose-400">
+              RAG unavailable
             </div>
-          )}
+          ) : signals.length === 0 ? (
+            <div className="p-4 text-center text-xs font-mono text-muted-foreground space-y-2">
+              <p>
+                {signalAnalysisId
+                  ? 'No sufficiently supported operational signals detected.'
+                  : 'No completed analysis yet. Signals are produced by the Signal Agent after RAG retrieval.'}
+              </p>
+              <Link href={`/projects/${projectId}/analysis`} className="text-primary font-bold cursor-pointer">
+                Run project analysis
+              </Link>
+            </div>
+          ) : null}
         </div>
       </div>
     </div>

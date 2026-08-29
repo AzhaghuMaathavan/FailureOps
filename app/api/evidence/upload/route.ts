@@ -4,7 +4,7 @@ import { requireAuth } from '@/lib/server/auth';
 import { authorizeProjectAccess } from '@/lib/server/authorization';
 import { checkRateLimit } from '@/lib/server/rate-limit';
 import { apiSuccess, apiError, apiRateLimitExceeded } from '@/lib/server/response';
-import { ragFetch, ragFetchSafe } from '@/lib/server/rag';
+import { ragFetch } from '@/lib/server/rag';
 
 export async function POST(req: NextRequest) {
   try {
@@ -28,11 +28,19 @@ export async function POST(req: NextRequest) {
 
       authorizeProjectAccess(session, projectId);
 
+      console.info('[FAILUREOPS] Upload received', {
+        projectId,
+        filename: file.name,
+        documentType,
+      });
+
       const backendFormData = new FormData();
       backendFormData.append('file', file, file.name);
       backendFormData.append('title', title);
       backendFormData.append('document_type', documentType);
       backendFormData.append('description', description);
+
+      console.info('[FAILUREOPS] Sending document to RAG', { projectId, filename: file.name });
 
       const uploadResult = await ragFetch<any>(
         `/api/v1/projects/${encodeURIComponent(projectId)}/documents/upload`,
@@ -42,6 +50,11 @@ export async function POST(req: NextRequest) {
           body: backendFormData,
         }
       );
+
+      console.info('[RAG] Upload accepted', {
+        documentId: uploadResult.document_id,
+        status: uploadResult.status,
+      });
 
       return apiSuccess({
         uploadId: uploadResult.document_id,
@@ -53,16 +66,7 @@ export async function POST(req: NextRequest) {
       }, 202);
     }
 
-    const body = await req.json();
-    const projectId = body.projectId || 'aurora';
-    authorizeProjectAccess(session, projectId);
-    return apiSuccess({
-      uploadId: `UPL-${Math.random().toString(36).substring(2, 9).toUpperCase()}`,
-      fileName: body.fileName || 'document.txt',
-      projectId,
-      status: 'PENDING',
-      ingestTimestamp: new Date().toISOString(),
-    }, 202);
+    throw new Error('Multipart file upload is required. JSON metadata-only upload is not supported.');
   } catch (error) {
     return apiError(error, 'Evidence file upload rejected by backend.');
   }
@@ -79,13 +83,22 @@ export async function GET(req: NextRequest) {
 
     authorizeProjectAccess(session, projectId);
 
-    const docs = await ragFetchSafe<any>(
+    const docs = await ragFetch<any>(
       `/api/v1/projects/${encodeURIComponent(projectId)}/documents`,
-      session,
-      {},
-      []
+      session
     );
-    return apiSuccess(docs);
+    const list = Array.isArray(docs) ? docs : [];
+    console.info('[FAILUREOPS] Document list', {
+      projectId,
+      count: list.length,
+      chunks: list.map((d: any) => ({
+        id: d.id,
+        status: d.status,
+        chunk_count: d.chunk_count,
+        embedded_count: d.embedded_count,
+      })),
+    });
+    return apiSuccess(list);
   } catch (error) {
     return apiError(error, 'Failed to retrieve project documents.');
   }

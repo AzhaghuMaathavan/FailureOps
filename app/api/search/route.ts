@@ -4,7 +4,7 @@ import { requireAuth } from '@/lib/server/auth';
 import { checkRateLimit } from '@/lib/server/rate-limit';
 import { apiSuccess, apiError, apiRateLimitExceeded } from '@/lib/server/response';
 import { SearchQuerySchema } from '@/lib/validation/schemas';
-import { ragFetchSafe, mapRagHit, mapHistoricalCase, mapMemoryEntry } from '@/lib/server/rag';
+import { ragFetch, ragFetchSafe, mapRagHit, mapHistoricalCase, mapMemoryEntry } from '@/lib/server/rag';
 
 export async function GET(req: NextRequest) {
   try {
@@ -39,14 +39,13 @@ export async function GET(req: NextRequest) {
           )
         : Promise.resolve({ memories: [] }),
       wantsEvidence && validated.query
-        ? ragFetchSafe<any>(
+        ? ragFetch<any>(
             `/api/v1/projects/${encodeURIComponent(projectId)}/retrieve`,
             session,
             {
               method: 'POST',
               body: JSON.stringify({ query: validated.query }),
-            },
-            { results: [] }
+            }
           )
         : Promise.resolve({ results: [] }),
       wantsProjects

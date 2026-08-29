@@ -16,6 +16,19 @@ export class RagBackendError extends Error {
   }
 }
 
+export class RagUnreachableError extends Error {
+  path: string;
+
+  constructor(path: string, cause?: unknown) {
+    super('RAG unavailable');
+    this.name = 'RagUnreachableError';
+    this.path = path;
+    if (cause instanceof Error) {
+      this.cause = cause;
+    }
+  }
+}
+
 function ragUrl(path: string): string {
   const prefix = path.startsWith('/') ? path : `/${path}`;
   return `${serverConfig.ragInternalUrl}${prefix}`;
@@ -36,14 +49,25 @@ export async function ragFetch<T = unknown>(
   session: UserSession,
   init: RequestInit = {}
 ): Promise<T> {
-  const resp = await fetch(ragUrl(path), {
-    ...init,
-    headers: ragHeaders(session, init.headers, init.body),
-    cache: 'no-store',
-  });
+  const method = (init.method || 'GET').toUpperCase();
+  console.info(`[FAILUREOPS] ${method} ${path}`);
+
+  let resp: Response;
+  try {
+    resp = await fetch(ragUrl(path), {
+      ...init,
+      headers: ragHeaders(session, init.headers, init.body),
+      cache: 'no-store',
+      signal: init.signal ?? AbortSignal.timeout(60_000),
+    });
+  } catch (cause) {
+    console.error(`[FAILUREOPS] RAG unreachable at ${path}`);
+    throw new RagUnreachableError(path, cause);
+  }
 
   if (!resp.ok) {
     const err = await resp.text();
+    console.error(`[RAG] ${method} ${path} HTTP ${resp.status}`);
     throw new RagBackendError(resp.status, err, path);
   }
 
@@ -58,7 +82,10 @@ export async function ragFetchSafe<T>(
 ): Promise<T> {
   try {
     return await ragFetch<T>(path, session, init);
-  } catch {
+  } catch (error) {
+    if (error instanceof RagUnreachableError) {
+      throw error;
+    }
     return fallback;
   }
 }

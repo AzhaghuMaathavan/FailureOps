@@ -4,7 +4,7 @@ import { requireAuth } from '@/lib/server/auth';
 import { checkRateLimit } from '@/lib/server/rate-limit';
 import { apiSuccess, apiError, apiRateLimitExceeded } from '@/lib/server/response';
 import { ragFetch } from '@/lib/server/rag';
-import { INITIAL_ANALYSIS_STAGES } from '@/services/analysisService';
+import { mapRagAnalysisStages } from '@/services/analysisService';
 
 export async function GET(req: NextRequest) {
   try {
@@ -26,20 +26,14 @@ export async function GET(req: NextRequest) {
     );
     const progress = backendStatus.progress_percent || 0;
     const isDone = backendStatus.status === 'COMPLETED';
+    const isFailed = backendStatus.status === 'FAILED';
+    const stages = mapRagAnalysisStages(backendStatus.status, isDone, isFailed);
 
-    // Map stages based on real progress
-    const stages = INITIAL_ANALYSIS_STAGES.map((s, idx) => {
-      const stageThreshold = (idx + 1) * (100 / INITIAL_ANALYSIS_STAGES.length);
-      const stageStart = idx * (100 / INITIAL_ANALYSIS_STAGES.length);
-
-      if (isDone || progress >= stageThreshold) {
-        return { ...s, status: 'COMPLETED' as const, progress: 100 };
-      } else if (progress > stageStart) {
-        const stageProg = Math.min(99, Math.round(((progress - stageStart) / (stageThreshold - stageStart)) * 100));
-        return { ...s, status: 'IN_PROGRESS' as const, progress: stageProg };
-      } else {
-        return { ...s, status: 'PENDING' as const, progress: 0 };
-      }
+    console.info('[FAILUREOPS] Analysis status', {
+      analysisId: backendStatus.analysis_id,
+      status: backendStatus.status,
+      progress,
+      currentStage: backendStatus.current_stage,
     });
 
     return apiSuccess({
@@ -52,10 +46,9 @@ export async function GET(req: NextRequest) {
       stages,
       completedAt: backendStatus.completed_at,
       errorMessage: backendStatus.error_message,
-      resultSummary: backendStatus.summary,
+      resultSummary: backendStatus.metrics || null,
     });
   } catch (error) {
     return apiError(error, 'Unable to query analysis job status from backend.');
   }
 }
-

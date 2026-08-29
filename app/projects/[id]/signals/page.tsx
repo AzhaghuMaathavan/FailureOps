@@ -12,6 +12,7 @@ export default function SignalExplorerPage() {
   const params = useParams();
   const projectId = (params?.id as string) || 'aurora';
   const [signals, setSignals] = useState<Signal[]>([]);
+  const [analysisId, setAnalysisId] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
@@ -20,9 +21,11 @@ export default function SignalExplorerPage() {
       setIsLoading(true);
       setError(null);
       const data = await apiClient.getSignals(projectId);
-      setSignals(data || []);
+      setSignals(data.signals || []);
+      setAnalysisId(data.analysisId);
     } catch (err: any) {
       setError(err?.message || 'Failed to load signals.');
+      setSignals([]);
     } finally {
       setIsLoading(false);
     }
@@ -104,9 +107,15 @@ export default function SignalExplorerPage() {
       {!isLoading && !error && signals.length === 0 && (
         <div className="p-12 rounded-2xl bg-card border border-border/80 text-center space-y-4">
           <ShieldCheck className="w-12 h-12 text-emerald-400 mx-auto opacity-80" />
-          <h3 className="text-lg font-bold text-foreground">No Active Operational Signals</h3>
+          <h3 className="text-lg font-bold text-foreground">
+            {analysisId
+              ? 'No sufficiently supported operational signals detected.'
+              : 'No completed analysis yet'}
+          </h3>
           <p className="text-xs font-mono text-muted-foreground max-w-md mx-auto">
-            No signal anomalies detected for this project yet. Run a fresh Evidence Intelligence analysis on project documents to generate signals.
+            {analysisId
+              ? 'The Signal Agent ran against retrieved evidence and did not extract supported operational signals.'
+              : 'Signals are derived from RAG-retrieved evidence after you run project analysis. This is not the same as RAG being down.'}
           </p>
           <Link
             href={`/projects/${projectId}/analysis`}

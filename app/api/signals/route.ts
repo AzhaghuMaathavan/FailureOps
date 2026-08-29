@@ -45,7 +45,12 @@ export async function GET(req: NextRequest) {
       signalType: s.signal_type,
     }));
 
-    return apiSuccess(mappedSignals);
+    return apiSuccess({
+      analysisId: backendData.analysis_id && backendData.analysis_id !== 'none'
+        ? backendData.analysis_id
+        : null,
+      signals: mappedSignals,
+    });
   } catch (error) {
     return apiError(error, 'Unable to retrieve project operational signals.');
   }
