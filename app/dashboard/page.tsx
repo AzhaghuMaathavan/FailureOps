@@ -63,18 +63,23 @@ export default function GlobalDashboardPage() {
         <main className="flex-1 overflow-y-auto p-4 sm:p-6 lg:p-8 space-y-8 max-w-7xl mx-auto w-full">
           {/* Header Title Banner */}
           <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-6 border-b border-border/80">
-            <div>
-              <div className="flex items-center gap-2">
-                <h1 className="text-2xl lg:text-3xl font-extrabold text-foreground tracking-tight">
-                  Organizational Intelligence
-                </h1>
-                <span className="px-2.5 py-0.5 rounded-full text-xs font-mono font-semibold bg-primary/10 text-primary border border-primary/30">
-                  Live Enclave
-                </span>
+            <div className="flex items-center gap-3">
+              <div className="w-10 h-10 rounded-xl bg-card border border-border/80 p-1.5 flex items-center justify-center shadow-[0_0_15px_-3px_rgba(255,122,0,0.3)]">
+                <img src="/logo.png" alt="FailureOps X" className="w-full h-full object-contain" />
               </div>
-              <p className="text-sm text-muted-foreground mt-1">
-                Real-time cross-project telemetry reasoning, emergent failure seeds, and institutional recovery memory.
-              </p>
+              <div>
+                <div className="flex items-center gap-2">
+                  <h1 className="text-2xl lg:text-3xl font-extrabold text-foreground tracking-tight">
+                    Organizational Intelligence
+                  </h1>
+                  <span className="px-2.5 py-0.5 rounded-full text-xs font-mono font-semibold bg-primary/10 text-primary border border-primary/30">
+                    Live Enclave
+                  </span>
+                </div>
+                <p className="text-sm text-muted-foreground mt-1">
+                  Real-time cross-project telemetry reasoning, emergent failure seeds, and institutional recovery memory.
+                </p>
+              </div>
             </div>
 
             <div className="flex items-center gap-2.5">

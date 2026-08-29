@@ -1,3 +1,4 @@
+export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
 import { NextRequest } from 'next/server';
 import { requireAuth } from '@/lib/server/auth';
@@ -5,6 +6,12 @@ import { authorizeProjectAccess } from '@/lib/server/authorization';
 import { checkRateLimit } from '@/lib/server/rate-limit';
 import { apiSuccess, apiError, apiRateLimitExceeded } from '@/lib/server/response';
 import { ragFetch } from '@/lib/server/rag';
+
+function filenameOf(entry: FormDataEntryValue): string {
+  if (typeof entry === 'string') return 'upload.bin';
+  const named = entry as File;
+  return named.name || 'upload.bin';
+}
 
 export async function POST(req: NextRequest) {
   try {
@@ -16,31 +23,47 @@ export async function POST(req: NextRequest) {
 
     if (contentType.includes('multipart/form-data')) {
       const formData = await req.formData();
-      const file = formData.get('file') as File | null;
+      const incoming = formData.get('file');
       const projectId = (formData.get('projectId') as string) || 'aurora';
-      const title = (formData.get('title') as string) || (file ? file.name : 'Uploaded Document');
+      const title = (formData.get('title') as string) || '';
       const documentType = (formData.get('documentType') as string) || 'PROJECT_DOC';
       const description = (formData.get('description') as string) || '';
 
-      if (!file) {
+      if (!incoming || typeof incoming === 'string') {
         throw new Error('No file provided in form data');
+      }
+
+      const blob = incoming as Blob;
+      const filename = filenameOf(incoming);
+      const bytes = Buffer.from(await blob.arrayBuffer());
+
+      console.info('[FAILUREOPS] Upload received', {
+        projectId,
+        filename,
+        contentType: blob.type || 'unknown',
+        bytes: bytes.length,
+      });
+
+      if (bytes.length === 0) {
+        throw new Error('Uploaded file is empty');
       }
 
       authorizeProjectAccess(session, projectId);
 
-      console.info('[FAILUREOPS] Upload received', {
-        projectId,
-        filename: file.name,
-        documentType,
+      const forwarded = new File([bytes], filename, {
+        type: blob.type || 'application/octet-stream',
       });
-
       const backendFormData = new FormData();
-      backendFormData.append('file', file, file.name);
-      backendFormData.append('title', title);
+      backendFormData.append('file', forwarded, filename);
+      backendFormData.append('title', title || filename);
       backendFormData.append('document_type', documentType);
       backendFormData.append('description', description);
 
-      console.info('[FAILUREOPS] Sending document to RAG', { projectId, filename: file.name });
+      console.info('[FAILUREOPS] Sending document to RAG', {
+        projectId,
+        filename,
+        bytes: bytes.length,
+      });
 
       const uploadResult = await ragFetch<any>(
         `/api/v1/projects/${encodeURIComponent(projectId)}/documents/upload`,
@@ -54,6 +77,7 @@ export async function POST(req: NextRequest) {
       console.info('[RAG] Upload accepted', {
         documentId: uploadResult.document_id,
         status: uploadResult.status,
+        bytes: uploadResult.bytes,
       });
 
       return apiSuccess({
@@ -62,6 +86,7 @@ export async function POST(req: NextRequest) {
         fileName: uploadResult.filename,
         projectId: uploadResult.project_id,
         status: uploadResult.status,
+        bytes: uploadResult.bytes ?? bytes.length,
         ingestTimestamp: new Date().toISOString(),
       }, 202);
     }

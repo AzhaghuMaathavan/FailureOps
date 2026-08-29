@@ -19,6 +19,7 @@ import {
   ChevronRight,
 } from 'lucide-react';
 import { IntelligencePipeline } from '@/components/common/IntelligencePipeline';
+import { BrandLogo } from '@/components/common/BrandLogo';
 
 export default function LandingPage() {
   const capabilities = [
@@ -77,19 +78,7 @@ export default function LandingPage() {
       <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(900px_420px_at_70%_-10%,rgba(255,122,0,0.14),transparent_55%)]" />
       {/* Top Bar */}
       <header className="h-16 w-full border-b border-border/80 px-6 lg:px-12 flex items-center justify-between backdrop-blur-md sticky top-0 z-50 bg-background/80">
-        <div className="flex items-center gap-3">
-            <div className="w-8 h-8 rounded-xl bg-gradient-to-br from-primary via-amber-400 to-orange-700 flex items-center justify-center shadow-[0_0_18px_rgba(255,122,0,0.45)]">
-              <span className="font-mono text-background font-extrabold text-sm">FX</span>
-          </div>
-          <div className="flex flex-col">
-            <span className="font-mono font-extrabold tracking-wider text-foreground text-sm">
-              FAILUREOPS <span className="text-primary font-black">X</span>
-            </span>
-            <span className="text-[9px] uppercase tracking-widest text-muted-foreground font-semibold">
-              Organizational Early-Warning
-            </span>
-          </div>
-        </div>
+        <BrandLogo size="md" href="/" />
 
         <div className="flex items-center gap-3">
           <Link
@@ -111,6 +100,12 @@ export default function LandingPage() {
       {/* Hero Section */}
       <main className="flex-1 max-w-7xl mx-auto px-6 lg:px-12 py-16 lg:py-24 space-y-20">
         <div className="text-center max-w-3xl mx-auto space-y-6">
+          <div className="flex justify-center mb-2">
+            <div className="relative p-3.5 rounded-3xl bg-card/60 border border-border/80 shadow-[0_0_50px_-10px_rgba(255,122,0,0.5)] backdrop-blur-md hover:scale-105 transition-transform">
+              <img src="/logo.png" alt="FailureOps X" className="w-16 h-16 object-contain drop-shadow-[0_0_20px_rgba(255,122,0,0.6)]" />
+            </div>
+          </div>
+
           <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-primary/10 border border-primary/30 text-primary text-xs font-mono font-semibold">
             <Sparkles className="w-3.5 h-3.5" />
             <span>Autonomous Failure Prediction & Organizational Memory</span>

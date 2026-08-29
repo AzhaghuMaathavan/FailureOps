@@ -209,6 +209,7 @@ export const apiClient = {
       documents: any[];
       totals: {
         documents: number;
+        bytes?: number;
         chunks: number;
         embedded: number;
         evidence: number;

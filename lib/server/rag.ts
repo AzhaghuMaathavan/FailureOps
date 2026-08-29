@@ -34,11 +34,22 @@ function ragUrl(path: string): string {
   return `${serverConfig.ragInternalUrl}${prefix}`;
 }
 
+function isFormDataBody(body: BodyInit | null | undefined): boolean {
+  if (!body || typeof body !== 'object') return false;
+  if (typeof FormData !== 'undefined' && body instanceof FormData) return true;
+  return Object.prototype.toString.call(body) === '[object FormData]';
+}
+
 export function ragHeaders(session: UserSession, extra?: HeadersInit, body?: BodyInit | null): Headers {
   const headers = new Headers(extra);
   headers.set('x-organization-id', session.organizationId);
   headers.set('x-user-id', session.userId);
-  if (body && !(body instanceof FormData) && !headers.has('Content-Type')) {
+  if (isFormDataBody(body)) {
+    // Let fetch set multipart boundary. A JSON Content-Type empties the file part.
+    headers.delete('Content-Type');
+    return headers;
+  }
+  if (body && !headers.has('Content-Type')) {
     headers.set('Content-Type', 'application/json');
   }
   return headers;

@@ -24,6 +24,12 @@ def generate_embeddings(db: Session, document_id: str, force: bool = False):
     Batch size is configurable.
     """
     api_key = get_api_key()
+    logger.info(
+        "[EMBEDDING] document_id=%s NVIDIA_EMBED_API_KEY=%s model=%s",
+        document_id,
+        "PRESENT" if api_key else "MISSING",
+        EMBEDDING_MODEL,
+    )
     if not api_key:
         raise ValueError("No NVIDIA API key configured for embeddings.")
 

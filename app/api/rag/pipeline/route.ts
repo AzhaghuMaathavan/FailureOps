@@ -9,7 +9,7 @@ import { ragFetch } from '@/lib/server/rag';
 function stage(
   key: string,
   label: string,
-  status: 'PENDING' | 'RUNNING' | 'COMPLETED' | 'FAILED' | 'SKIPPED',
+  status: 'PENDING' | 'RUNNING' | 'COMPLETED' | 'FAILED' | 'BLOCKED',
   detail: string,
   count?: number,
   error?: string | null
@@ -61,8 +61,15 @@ export async function GET(req: NextRequest) {
       (signalAnalysisId && signalAnalysisId !== 'none');
 
     const ingestError = failedDocs[0]?.error_message || null;
+    const totalBytes = documents.reduce((sum, d) => sum + Number(d.file_size || 0), 0);
+    const emptyStored = documents.some(
+      (d) => Number(d.file_size || 0) <= 0 && (d.status === 'FAILED' || d.file_exists === false)
+    );
+    const parserFailed = failedDocs.length > 0 || emptyStored;
+    const ingestBlocked = parserFailed && chunkCount === 0 && processingDocs.length === 0;
+
     const receivedStatus = documents.length > 0 ? 'COMPLETED' : 'PENDING';
-    const parsedStatus = failedDocs.length
+    const parsedStatus = parserFailed
       ? 'FAILED'
       : processingDocs.length
         ? 'RUNNING'
@@ -71,41 +78,50 @@ export async function GET(req: NextRequest) {
           : documents.length
             ? 'RUNNING'
             : 'PENDING';
-    const chunkStatus = failedDocs.length && chunkCount === 0
-      ? 'FAILED'
-      : processingDocs.length && chunkCount === 0
+    const blockedOr = (
+      active: 'PENDING' | 'RUNNING' | 'COMPLETED' | 'FAILED'
+    ): 'PENDING' | 'RUNNING' | 'COMPLETED' | 'FAILED' | 'BLOCKED' =>
+      ingestBlocked ? 'BLOCKED' : active;
+
+    const chunkStatus = blockedOr(
+      processingDocs.length && chunkCount === 0
         ? 'RUNNING'
         : chunkCount > 0
           ? 'COMPLETED'
-          : documents.length
-            ? 'PENDING'
-            : 'PENDING';
-    const embedStatus =
+          : 'PENDING'
+    );
+    const embedStatus = blockedOr(
       chunkCount > 0 && embeddedCount === chunkCount
         ? 'COMPLETED'
         : chunkCount > 0 && (processingDocs.length || embeddedCount > 0)
           ? 'RUNNING'
           : chunkCount > 0 && readyDocs.length && embeddedCount === 0
             ? 'FAILED'
-            : 'PENDING';
-    const indexStatus =
-      embedStatus === 'COMPLETED' && processingDocs.length === 0 ? 'COMPLETED' : embedStatus;
-    const retrievalStatus = hasCompletedAnalysis
-      ? Number(metrics.total_chunks_searched || 0) > 0
+            : 'PENDING'
+    );
+    const indexStatus = embedStatus;
+    const retrievalStatus = ingestBlocked
+      ? 'BLOCKED'
+      : hasCompletedAnalysis
         ? 'COMPLETED'
-        : 'COMPLETED'
-      : chunkCount > 0
-        ? 'PENDING'
+        : chunkCount > 0
+          ? 'PENDING'
+          : 'PENDING';
+    const evidenceStatus = ingestBlocked
+      ? 'BLOCKED'
+      : hasCompletedAnalysis
+        ? 'COMPLETED'
         : 'PENDING';
-    const evidenceStatus = hasCompletedAnalysis
-      ? 'COMPLETED'
-      : chunkCount > 0
-        ? 'PENDING'
-        : 'PENDING';
-    const signalStatus = hasCompletedAnalysis ? 'COMPLETED' : evidenceStatus;
+    const signalStatus = evidenceStatus;
 
     const stages = [
-      stage('received', 'Document received', receivedStatus, `${documents.length} document(s)`),
+      stage(
+        'received',
+        'Document received',
+        receivedStatus,
+        `${documents.length} document(s) · ${totalBytes} bytes`,
+        totalBytes
+      ),
       stage(
         'parser',
         'Parser',
@@ -114,12 +130,18 @@ export async function GET(req: NextRequest) {
         readyDocs.length,
         ingestError
       ),
-      stage('chunking', 'Chunking', chunkStatus, `${chunkCount} chunks`, chunkCount, ingestError),
+      stage(
+        'chunking',
+        'Chunking',
+        chunkStatus,
+        ingestBlocked ? 'BLOCKED until parser succeeds' : `${chunkCount} chunks`,
+        chunkCount
+      ),
       stage(
         'embedding',
         'Embedding',
         embedStatus,
-        `${embeddedCount}/${chunkCount} embeddings`,
+        ingestBlocked ? 'BLOCKED until parser succeeds' : `${embeddedCount}/${chunkCount} embeddings`,
         embeddedCount,
         embedStatus === 'FAILED' ? 'Embeddings did not complete. Check NVIDIA embed keys and RAG logs.' : null
       ),
@@ -127,34 +149,40 @@ export async function GET(req: NextRequest) {
         'vector',
         'Vector storage',
         indexStatus,
-        `${embeddedCount} vectors`,
+        ingestBlocked ? 'BLOCKED until parser succeeds' : `${embeddedCount} vectors`,
         embeddedCount
       ),
       stage(
         'retrieval',
         'Retrieval',
         retrievalStatus,
-        hasCompletedAnalysis
-          ? `${metrics.total_chunks_searched || 0} chunks searched`
-          : 'Run project analysis to retrieve evidence',
+        ingestBlocked
+          ? 'BLOCKED until parser succeeds'
+          : hasCompletedAnalysis
+            ? `${metrics.total_chunks_searched || 0} chunks searched`
+            : 'Run project analysis to retrieve evidence',
         Number(metrics.total_chunks_searched || 0)
       ),
       stage(
         'evidence',
         'Evidence Agent',
         evidenceStatus,
-        hasCompletedAnalysis
-          ? `${evidenceItems.length} evidence items`
-          : 'Waiting for analysis',
+        ingestBlocked
+          ? 'BLOCKED until parser succeeds'
+          : hasCompletedAnalysis
+            ? `${evidenceItems.length} evidence items`
+            : 'Waiting for analysis',
         evidenceItems.length
       ),
       stage(
         'signals',
         'Signal Agent',
         signalStatus,
-        hasCompletedAnalysis
-          ? `${signalItems.length} signals`
-          : 'Waiting for analysis',
+        ingestBlocked
+          ? 'BLOCKED until parser succeeds'
+          : hasCompletedAnalysis
+            ? `${signalItems.length} signals`
+            : 'Waiting for analysis',
         signalItems.length
       ),
     ];
@@ -179,6 +207,7 @@ export async function GET(req: NextRequest) {
       documents,
       totals: {
         documents: documents.length,
+        bytes: totalBytes,
         chunks: chunkCount,
         embedded: embeddedCount,
         evidence: evidenceItems.length,

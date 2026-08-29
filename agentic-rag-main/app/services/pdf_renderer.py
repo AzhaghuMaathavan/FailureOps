@@ -3,6 +3,13 @@ import fitz  # PyMuPDF
 
 def render_pdf_pages(file_path: str, output_dir: str) -> list[str]:
     """Renders all pages of a PDF to images and returns a list of image paths."""
+    if not os.path.exists(file_path):
+        raise ValueError("PDF file not found on the RAG filesystem")
+
+    size = os.path.getsize(file_path)
+    if size <= 0:
+        raise ValueError("PDF file is empty")
+
     os.makedirs(output_dir, exist_ok=True)
     doc = fitz.open(file_path)
     image_paths = []

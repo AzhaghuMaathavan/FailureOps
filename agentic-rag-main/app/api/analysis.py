@@ -33,14 +33,11 @@ from app.services.experiment_engine import generate_initial_experiments_from_pla
 from app.services.memory_engine import search_historical_failure_cases
 from app.services.outcome_engine import verify_all_project_experiments, verify_experiment_outcome
 from app.services.radar_engine import synthesize_failure_radar_snapshot
+from app.core.storage import persist_upload, file_size_or_zero
 from app.services.retrieval_service import search_knowledge_base
 from pydantic import BaseModel
 
 router = APIRouter()
-
-BACKEND_ROOT = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
-UPLOAD_DIR = os.path.join(BACKEND_ROOT, "storage", "documents")
-os.makedirs(UPLOAD_DIR, exist_ok=True)
 
 
 class ProjectCreateSchema(BaseModel):
@@ -659,11 +656,7 @@ async def upload_project_document(
         raise HTTPException(status_code=400, detail=f"Unsupported format. Allowed: {', '.join(allowed_extensions)}")
 
     doc_id = f"doc_{uuid.uuid4().hex[:12]}"
-    file_path = os.path.join(UPLOAD_DIR, f"{doc_id}_{file.filename}")
-
-    content = await file.read()
-    with open(file_path, "wb") as f:
-        f.write(content)
+    file_path, saved_bytes = await persist_upload(file, doc_id)
 
     db_doc = Document(
         id=doc_id,
@@ -689,7 +682,8 @@ async def upload_project_document(
         "project_id": project_id,
         "organization_id": org_id,
         "status": "PENDING",
-        "visibility": visibility or "PRIVATE"
+        "visibility": visibility or "PRIVATE",
+        "bytes": saved_bytes,
     }
 
 
@@ -721,6 +715,8 @@ def list_project_documents(
                 Chunk.document_id == d.id,
                 Chunk.embedding_status == "COMPLETED"
             ).count(),
+            "file_size": file_size_or_zero(d.original_path),
+            "file_exists": bool(d.original_path and os.path.exists(d.original_path)),
             "created_at": d.created_at.isoformat() if d.created_at else None
         }
         for d in docs

@@ -99,6 +99,32 @@ export function apiError(error: unknown, fallbackMessage: string = 'An error occ
     );
   }
 
+  if (error instanceof RagBackendError && error.status >= 400 && error.status < 500) {
+    let message = fallbackMessage;
+    try {
+      const parsed = JSON.parse(error.body);
+      const detail = parsed?.detail;
+      if (typeof detail === 'string') {
+        message = detail;
+      } else if (detail && typeof detail === 'object' && typeof detail.error === 'string') {
+        message = detail.error;
+      } else if (typeof parsed?.error === 'string') {
+        message = parsed.error;
+      }
+    } catch {
+      if (error.body) message = error.body.slice(0, 300);
+    }
+    return NextResponse.json(
+      {
+        success: false,
+        error: 'Request Error',
+        message,
+        requestId,
+      },
+      { status: error.status }
+    );
+  }
+
   // Generic Sanitized Internal Server Error
   return NextResponse.json(
     {

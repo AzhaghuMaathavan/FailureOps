@@ -25,6 +25,7 @@ function StageIcon({ status }: { status: string }) {
   if (status === 'COMPLETED') return <CheckCircle2 className="w-4 h-4 text-emerald-400 shrink-0" aria-hidden="true" />;
   if (status === 'RUNNING') return <Loader2 className="w-4 h-4 text-primary animate-spin shrink-0" aria-hidden="true" />;
   if (status === 'FAILED') return <AlertTriangle className="w-4 h-4 text-rose-400 shrink-0" aria-hidden="true" />;
+  if (status === 'BLOCKED') return <Circle className="w-4 h-4 text-muted-foreground/50 shrink-0" aria-hidden="true" />;
   return <Circle className="w-4 h-4 text-border shrink-0" aria-hidden="true" />;
 }
 
@@ -85,9 +86,11 @@ export function RagPipelinePanel({
                     ? 'bg-surface-feed/70 border-emerald-500/30'
                     : stage.status === 'RUNNING'
                       ? 'bg-primary/10 border-primary/50'
-                      : stage.status === 'FAILED'
+                      :                   stage.status === 'FAILED'
                         ? 'bg-rose-500/10 border-rose-500/30'
-                        : 'bg-card/40 border-border/40'
+                        : stage.status === 'BLOCKED'
+                          ? 'bg-card/40 border-border/40 opacity-70'
+                          : 'bg-card/40 border-border/40'
                 }`}
               >
                 <div className="flex items-center gap-2 mb-1">

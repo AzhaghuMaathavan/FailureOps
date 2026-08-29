@@ -1,0 +1,105 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" fill="none">
+  <defs>
+    <!-- Background / Glow Filters -->
+    <filter id="glow" x="-20%" y="-20%" width="140%" height="140%">
+      <feGaussianBlur stdDeviation="16" result="blur" />
+      <feComposite in="SourceGraphic" in2="blur" operator="over" />
+    </filter>
+    <filter id="drop-shadow" x="-30%" y="-30%" width="160%" height="160%">
+      <feDropShadow dx="0" dy="12" stdDeviation="18" flood-color="#000000" flood-opacity="0.65" />
+    </filter>
+    
+    <!-- Linear Gradients for Metallic Gold/Amber -->
+    <linearGradient id="gold-bright" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#FFF3B0" />
+      <stop offset="25%" stop-color="#FFB300" />
+      <stop offset="50%" stop-color="#FF7A00" />
+      <stop offset="75%" stop-color="#E65100" />
+      <stop offset="100%" stop-color="#992000" />
+    </linearGradient>
+
+    <linearGradient id="gold-bevel-top" x1="0%" y1="0%" x2="0%" y2="100%">
+      <stop offset="0%" stop-color="#FFFFFF" stop-opacity="0.9" />
+      <stop offset="30%" stop-color="#FFE082" />
+      <stop offset="70%" stop-color="#FF8F00" />
+      <stop offset="100%" stop-color="#BF360C" />
+    </linearGradient>
+
+    <linearGradient id="gold-dark" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#FF9800" />
+      <stop offset="50%" stop-color="#E65100" />
+      <stop offset="100%" stop-color="#5D1200" />
+    </linearGradient>
+
+    <linearGradient id="orbit-grad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#FFE57F" />
+      <stop offset="40%" stop-color="#FF7A00" />
+      <stop offset="80%" stop-color="#D84315" />
+      <stop offset="100%" stop-color="#4E0D00" />
+    </linearGradient>
+
+    <radialGradient id="sphere-grad-1" cx="35%" cy="30%" r="70%">
+      <stop offset="0%" stop-color="#FFFFFF" />
+      <stop offset="30%" stop-color="#FFD54F" />
+      <stop offset="70%" stop-color="#FF6D00" />
+      <stop offset="100%" stop-color="#4E0D00" />
+    </radialGradient>
+
+    <radialGradient id="sphere-grad-2" cx="35%" cy="30%" r="70%">
+      <stop offset="0%" stop-color="#FFFFFF" />
+      <stop offset="30%" stop-color="#FFB74D" />
+      <stop offset="70%" stop-color="#E65100" />
+      <stop offset="100%" stop-color="#3E0800" />
+    </radialGradient>
+  </defs>
+
+  <g filter="url(#drop-shadow)">
+    <!-- Outer Orbit Ring Upper Segment -->
+    <path d="M 125 76 C 240 18, 380 40, 424 95 C 448 126, 460 170, 464 218 L 440 216 C 436 174, 426 137, 404 110 C 366 62, 245 42, 137 93 Z" fill="url(#orbit-grad)" />
+    
+    <!-- Outer Orbit Ring Left Segment -->
+    <path d="M 72 148 C 42 205, 38 275, 62 334 C 74 362, 92 388, 116 410 L 98 426 C 70 400, 50 370, 36 338 C 10 270, 15 190, 50 128 Z" fill="url(#orbit-grad)" />
+
+    <!-- Outer Orbit Ring Lower Segment -->
+    <path d="M 154 442 C 240 482, 332 470, 362 426 L 382 438 C 344 492, 238 506, 142 460 Z" fill="url(#orbit-grad)" />
+
+    <!-- Top Right Orbit Sphere -->
+    <circle cx="410" cy="70" r="24" fill="url(#sphere-grad-1)" filter="url(#glow)" />
+    <!-- Bottom Left Orbit Sphere -->
+    <circle cx="128" cy="442" r="26" fill="url(#sphere-grad-2)" filter="url(#glow)" />
+
+    <!-- Central Master Futuristic "X" Geometry -->
+    <!-- Left Arrow / Wing Structure -->
+    <path d="M 36 86 L 180 86 L 272 256 L 180 406 L 64 406 L 174 256 Z" 
+          fill="url(#gold-bright)" 
+          stroke="#4A1000" 
+          stroke-width="3" 
+          stroke-linejoin="round" />
+    
+    <!-- Left Wing Inner Bevel Highlight -->
+    <path d="M 42 92 L 172 92 L 254 256 L 172 398 L 76 398 L 164 256 Z" 
+          fill="url(#gold-bevel-top)" 
+          opacity="0.85" />
+    
+    <!-- Top-Right to Center Blade -->
+    <path d="M 346 112 L 442 112 L 284 256 L 244 220 Z" 
+          fill="url(#gold-bright)" 
+          stroke="#4A1000" 
+          stroke-width="3" />
+    <path d="M 352 118 L 430 118 L 288 250 L 256 222 Z" 
+          fill="url(#gold-bevel-top)" 
+          opacity="0.9" />
+
+    <!-- Bottom-Right Extension Blade -->
+    <path d="M 284 256 L 476 436 L 372 436 L 222 296 Z" 
+          fill="url(#gold-bright)" 
+          stroke="#4A1000" 
+          stroke-width="3" />
+    <path d="M 292 262 L 460 428 L 380 428 L 236 296 Z" 
+          fill="url(#gold-bevel-top)" 
+          opacity="0.85" />
+
+    <!-- Central Core Cross Intersection Shading -->
+    <polygon points="230,256 272,220 286,256 244,292" fill="url(#gold-dark)" />
+  </g>
+</svg>

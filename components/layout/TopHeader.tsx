@@ -90,12 +90,12 @@ export const TopHeader: React.FC = () => {
 
         {/* User Pill */}
         <div className="flex items-center gap-2 pl-2 border-l border-border/70">
-          <div className="w-7 h-7 rounded-full bg-gradient-to-tr from-primary to-amber-400 flex items-center justify-center text-white text-xs font-bold shadow-sm">
-            FX
+          <div className="w-7 h-7 rounded-lg bg-card border border-border/80 p-0.5 flex items-center justify-center shadow-sm">
+            <img src="/logo.png" alt="FailureOps X" className="w-full h-full object-contain" />
           </div>
           <div className="hidden xl:flex flex-col text-left">
             <span className="text-xs font-semibold leading-none text-foreground">Staff Intelligence</span>
-            <span className="text-[10px] text-muted-foreground leading-tight mt-0.5">Aurora Enclave</span>
+            <span className="text-[10px] text-muted-foreground leading-tight mt-0.5 font-mono">Enclave Online</span>
           </div>
         </div>
       </div>

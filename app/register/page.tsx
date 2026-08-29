@@ -18,6 +18,7 @@ import {
 } from 'lucide-react';
 import { PrivacyLevel, EvidenceSourceType } from '@/types';
 import { useApp } from '@/context/AppContext';
+import { BrandLogo } from '@/components/common/BrandLogo';
 
 export default function RegisterProductPage() {
   const router = useRouter();
@@ -159,14 +160,7 @@ export default function RegisterProductPage() {
     <div className="min-h-screen bg-background text-foreground flex flex-col justify-between selection:bg-primary/30">
       {/* Top Bar */}
       <header className="h-16 w-full border-b border-border/80 px-6 lg:px-12 flex items-center justify-between backdrop-blur-md sticky top-0 z-50 bg-background/80">
-        <Link href="/" className="flex items-center gap-2.5">
-          <div className="w-8 h-8 rounded-xl bg-gradient-to-br from-primary to-amber-500 flex items-center justify-center text-white font-mono font-bold text-xs shadow-sm">
-            FX
-          </div>
-          <span className="font-mono font-extrabold text-sm tracking-wider text-foreground">
-            FAILUREOPS <span className="text-primary font-black">X</span>
-          </span>
-        </Link>
+        <BrandLogo size="md" href="/" />
 
         <div className="flex items-center gap-4 text-xs">
           <Link href="/dashboard" className="text-muted-foreground hover:text-foreground">

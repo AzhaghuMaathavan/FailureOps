@@ -28,6 +28,7 @@ import {
 import { useApp } from '@/context/AppContext';
 import { RiskBadge } from '@/components/common/RiskBadge';
 import { PrivacyBadge } from '@/components/common/PrivacyBadge';
+import { BrandLogo } from '@/components/common/BrandLogo';
 
 export const AppSidebar: React.FC = () => {
   const pathname = usePathname();
@@ -39,10 +40,8 @@ export const AppSidebar: React.FC = () => {
       group: 'PROJECT INTELLIGENCE',
       items: [
         { name: 'Overview', href: `/projects/${projectId}/overview`, icon: LayoutDashboard },
-        { name: 'Evidence Upload', href: `/projects/${projectId}/upload`, icon: UploadCloud },
         { name: 'Evidence Intelligence', href: `/projects/${projectId}/evidence`, icon: FileText },
-        { name: 'Evidence Ask', href: `/projects/${projectId}/ask`, icon: MessageSquare },
-        { name: 'RAG Pipeline', href: `/projects/${projectId}/pipeline`, icon: Binary },
+        { name: 'RAG Pipeline Health', href: `/projects/${projectId}/pipeline`, icon: Database },
         { name: 'Signal Explorer', href: `/projects/${projectId}/signals`, icon: Activity },
         { name: 'Failure DNA', href: `/projects/${projectId}/dna`, icon: Dna },
         { name: 'Truth Engine', href: `/projects/${projectId}/truth-engine`, icon: Scale },
@@ -74,22 +73,7 @@ export const AppSidebar: React.FC = () => {
       <div>
         {/* Brand Header */}
         <div className="p-4 border-b border-sidebar-border flex items-center justify-between">
-          <Link href="/" className="flex items-center gap-2.5 group">
-            <div className="w-8 h-8 rounded-xl bg-gradient-to-br from-primary via-amber-400 to-orange-700 flex items-center justify-center shadow-[0_0_18px_rgba(255,122,0,0.45)] transition-transform group-hover:scale-105">
-              <span className="font-mono text-background font-extrabold text-sm tracking-wider">FX</span>
-            </div>
-            <div className="flex flex-col">
-              <div className="flex items-center gap-1.5">
-                <span className="font-extrabold tracking-wider text-foreground text-sm font-mono">
-                  FAILUREOPS
-                </span>
-                <span className="text-primary font-mono text-xs font-black">X</span>
-              </div>
-              <span className="text-[9px] uppercase tracking-widest text-muted-foreground font-semibold">
-                Early-Warning Intel
-              </span>
-            </div>
-          </Link>
+          <BrandLogo size="md" href="/" />
         </div>
 
         {/* Action Button: Register or Upload */}

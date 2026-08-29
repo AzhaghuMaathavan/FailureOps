@@ -7,13 +7,11 @@ from sqlalchemy.orm import Session
 from app.db.database import get_db
 from app.models.document import Document
 from app.models.chunk import Chunk
+from app.core.storage import persist_upload, file_size_or_zero
 from app.services.document_service import process_document
 from app.services.embedding_service import generate_embeddings
 
 router = APIRouter()
-
-UPLOAD_DIR = os.path.join(os.getcwd(), "storage", "documents")
-os.makedirs(UPLOAD_DIR, exist_ok=True)
 
 @router.get("/", response_model=List[Dict[str, Any]])
 def list_documents(db: Session = Depends(get_db)):
@@ -25,9 +23,7 @@ def list_documents(db: Session = Depends(get_db)):
         embedded_count = db.query(Chunk).filter(Chunk.document_id == d.id, Chunk.embedding_status == "COMPLETED").count()
         page_count = db.query(Page).filter(Page.document_id == d.id).count()
 
-        file_size = 0
-        if os.path.exists(d.original_path):
-            file_size = os.path.getsize(d.original_path)
+        file_size = file_size_or_zero(d.original_path)
 
         results.append({
             "id": d.id,
@@ -79,11 +75,7 @@ async def upload_document(
         raise HTTPException(status_code=400, detail=f"Unsupported file format. Allowed: {', '.join(allowed_extensions)}")
 
     doc_id = str(uuid.uuid4())
-    file_path = os.path.join(UPLOAD_DIR, f"{doc_id}_{file.filename}")
-
-    with open(file_path, "wb") as f:
-        content = await file.read()
-        f.write(content)
+    file_path, saved_bytes = await persist_upload(file, doc_id)
 
     def safe_json(val):
         if not val: return []
@@ -115,7 +107,7 @@ async def upload_document(
 
     background_tasks.add_task(process_document, doc_id, file_path)
 
-    return {"document_id": doc_id, "status": "PENDING"}
+    return {"document_id": doc_id, "status": "PENDING", "bytes": saved_bytes}
 
 @router.get("/{document_id}")
 def get_document_status(document_id: str, db: Session = Depends(get_db)):

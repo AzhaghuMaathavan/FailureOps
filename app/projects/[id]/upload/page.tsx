@@ -413,6 +413,7 @@ export default function EvidenceUploadPage() {
                     <h4 className="text-xs font-bold text-foreground truncate">{doc.filename}</h4>
                     <p className="text-[10px] font-mono text-muted-foreground mt-0.5">
                       Type: <span className="text-foreground">{doc.document_type || 'PROJECT_DOC'}</span>
+                      {' '}• Size: <span className="text-foreground font-bold">{Number(doc.file_size ?? 0)} B</span>
                       {' '}• Chunks: <span className="text-foreground font-bold">{Number(doc.chunk_count ?? 0)}</span>
                       {' '}• Embedded: <span className="text-foreground font-bold">{Number(doc.embedded_count ?? 0)}</span>
                     </p>

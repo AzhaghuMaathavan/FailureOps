@@ -58,6 +58,16 @@ def process_document(document_id: str, file_path: str):
         db.commit()
 
         ext = os.path.splitext(file_path)[1].lower()
+        on_disk = os.path.getsize(file_path) if os.path.exists(file_path) else 0
+        logger.info("[PARSER] document_id=%s path_exists=%s size=%s ext=%s", document_id, os.path.exists(file_path), on_disk, ext)
+
+        if not os.path.exists(file_path) or on_disk <= 0:
+            doc.status = "FAILED"
+            doc.error_message = "Uploaded file is empty"
+            db.commit()
+            logger.error("[PARSER] document_id=%s status=failed error=empty_or_missing_file", document_id)
+            return
+
         all_success = True
 
         if ext == '.pdf':
@@ -65,6 +75,7 @@ def process_document(document_id: str, file_path: str):
             output_dir = os.path.join(os.path.dirname(file_path), f"{document_id}_pages")
             try:
                 image_paths = render_pdf_pages(file_path, output_dir)
+                logger.info("[PARSER] document_id=%s status=completed pages=%s", document_id, len(image_paths))
             except Exception as e:
                 doc.status = "FAILED"
                 doc.error_message = f"Failed to render PDF: {e}"
@@ -172,10 +183,19 @@ def process_document(document_id: str, file_path: str):
 
         # 3. Semantic Chunking
         create_chunks_for_document(db, doc.id)
+        from app.models.chunk import Chunk
+        chunk_count = db.query(Chunk).filter(Chunk.document_id == doc.id).count()
+        logger.info("[CHUNKING] document_id=%s chunks=%s", document_id, chunk_count)
 
         # 4. Embeddings
         from app.services.embedding_service import generate_embeddings
         generate_embeddings(db, doc.id)
+        embedded_count = db.query(Chunk).filter(
+            Chunk.document_id == doc.id,
+            Chunk.embedding_status == "COMPLETED",
+        ).count()
+        logger.info("[EMBEDDING] document_id=%s embedded=%s", document_id, embedded_count)
+        logger.info("[VECTOR] document_id=%s vectors=%s", document_id, embedded_count)
 
         # 5. Extract Profile
         extract_document_profile(db, doc)

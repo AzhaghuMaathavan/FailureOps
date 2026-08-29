@@ -89,6 +89,7 @@ export default function RagPipelinePage() {
           <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
             {[
               ['Documents', pipeline.totals.documents],
+              ['Bytes stored', pipeline.totals.bytes ?? 0],
               ['Chunks', pipeline.totals.chunks],
               ['Embeddings', pipeline.totals.embedded],
               ['Evidence', pipeline.totals.evidence],

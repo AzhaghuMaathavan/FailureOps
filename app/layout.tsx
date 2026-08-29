@@ -19,6 +19,14 @@ const jetbrainsMono = JetBrains_Mono({
 export const metadata: Metadata = {
   title: 'FailureOps X — Organizational Early-Warning Intelligence',
   description: 'AI-powered organizational intelligence that detects weak failure signals, connects them into hidden patterns, constructs Failure DNA, and predicts future failure trajectories.',
+  icons: {
+    icon: [
+      { url: '/favicon.svg', type: 'image/svg+xml' },
+      { url: '/logo.png', type: 'image/png' },
+    ],
+    shortcut: '/favicon.svg',
+    apple: '/logo.png',
+  },
 };
 
 export default function RootLayout({
