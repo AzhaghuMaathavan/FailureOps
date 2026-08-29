@@ -30,12 +30,21 @@
   },
   "include": [
     "next-env.d.ts",
-    "**/*.ts",
-    "**/*.tsx",
+    "app/**/*.ts",
+    "app/**/*.tsx",
+    "components/**/*.ts",
+    "components/**/*.tsx",
+    "context/**/*.ts",
+    "context/**/*.tsx",
+    "data/**/*.ts",
+    "lib/**/*.ts",
+    "types/**/*.ts",
+    "proxy.ts",
     ".next/types/**/*.ts",
     ".next/dev/types/**/*.ts"
   ],
   "exclude": [
-    "node_modules"
+    "node_modules",
+    "agentic-rag-main"
   ]
 }

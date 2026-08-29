@@ -1,0 +1,51 @@
+from sqlalchemy import Column, String, Integer, Boolean, DateTime, ForeignKey, JSON
+from sqlalchemy.sql import func
+from sqlalchemy.orm import relationship
+from app.db.database import Base
+from app.models.document import Document
+
+try:
+    from pgvector.sqlalchemy import Vector
+except ImportError:
+    from sqlalchemy.types import TypeDecorator, Text
+    class Vector(TypeDecorator):
+        impl = Text
+        cache_ok = True
+        def __init__(self, dim=2048):
+            super().__init__()
+            self.dim = dim
+
+class Chunk(Base):
+    __tablename__ = "chunks"
+
+    id = Column(String, primary_key=True, index=True)
+    document_id = Column(String, ForeignKey("documents.id", ondelete="CASCADE"), nullable=False)
+    chunk_index = Column(Integer, nullable=False)
+    content = Column(String, nullable=False)
+    
+    # Multi-Tenant Scoping
+    organization_id = Column(String, nullable=False, default="org_aurora_technologies", index=True)
+    project_id = Column(String, nullable=False, default="aurora", index=True)
+    visibility = Column(String, nullable=False, default="PRIVATE")
+
+    # lineage holds page_ids, block_ids, and source_metadata
+    lineage = Column(JSON, nullable=False)
+    headers = Column(JSON, nullable=False)
+
+    previous_chunk_id = Column(String, nullable=True)
+    next_chunk_id = Column(String, nullable=True)
+    is_table = Column(Boolean, nullable=False, default=False)
+
+    embedding = Column(Vector(2048), nullable=True)
+    embedding_model = Column(String, nullable=True)
+    embedding_status = Column(String, nullable=False, default='PENDING')
+    embedding_error = Column(String, nullable=True)
+
+    document = relationship("Document", back_populates="chunks")
+
+    def __init__(self, **kwargs):
+        kwargs.setdefault("organization_id", "org_aurora_technologies")
+        kwargs.setdefault("project_id", "aurora")
+        kwargs.setdefault("visibility", "PRIVATE")
+        kwargs.setdefault("embedding_status", "PENDING")
+        super().__init__(**kwargs)

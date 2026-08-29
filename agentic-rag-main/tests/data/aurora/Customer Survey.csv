@@ -1,0 +1,6 @@
+Respondent_ID,Category,Rating,Feedback_Statement,Date
+RESP_101,Onboarding,1,"The 7-step bank setup failed three times. We abandoned the trial.",2026-07-12
+RESP_102,Performance,2,"Receipt scan uploads take over 45 seconds to process.",2026-07-14
+RESP_103,Pricing,4,"Pricing is reasonable at $18/seat but onboarding is way too painful.",2026-07-15
+RESP_104,Customer Support,1,"Submitted ticket about KYC rejection 4 days ago with zero response.",2026-07-18
+RESP_105,Onboarding,1,"We just want to test manual receipt entry before linking our company bank account.",2026-07-20
