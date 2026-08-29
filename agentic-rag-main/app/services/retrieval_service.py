@@ -40,8 +40,16 @@ def retrieve_candidates(
     
     candidates = []
     for row in results:
-        chunk = row[0] if isinstance(row, (tuple, list)) else row
-        distance = row[1] if isinstance(row, (tuple, list)) and len(row) > 1 else 0.0
+        if hasattr(row, "Chunk"):
+            chunk = row.Chunk
+            distance = getattr(row, "distance", 0.0)
+        elif hasattr(row, "__getitem__"):
+            chunk = row[0]
+            distance = row[1] if len(row) > 1 else 0.0
+        else:
+            chunk = row
+            distance = 0.0
+
         candidates.append({
             "chunk_id": chunk.id,
             "document_id": chunk.document_id,
@@ -55,6 +63,7 @@ def retrieve_candidates(
         })
         
     return candidates
+
 
 from app.services.llm_key_manager import key_manager
 

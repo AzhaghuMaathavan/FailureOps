@@ -155,16 +155,17 @@ def register_project(
         expected_launch_date=data.expectedLaunchDate,
         privacy_level=data.privacyLevel or "PRIVATE",
         organization_id=org_id,
-        health="AT_RISK",
-        failure_risk=82,
-        risk_trend="+24% over 4 weeks",
-        predicted_next_failure="Missed Beta Release",
-        prediction_confidence=86,
-        historical_similarity=89,
-        sources_uploaded=data.sourcesUploaded or ["PRODUCT_PLAN", "CUSTOMER_FEEDBACK", "PRODUCT_METRICS", "ENGINEERING_METRICS", "TEAM_OPERATIONS"]
+        health="WATCH",
+        failure_risk=0,
+        risk_trend="Awaiting Analysis",
+        predicted_next_failure="No Failure Predicted (Awaiting Analysis)",
+        prediction_confidence=0,
+        historical_similarity=0,
+        sources_uploaded=data.sourcesUploaded or []
     )
     db.add(new_proj)
     db.commit()
+
 
     return {
         "id": new_proj.id,
@@ -214,11 +215,11 @@ def get_project_details(
         ProjectAnalysis.status == "COMPLETED"
     ).order_by(ProjectAnalysis.created_at.desc()).first()
 
-    failure_risk = p.failure_risk
-    risk_trend = p.risk_trend or "+24% over 4 weeks"
-    predicted_failure = p.predicted_next_failure or "Missed Beta Release"
-    pred_conf = p.prediction_confidence or 86
-    health = p.health
+    failure_risk = p.failure_risk if p.failure_risk is not None else 0
+    risk_trend = p.risk_trend or "Awaiting Analysis"
+    predicted_failure = p.predicted_next_failure or "No Failure Predicted (Awaiting Analysis)"
+    pred_conf = p.prediction_confidence if p.prediction_confidence is not None else 0
+    health = p.health or "WATCH"
 
     if latest_analysis and latest_analysis.failure_dna:
         dna_overall = latest_analysis.failure_dna.get("overall", {})
@@ -228,6 +229,8 @@ def get_project_details(
             pred = latest_analysis.failure_chain["prediction"]
             predicted_failure = pred.get("predicted_failure", predicted_failure)
             pred_conf = int(pred.get("confidence", 0.86) * 100) if isinstance(pred.get("confidence"), float) else pred.get("confidence", 86)
+
+    active_seeds = len(latest_analysis.signal_packet.get("signals", [])) if (latest_analysis and latest_analysis.signal_packet) else 0
 
     return {
         "id": p.id,
@@ -244,12 +247,13 @@ def get_project_details(
         "riskTrend": risk_trend,
         "predictedNextFailure": predicted_failure,
         "predictionConfidence": pred_conf,
-        "historicalSimilarity": p.historical_similarity or 89,
+        "historicalSimilarity": p.historical_similarity if p.historical_similarity is not None else 0,
         "privacyLevel": p.privacy_level,
-        "sourcesUploaded": p.sources_uploaded or ["PRODUCT_PLAN", "CUSTOMER_FEEDBACK"],
-        "lastAnalyzedAt": "Recently",
-        "activeFailureSeedsCount": 4
+        "sourcesUploaded": p.sources_uploaded or [],
+        "lastAnalyzedAt": "Recently" if latest_analysis else "Never",
+        "activeFailureSeedsCount": active_seeds
     }
+
 
 
 
@@ -516,12 +520,13 @@ def get_project_failure_dna(
             analysis_id="none",
             organization_id=org_id,
             overall=OverallProjectHealth(
-                risk_score=50,
+                risk_score=0,
                 status="INSUFFICIENT_EVIDENCE",
                 trend="UNKNOWN",
                 dominant_archetype="No Analysis Recorded",
                 summary_explanation="No completed intelligence analysis found for this project."
             ),
+
             dimensions=[]
         )
 
