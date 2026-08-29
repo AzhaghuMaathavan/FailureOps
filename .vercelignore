@@ -8,7 +8,9 @@ poetry.lock
 .python-version
 *.py
 backend/
+agentic-rag-main/
 scripts/
+
 .venv/
 venv/
 env/
