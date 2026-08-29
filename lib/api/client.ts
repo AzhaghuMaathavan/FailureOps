@@ -142,9 +142,13 @@ export const apiClient = {
     );
   },
 
-  // Organizational Memory
+  // Organizational Memory & Historical Cases
   async getOrganizationalMemory(): Promise<OrganizationalMemoryEntry[]> {
     return request<OrganizationalMemoryEntry[]>('/api/memory');
+  },
+
+  async getHistoricalCases(projectId: string = 'aurora') {
+    return request<any>(`/api/memory?projectId=${encodeURIComponent(projectId)}`);
   },
 
   async saveOrganizationalMemory(entry: any): Promise<OrganizationalMemoryEntry> {
@@ -153,4 +157,26 @@ export const apiClient = {
       body: JSON.stringify(entry),
     });
   },
+
+  // Predictions & Failure Chain
+  async getFailureChain(projectId: string = 'aurora') {
+    return request<any>(`/api/radar?projectId=${encodeURIComponent(projectId)}`);
+  },
+
+  async getPredictions(projectId: string = 'aurora') {
+    return request<any>(`/api/radar?projectId=${encodeURIComponent(projectId)}`);
+  },
+
+  // What-if Simulations & Experiments
+  async getExperiments(projectId: string = 'aurora'): Promise<Experiment[]> {
+    return request<Experiment[]>(`/api/experiments?projectId=${encodeURIComponent(projectId)}`);
+  },
+
+  async runSimulation(projectId: string = 'aurora', scenarioId: string = 'simplify_onboarding') {
+    return request<any>('/api/experiments', {
+      method: 'POST',
+      body: JSON.stringify({ projectId, scenarioId }),
+    });
+  },
 };
+

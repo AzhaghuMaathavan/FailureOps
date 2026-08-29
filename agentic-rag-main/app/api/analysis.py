@@ -11,7 +11,11 @@ from app.models.analysis import ProjectAnalysis
 from app.models.evidence import EvidenceItem, EvidenceConflict
 from app.schemas.analysis import StartAnalysisRequest, StartAnalysisResponse, AnalysisStatusResponse
 from app.schemas.evidence_packet import EvidencePacket
-from app.schemas.signal_packet import SignalPacket
+from app.schemas.signal_packet import SignalPacket, SignalItemSchema
+from app.schemas.failure_dna import FailureDNAPacket
+from app.schemas.failure_chain import FailureChainPacket, FailurePrediction
+from app.schemas.historical_memory import HistoricalMemoryPacket
+from app.schemas.simulation import SimulationComparisonPacket
 from app.models.signal import SignalItem
 from app.services.document_service import process_document
 from app.services.analysis_orchestrator import run_project_analysis_pipeline
@@ -228,6 +232,150 @@ def get_latest_project_signals(
         )
 
     return SignalPacket(**latest_analysis.signal_packet)
+
+
+@router.get("/projects/{project_id}/failure-dna", response_model=FailureDNAPacket)
+def get_project_failure_dna(
+    project_id: str,
+    org_id: str = Depends(get_tenant_context),
+    db: Session = Depends(get_db)
+):
+    """
+    Retrieves the computed multi-dimensional Failure DNA & Health for a project.
+    """
+    analysis = db.query(ProjectAnalysis).filter(
+        ProjectAnalysis.organization_id == org_id,
+        ProjectAnalysis.project_id == project_id,
+        ProjectAnalysis.status == "COMPLETED"
+    ).order_by(ProjectAnalysis.created_at.desc()).first()
+
+    if not analysis or not analysis.failure_dna:
+        from app.schemas.failure_dna import FailureDNAPacket, OverallProjectHealth
+        return FailureDNAPacket(
+            project_id=project_id,
+            analysis_id="none",
+            organization_id=org_id,
+            overall=OverallProjectHealth(
+                risk_score=50,
+                status="INSUFFICIENT_EVIDENCE",
+                trend="UNKNOWN",
+                dominant_archetype="No Analysis Recorded",
+                summary_explanation="No completed intelligence analysis found for this project."
+            ),
+            dimensions=[]
+        )
+
+    return FailureDNAPacket(**analysis.failure_dna)
+
+
+@router.get("/projects/{project_id}/failure-chain", response_model=FailureChainPacket)
+def get_project_failure_chain(
+    project_id: str,
+    org_id: str = Depends(get_tenant_context),
+    db: Session = Depends(get_db)
+):
+    """
+    Retrieves the causal failure trajectory graph and prediction for a project.
+    """
+    analysis = db.query(ProjectAnalysis).filter(
+        ProjectAnalysis.organization_id == org_id,
+        ProjectAnalysis.project_id == project_id,
+        ProjectAnalysis.status == "COMPLETED"
+    ).order_by(ProjectAnalysis.created_at.desc()).first()
+
+    if not analysis or not analysis.failure_chain:
+        from app.schemas.failure_chain import FailureChainPacket, FailurePrediction
+        return FailureChainPacket(
+            project_id=project_id,
+            analysis_id="none",
+            organization_id=org_id,
+            prediction=FailurePrediction(
+                predicted_failure="No Failure Predicted (Awaiting Analysis)",
+                risk_score=0,
+                confidence=0.0,
+                status="UNLIKELY",
+                time_horizon="N/A",
+                explanation="No completed failure chain exists for this project.",
+                supporting_evidence_ids=[]
+            ),
+            nodes=[],
+            edges=[],
+            explanation="No analysis available."
+        )
+
+    return FailureChainPacket(**analysis.failure_chain)
+
+
+@router.get("/projects/{project_id}/predictions", response_model=FailurePrediction)
+def get_project_failure_prediction(
+    project_id: str,
+    org_id: str = Depends(get_tenant_context),
+    db: Session = Depends(get_db)
+):
+    """
+    Retrieves the top predicted next failure for a project.
+    """
+    chain_packet = get_project_failure_chain(project_id, org_id, db)
+    return chain_packet.prediction
+
+
+@router.get("/projects/{project_id}/historical-cases", response_model=HistoricalMemoryPacket)
+def get_project_historical_matches(
+    project_id: str,
+    org_id: str = Depends(get_tenant_context),
+    db: Session = Depends(get_db)
+):
+    """
+    Retrieves similar historical failure & recovery cases with privacy filtering.
+    """
+    analysis = db.query(ProjectAnalysis).filter(
+        ProjectAnalysis.organization_id == org_id,
+        ProjectAnalysis.project_id == project_id,
+        ProjectAnalysis.status == "COMPLETED"
+    ).order_by(ProjectAnalysis.created_at.desc()).first()
+
+    if analysis and analysis.historical_matches:
+        return HistoricalMemoryPacket(**analysis.historical_matches)
+
+    # Fallback search from memory engine
+    from app.services.memory_engine import search_historical_failure_cases
+    latest_signals = get_latest_project_signals(project_id, org_id, db)
+    return search_historical_failure_cases(
+        project_id=project_id,
+        organization_id=org_id,
+        signal_packet=latest_signals,
+        caller_org_id=org_id
+    )
+
+
+@router.post("/projects/{project_id}/simulate", response_model=SimulationComparisonPacket)
+def simulate_project_scenarios(
+    project_id: str,
+    org_id: str = Depends(get_tenant_context),
+    db: Session = Depends(get_db)
+):
+    """
+    Runs deterministic What-if scenario simulations for a project.
+    """
+    analysis = db.query(ProjectAnalysis).filter(
+        ProjectAnalysis.organization_id == org_id,
+        ProjectAnalysis.project_id == project_id,
+        ProjectAnalysis.status == "COMPLETED"
+    ).order_by(ProjectAnalysis.created_at.desc()).first()
+
+    if analysis and analysis.simulations:
+        return SimulationComparisonPacket(**analysis.simulations)
+
+    from app.services.simulation_engine import run_what_if_simulations
+    latest_signals = get_latest_project_signals(project_id, org_id, db)
+    dna = get_project_failure_dna(project_id, org_id, db)
+    return run_what_if_simulations(
+        project_id=project_id,
+        organization_id=org_id,
+        signal_packet=latest_signals,
+        dna_packet=dna
+    )
+
 
 
 

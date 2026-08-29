@@ -115,7 +115,7 @@ def run_project_analysis_pipeline(
         relationships = detect_evidence_relationships(evidence_groups, detected_trends)
 
         # Stage 7: Signal Agent Synthesis & Grounding (Member 2 Stage 5)
-        update_analysis_stage(db, analysis_id, "SYNTHESIZING_SIGNALS", "Synthesizing operational signals and strength metrics...", 94)
+        update_analysis_stage(db, analysis_id, "SYNTHESIZING_SIGNALS", "Synthesizing operational signals and strength metrics...", 88)
         signal_packet = generate_signal_packet(
             context=signal_input_context,
             groups=evidence_groups,
@@ -123,13 +123,51 @@ def run_project_analysis_pipeline(
             relationships=relationships
         )
 
-        # Stage 8: Relational Database Persistence
-        update_analysis_stage(db, analysis_id, "PERSISTING_ANALYSIS", "Persisting Evidence & Signal Packets...", 98)
+        # Stage 8: Failure DNA & Multi-Dimensional Health (Member 3 Feature 4)
+        update_analysis_stage(db, analysis_id, "CALCULATING_FAILURE_DNA", "Computing multi-dimensional Failure DNA & Health...", 92)
+        from app.services.dna_engine import calculate_failure_dna
+        dna_packet = calculate_failure_dna(
+            signal_packet=signal_packet,
+            evidence_packet=evidence_packet
+        )
+
+        # Stage 9: Failure Chain & Trajectory Prediction (Member 3 Feature 1)
+        update_analysis_stage(db, analysis_id, "BUILDING_FAILURE_CHAIN", "Modeling causal failure trajectory & predictions...", 95)
+        from app.services.failure_chain_engine import generate_failure_chain_and_prediction
+        chain_packet = generate_failure_chain_and_prediction(
+            signal_packet=signal_packet,
+            dna_packet=dna_packet
+        )
+
+        # Stage 10: Historical Failure Memory & What-if Simulation (Member 3 Features 2 & 3)
+        update_analysis_stage(db, analysis_id, "RUNNING_SIMULATIONS", "Matching historical memory & simulating what-if scenarios...", 97)
+        from app.services.memory_engine import search_historical_failure_cases
+        from app.services.simulation_engine import run_what_if_simulations
+        
+        memory_packet = search_historical_failure_cases(
+            project_id=project_id,
+            organization_id=organization_id,
+            signal_packet=signal_packet,
+            dna_packet=dna_packet
+        )
+        simulation_packet = run_what_if_simulations(
+            project_id=project_id,
+            organization_id=organization_id,
+            signal_packet=signal_packet,
+            dna_packet=dna_packet
+        )
+
+        # Stage 11: Relational Database Persistence
+        update_analysis_stage(db, analysis_id, "PERSISTING_ANALYSIS", "Persisting Intelligence Packets...", 99)
         
         analysis = db.query(ProjectAnalysis).filter(ProjectAnalysis.id == analysis_id).first()
         if analysis:
             analysis.evidence_packet = evidence_packet.model_dump()
             analysis.signal_packet = signal_packet.model_dump()
+            analysis.failure_dna = dna_packet.model_dump()
+            analysis.failure_chain = chain_packet.model_dump()
+            analysis.historical_matches = memory_packet.model_dump()
+            analysis.simulations = simulation_packet.model_dump()
             analysis.metrics = evidence_packet.metrics.model_dump()
             
             # Save individual evidence items for relational querying
@@ -193,8 +231,9 @@ def run_project_analysis_pipeline(
             db.commit()
 
         # Completed!
-        update_analysis_stage(db, analysis_id, "COMPLETED", "Intelligence & Signal Analysis Complete", 100)
-        logger.info(f"[analysis_orchestrator] Analysis {analysis_id} completed successfully in {round(time.time() - t_start, 2)}s with {len(signal_packet.signals)} signals.")
+        update_analysis_stage(db, analysis_id, "COMPLETED", "Full Intelligence Pipeline Complete", 100)
+        logger.info(f"[analysis_orchestrator] Analysis {analysis_id} completed successfully in {round(time.time() - t_start, 2)}s with Member 1, 2, and 3 intelligence models.")
+
 
     except Exception as e:
         logger.error(f"[analysis_orchestrator] Analysis {analysis_id} failed: {e}", exc_info=True)

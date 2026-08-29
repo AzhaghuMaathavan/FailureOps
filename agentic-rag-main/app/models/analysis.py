@@ -17,7 +17,12 @@ class ProjectAnalysis(Base):
 
     evidence_packet = Column(JSON, nullable=True)
     signal_packet = Column(JSON, nullable=True)
+    failure_dna = Column(JSON, nullable=True)
+    failure_chain = Column(JSON, nullable=True)
+    historical_matches = Column(JSON, nullable=True)
+    simulations = Column(JSON, nullable=True)
     metrics = Column(JSON, nullable=True)
+
 
     created_at = Column(DateTime(timezone=True), server_default=func.now())
     completed_at = Column(DateTime(timezone=True), nullable=True)

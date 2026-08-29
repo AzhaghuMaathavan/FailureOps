@@ -7,17 +7,48 @@ import { SaveMemorySchema } from '@/lib/validation/schemas';
 import { mockMemoryEntries } from '@/data/mockMemory';
 import { OrganizationalMemoryEntry } from '@/types';
 
+import { serverConfig } from '@/lib/server/config';
+
 export async function GET(req: NextRequest) {
   try {
-    requireAuth(req);
+    const session = requireAuth(req);
     const rate = checkRateLimit(req, 'general');
     if (!rate.success) return apiRateLimitExceeded(rate.resetSeconds);
+
+    const { searchParams } = new URL(req.url);
+    const projectId = searchParams.get('projectId');
+
+    if (projectId) {
+      // Attempt to query real backend microservice for historical cases
+      try {
+        const backendResp = await fetch(
+          `${serverConfig.ragInternalUrl}/api/v1/projects/${encodeURIComponent(projectId)}/historical-cases`,
+          {
+            headers: {
+              'x-organization-id': session.organizationId,
+              'x-user-id': session.userId,
+            },
+            signal: AbortSignal.timeout(3000),
+          }
+        );
+
+        if (backendResp.ok) {
+          const memoryData = await backendResp.json();
+          if (memoryData && memoryData.matched_cases) {
+            return apiSuccess(memoryData.matched_cases);
+          }
+        }
+      } catch {
+        // Backend offline, proceed to fallback
+      }
+    }
 
     return apiSuccess(mockMemoryEntries);
   } catch (error) {
     return apiError(error, 'Unable to load organizational memory vault.');
   }
 }
+
 
 export async function POST(req: NextRequest) {
   try {
