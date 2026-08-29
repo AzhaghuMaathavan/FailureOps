@@ -33,7 +33,14 @@ export const PrivacyBadge: React.FC<PrivacyBadgeProps> = ({ level, showDescripti
       color: 'bg-blue-500/10 text-blue-400 border-blue-500/30',
       description: 'Case study explicitly designated as public institutional reference.',
     },
+    PUBLIC_CASE_STUDY: {
+      label: 'PUBLIC CASE',
+      icon: Globe,
+      color: 'bg-blue-500/10 text-blue-400 border-blue-500/30',
+      description: 'Case study explicitly designated as public institutional reference.',
+    },
   };
+
 
   const config = configs[level] || configs.PRIVATE;
   const Icon = config.icon;

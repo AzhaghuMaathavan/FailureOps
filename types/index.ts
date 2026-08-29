@@ -1,4 +1,5 @@
-export type PrivacyLevel = 'PRIVATE' | 'ORGANIZATION' | 'ANONYMOUS_LEARNING' | 'PUBLIC';
+export type PrivacyLevel = 'PRIVATE' | 'ORGANIZATION' | 'ANONYMOUS_LEARNING' | 'PUBLIC' | 'PUBLIC_CASE_STUDY';
+
 
 export type RiskLevel = 'HEALTHY' | 'WARNING' | 'CRITICAL' | 'HIGH' | 'MEDIUM' | 'LOW' | 'AT_RISK';
 

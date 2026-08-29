@@ -42,16 +42,20 @@ export function apiError(error: unknown, fallbackMessage: string = 'An error occ
 
   // Handle Input Validation Errors (Zod)
   if (error instanceof ZodError) {
+    const errorDetails = error.issues.map(i => ({ field: i.path.join('.'), message: i.message }));
+    const firstMessage = errorDetails[0]?.message || 'Invalid input data provided.';
     return NextResponse.json(
       {
         success: false,
         error: 'Validation Error',
-        details: error.issues.map(i => ({ field: i.path.join('.'), message: i.message })),
+        message: firstMessage,
+        details: errorDetails,
         requestId,
       },
       { status: 400 }
     );
   }
+
 
   // Handle Authorization Errors (Anti-IDOR / Multi-tenant)
   if (error instanceof AuthorizationError || (error instanceof Error && error.message === 'UNAUTHORIZED')) {

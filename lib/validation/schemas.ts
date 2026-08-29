@@ -1,6 +1,12 @@
 import { z } from 'zod';
 
-export const PrivacyLevelSchema = z.enum(['PRIVATE', 'ORGANIZATION', 'ANONYMOUS_LEARNING', 'PUBLIC']);
+export const PrivacyLevelSchema = z.enum([
+  'PRIVATE',
+  'ORGANIZATION',
+  'ANONYMOUS_LEARNING',
+  'PUBLIC',
+  'PUBLIC_CASE_STUDY',
+]);
 
 export const EvidenceSourceTypeSchema = z.enum([
   'PRODUCT_PLAN',
@@ -15,14 +21,18 @@ export const EvidenceSourceTypeSchema = z.enum([
 export const ProjectRegistrationSchema = z.object({
   name: z.string().min(2, 'Product name must be at least 2 characters').max(60, 'Product name cannot exceed 60 characters').trim(),
   company: z.string().min(2, 'Company name must be at least 2 characters').max(60, 'Company name cannot exceed 60 characters').trim(),
-  description: z.string().max(500, 'Description cannot exceed 500 characters').trim(),
-  industry: z.string().min(2).max(40),
-  stage: z.string().min(2).max(30),
-  targetUsers: z.string().max(120).trim(),
-  expectedLaunchDate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, 'Launch date must be in YYYY-MM-DD format'),
+  description: z.string().max(500, 'Description cannot exceed 500 characters').trim().optional().or(z.literal('')),
+  industry: z.string().min(2, 'Industry must be at least 2 characters').max(40).default('Enterprise SaaS'),
+  stage: z.string().min(2, 'Stage must be at least 2 characters').max(30).default('Beta'),
+  targetUsers: z.string().max(120, 'Target users cannot exceed 120 characters').trim().optional().or(z.literal('')),
+  expectedLaunchDate: z.string().optional().or(z.literal('')).refine(val => {
+    if (!val) return true;
+    return /^\d{4}-\d{2}-\d{2}$/.test(val);
+  }, { message: 'Launch date must be in YYYY-MM-DD format if provided' }),
   privacyLevel: PrivacyLevelSchema.default('PRIVATE'),
   sourcesUploaded: z.array(EvidenceSourceTypeSchema).min(1, 'At least one evidence source is required'),
 });
+
 
 export type ProjectRegistrationInput = z.infer<typeof ProjectRegistrationSchema>;
 

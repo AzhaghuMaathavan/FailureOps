@@ -24,14 +24,15 @@ export default function RegisterProductPage() {
   const { setProject } = useApp();
   const [step, setStep] = useState<number>(1);
 
-  // Form State
+  // Form State with sensible default date (90 days out)
+  const defaultDate = new Date(Date.now() + 90 * 24 * 60 * 60 * 1000).toISOString().split('T')[0];
   const [productName, setProductName] = useState('');
   const [companyName, setCompanyName] = useState('');
   const [description, setDescription] = useState('');
   const [industry, setIndustry] = useState('Enterprise SaaS');
   const [stage, setStage] = useState('Beta');
   const [targetUsers, setTargetUsers] = useState('');
-  const [expectedLaunchDate, setExpectedLaunchDate] = useState('');
+  const [expectedLaunchDate, setExpectedLaunchDate] = useState(defaultDate);
 
   const [selectedSources, setSelectedSources] = useState<EvidenceSourceType[]>([
     'PRODUCT_PLAN',
@@ -42,7 +43,6 @@ export default function RegisterProductPage() {
   const [privacyLevel, setPrivacyLevel] = useState<PrivacyLevel>('PRIVATE');
 
   const toggleSource = (source: EvidenceSourceType) => {
-
     if (selectedSources.includes(source)) {
       setSelectedSources(selectedSources.filter(s => s !== source));
     } else {
@@ -53,19 +53,55 @@ export default function RegisterProductPage() {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [submitError, setSubmitError] = useState<string | null>(null);
 
-  const handleFinish = async () => {
-    setIsSubmitting(true);
+  const handleNextStep = () => {
     setSubmitError(null);
+    if (step === 1) {
+      if (!productName.trim() || productName.trim().length < 2) {
+        setSubmitError('Please enter a valid product name (minimum 2 characters).');
+        return;
+      }
+      if (!companyName.trim() || companyName.trim().length < 2) {
+        setSubmitError('Please enter a valid company name (minimum 2 characters).');
+        return;
+      }
+    } else if (step === 2) {
+      if (selectedSources.length === 0) {
+        setSubmitError('Please select at least one evidence source to continue.');
+        return;
+      }
+    }
+    setStep(step + 1);
+  };
+
+  const handleFinish = async () => {
+    setSubmitError(null);
+    if (!productName.trim() || productName.trim().length < 2) {
+      setSubmitError('Product name is required (minimum 2 characters).');
+      setStep(1);
+      return;
+    }
+    if (!companyName.trim() || companyName.trim().length < 2) {
+      setSubmitError('Company name is required (minimum 2 characters).');
+      setStep(1);
+      return;
+    }
+    if (selectedSources.length === 0) {
+      setSubmitError('Please select at least one evidence source.');
+      setStep(2);
+      return;
+    }
+
+    setIsSubmitting(true);
     try {
       const { apiClient } = await import('@/lib/api/client');
       const created = await apiClient.registerProject({
-        name: productName,
-        company: companyName,
-        description,
+        name: productName.trim(),
+        company: companyName.trim(),
+        description: description.trim() || undefined,
         industry,
         stage,
-        targetUsers,
-        expectedLaunchDate,
+        targetUsers: targetUsers.trim() || undefined,
+        expectedLaunchDate: expectedLaunchDate || defaultDate,
         privacyLevel,
         sourcesUploaded: selectedSources,
       });
@@ -73,10 +109,11 @@ export default function RegisterProductPage() {
       setProject(created);
       router.push(`/projects/${created.id}/upload`);
     } catch (err: any) {
-      setSubmitError(err.message || 'Failed to register project in database.');
+      setSubmitError(err.message || 'Unable to register project. Please verify the input fields.');
       setIsSubmitting(false);
     }
   };
+
 
 
   const evidenceOptions = [
@@ -425,13 +462,14 @@ export default function RegisterProductPage() {
 
           {step < 3 ? (
             <button
-              onClick={() => setStep(step + 1)}
+              onClick={handleNextStep}
               className="inline-flex items-center gap-2 px-6 py-2.5 rounded-xl bg-primary hover:bg-primary-hover text-white text-xs font-bold tracking-wide transition-all shadow-sm"
             >
               <span>Continue</span>
               <ArrowRight className="w-4 h-4" />
             </button>
           ) : (
+
             <button
               onClick={handleFinish}
               disabled={isSubmitting}

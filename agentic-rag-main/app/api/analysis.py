@@ -73,8 +73,9 @@ def list_organization_projects(
     Lists all projects belonging to the authenticated tenant organization or public projects.
     """
     projects = db.query(Project).filter(
-        (Project.organization_id == org_id) | (Project.privacy_level == "PUBLIC")
+        (Project.organization_id == org_id) | (Project.privacy_level.in_(["PUBLIC", "PUBLIC_CASE_STUDY"]))
     ).order_by(Project.created_at.desc()).all()
+
 
     results = []
     for p in projects:
@@ -206,8 +207,9 @@ def get_project_details(
     if not p:
         raise HTTPException(status_code=404, detail="Project not found")
 
-    if p.privacy_level != "PUBLIC" and p.organization_id != org_id:
+    if p.privacy_level not in ["PUBLIC", "PUBLIC_CASE_STUDY"] and p.organization_id != org_id:
         raise HTTPException(status_code=403, detail="Forbidden: Cross-tenant project access denied")
+
 
     latest_analysis = db.query(ProjectAnalysis).filter(
         ProjectAnalysis.organization_id == p.organization_id,

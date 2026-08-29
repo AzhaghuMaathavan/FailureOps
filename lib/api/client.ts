@@ -57,8 +57,12 @@ async function request<T>(endpoint: string, options: RequestInit = {}): Promise<
         body.requestId
       );
     }
+    const detailedMessage = body.details && body.details.length > 0
+      ? body.details.map(d => `${d.field ? `${d.field}: ` : ''}${d.message}`).join(', ')
+      : (body.message || body.error || 'A server-side communication error occurred.');
+
     throw new ApiError(
-      body.message || body.error || 'A server-side communication error occurred.',
+      detailedMessage,
       response.status,
       body.requestId,
       body.details
