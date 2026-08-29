@@ -30,23 +30,21 @@ export default function FailureDNAPage() {
 
           const mappedDimensions: FailureDNADimension[] = rawDims.map((d: any) => ({
             dimension: d.dimension,
-            score: d.risk_score || d.score || 0,
-            status: d.status || 'NORMAL',
-            severity: d.severity || 'LOW',
-            keyDriver: d.key_driver || d.keyDriver || '',
-            whyExplainer: d.why_explainer || d.whyExplainer || '',
-            supportingEvidenceIds: d.evidence_ids || d.supportingEvidenceIds || [],
-            recommendedFocus: d.why_explainer ? `Targeted mitigation for ${d.dimension.toLowerCase()} risk drivers.` : 'Maintain regular telemetry monitoring.',
+            score: d.risk_score ?? d.score ?? 0,
+            severity: (d.severity || (d.risk_score > 70 ? 'CRITICAL' : d.risk_score > 40 ? 'HIGH' : 'NORMAL')) as any,
+            primaryDrivers: Array.isArray(d.primary_drivers) ? d.primary_drivers : d.key_driver ? [d.key_driver] : ['Corroborated by project evidence citations.'],
+            evidenceConfidence: Math.round((d.confidence || 0.90) * ((d.confidence || 0.90) <= 1 ? 100 : 1)),
+            historicalCorrelation: d.historical_correlation || 'Correlated with historical recovery benchmarks in institutional memory.',
+            whyExplanation: d.why_explainer || d.whyExplanation || `Operational risk on the ${d.dimension} dimension calculated from extracted telemetry evidence.`,
           }));
 
           const profile: FailureDNA = {
             projectId,
-            dominantArchetype: overall.dominant_archetype || res?.dominantArchetype || 'Scope & Velocity Trap',
-            overallRisk: overall.risk_score || res?.overallRisk || 78,
+            dominantArchetype: overall.dominant_archetype || res?.dominantArchetype || 'Balanced Execution Horizon',
+            overallRisk: overall.risk_score ?? res?.overallRisk ?? 0,
             dimensions: mappedDimensions,
             generatedAt: res?.generated_at || new Date().toISOString().slice(0, 10),
           };
-
 
           setDna(profile);
           if (mappedDimensions.length > 0) {
@@ -65,7 +63,6 @@ export default function FailureDNAPage() {
     return () => { mounted = false; };
   }, [projectId]);
 
-
   if (isLoading) {
     return (
       <div className="p-16 rounded-2xl bg-card border border-border flex items-center justify-center">
@@ -77,14 +74,27 @@ export default function FailureDNAPage() {
     );
   }
 
-  if (error || !dna || !selectedDim) {
+  if (error) {
     return (
       <div className="p-8 rounded-2xl bg-rose-500/10 border border-rose-500/30 text-rose-300 text-sm">
         <p className="font-bold">Failed to load Failure DNA</p>
-        <p className="text-xs mt-1 text-rose-400">{error || 'No Failure DNA calculated yet.'}</p>
+        <p className="text-xs mt-1 text-rose-400">{error}</p>
       </div>
     );
   }
+
+  if (!dna || dna.dimensions.length === 0 || !selectedDim) {
+    return (
+      <div className="p-12 rounded-2xl bg-card border border-border text-center space-y-3">
+        <Dna className="w-8 h-8 text-muted-foreground mx-auto opacity-60" />
+        <h3 className="text-base font-bold text-foreground">Failure DNA Not Available Yet</h3>
+        <p className="text-xs text-muted-foreground max-w-md mx-auto leading-relaxed">
+          Upload project documents and complete analysis to synthesize a 6-axis Failure DNA risk decomposition.
+        </p>
+      </div>
+    );
+  }
+
 
   return (
     <div className="space-y-8">

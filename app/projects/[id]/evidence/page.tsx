@@ -28,19 +28,20 @@ export default function EvidenceIntelligencePage() {
         if (mounted) {
           const rawItems = res?.evidence || (Array.isArray(res) ? res : []);
           const mapped: EvidenceItem[] = rawItems.map((item: any) => ({
-            id: item.evidence_id || item.id || `ev_${Math.random().toString(36).substring(2, 7)}`,
+            id: item.id || item.evidence_id || `ev_${Math.random().toString(36).substring(2, 7)}`,
             projectId: item.project_id || projectId,
             sourceType: item.category || item.sourceType || 'PRODUCT_METRICS',
-            filename: item.source_citation?.file_name || item.filename || 'Project Telemetry',
-            location: item.source_citation?.page_or_sheet_or_line || item.location || 'Section 1',
-            timestamp: item.source_citation?.timestamp || item.timestamp || '2026-08-01',
+            filename: item.source?.document_name || item.source_citation?.file_name || item.filename || 'Project Telemetry',
+            location: item.source?.location_value || item.source_citation?.page_or_sheet_or_line || item.location || 'Lineage Trace',
+            timestamp: item.time_period?.start || item.source_citation?.timestamp || item.timestamp || '2026-08-01',
             rawSnippet: item.statement || item.rawSnippet || '',
             normalizedFact: item.statement || item.normalizedFact || '',
             category: item.category || 'TECHNICAL',
-            confidence: Math.round((item.confidence || 0.9) * 100),
+            confidence: Math.round((item.evidence_confidence ?? item.confidence ?? 0.9) * ((item.evidence_confidence ?? item.confidence ?? 0.9) <= 1 ? 100 : 1)),
             extractedAt: item.created_at || 'Recently',
             metadata: item.normalized_value || {},
           }));
+
           setEvidenceList(mapped);
           setIsLoading(false);
         }

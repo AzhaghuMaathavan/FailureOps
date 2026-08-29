@@ -48,31 +48,36 @@ export const DimensionExplainer: React.FC<DimensionExplainerProps> = ({ dimensio
         </div>
 
         {/* Primary Evidence Drivers */}
-        <div>
-          <h4 className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-2">
-            Observed Evidence Drivers
-          </h4>
-          <div className="space-y-2">
-            {dimension.primaryDrivers.map((driver, idx) => (
-              <div
-                key={idx}
-                className="flex items-start gap-2.5 p-3 rounded-lg bg-card/60 border border-border/60 text-xs text-foreground font-medium"
-              >
-                <AlertTriangle className="w-4 h-4 text-amber-400 shrink-0 mt-0.5" />
-                <span className="leading-relaxed">{driver}</span>
-              </div>
-            ))}
+        {dimension.primaryDrivers && dimension.primaryDrivers.length > 0 && (
+          <div>
+            <h4 className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-2">
+              Observed Evidence Drivers
+            </h4>
+            <div className="space-y-2">
+              {dimension.primaryDrivers.map((driver, idx) => (
+                <div
+                  key={idx}
+                  className="flex items-start gap-2.5 p-3 rounded-lg bg-card/60 border border-border/60 text-xs text-foreground font-medium"
+                >
+                  <AlertTriangle className="w-4 h-4 text-amber-400 shrink-0 mt-0.5" />
+                  <span className="leading-relaxed">{driver}</span>
+                </div>
+              ))}
+            </div>
           </div>
-        </div>
+        )}
 
         {/* Historical Pattern Match */}
-        <div className="p-3.5 rounded-xl bg-purple-500/10 border border-purple-500/30 flex items-start gap-2.5 text-xs text-purple-300">
-          <History className="w-4 h-4 text-purple-400 shrink-0 mt-0.5" />
-          <div>
-            <span className="font-semibold text-purple-200">Historical Vector Match: </span>
-            <span>{dimension.historicalCorrelation}</span>
+        {dimension.historicalCorrelation && (
+          <div className="p-3.5 rounded-xl bg-purple-500/10 border border-purple-500/30 flex items-start gap-2.5 text-xs text-purple-300">
+            <History className="w-4 h-4 text-purple-400 shrink-0 mt-0.5" />
+            <div>
+              <span className="font-semibold text-purple-200">Historical Vector Match: </span>
+              <span>{dimension.historicalCorrelation}</span>
+            </div>
           </div>
-        </div>
+        )}
+
       </div>
     </div>
   );

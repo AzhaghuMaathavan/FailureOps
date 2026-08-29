@@ -165,7 +165,7 @@ export default function ProjectOverviewPage() {
           </div>
           <div className="mt-3 flex items-baseline gap-2">
             <span className="text-3xl font-extrabold font-mono text-purple-400">
-              {project.historicalSimilarity || project.historical_similarity || 85}%
+              {project.historicalSimilarity ? `${project.historicalSimilarity}%` : project.historical_similarity ? `${project.historical_similarity}%` : 'Awaiting'}
             </span>
             <span className="text-xs font-mono text-muted-foreground">
               Vector Match
@@ -215,7 +215,7 @@ export default function ProjectOverviewPage() {
           <div className="flex items-center gap-2">
             <Activity className="w-4 h-4 text-primary" />
             <h2 className="text-sm font-bold uppercase tracking-wider text-foreground">
-              Top 5 Connected Failure Signals
+              Active Operational Signals ({signals.length})
             </h2>
           </div>
           <Link
@@ -226,6 +226,7 @@ export default function ProjectOverviewPage() {
             <ArrowRight className="w-3 h-3" />
           </Link>
         </div>
+
 
         <div className="space-y-2.5">
           {signals.slice(0, 5).map((sig, i) => (
