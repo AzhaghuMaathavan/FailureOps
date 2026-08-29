@@ -132,8 +132,9 @@ export default function OutcomeVerificationPage() {
             <span>Observed Empirical Delta</span>
           </div>
           <p className="text-xs text-foreground/90 leading-relaxed font-medium">
-            {primaryOutcome?.summary || 'Activation rate increased from 31% to 64% in the 50-user treatment cohort. Support inquiries citing account setup drop-offs decreased by 64%.'}
+            {primaryOutcome?.summary || 'No empirical outcome recorded yet for this project.'}
           </p>
+
         </div>
 
         <div className="p-6 rounded-2xl bg-primary/5 border border-primary/30 shadow-md space-y-2">

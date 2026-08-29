@@ -9,7 +9,7 @@ import { TopHeader } from '@/components/layout/TopHeader';
 import { apiClient } from '@/lib/api/client';
 
 export default function GlobalSearchPage() {
-  const [query, setQuery] = useState('expense tracker');
+  const [query, setQuery] = useState('');
   const [selectedFilter, setSelectedFilter] = useState('ALL');
   const [cases, setCases] = useState<any[]>([]);
   const [memoryMatches, setMemoryMatches] = useState<any[]>([]);
@@ -71,7 +71,7 @@ export default function GlobalSearchPage() {
                 type="text"
                 value={query}
                 onChange={e => setQuery(e.target.value)}
-                placeholder="Search products, failure patterns, interventions (e.g., 'expense tracker')..."
+                placeholder="Search products, failure patterns, interventions (e.g., 'onboarding friction', 'CI failure')..."
                 className="w-full pl-11 pr-4 py-3 rounded-xl bg-surface-feed border border-border text-foreground text-sm focus:outline-none focus:border-primary font-medium"
               />
             </div>
@@ -97,59 +97,77 @@ export default function GlobalSearchPage() {
           {/* Search Results */}
           <div className="space-y-4">
             <h3 className="text-xs font-bold uppercase tracking-wider text-muted-foreground">
-              Top Vector Matches for &ldquo;{query}&rdquo;
+              {query ? `Top Vector Matches for "${query}"` : 'Indexed Historical Cases & Learnings'}
             </h3>
 
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
-              {cases.map(c => (
-                <Link
-                  key={c.id}
-                  href={`/historical/${c.id}`}
-                  className="p-6 rounded-2xl bg-card border border-border/80 hover:border-primary/50 transition-all group shadow-sm flex flex-col justify-between"
-                >
-                  <div className="space-y-3">
-                    <div className="flex items-center justify-between pb-3 border-b border-border/60">
-                      <span className="text-xs font-mono font-bold text-muted-foreground">{c.name}</span>
-                      <div className="flex items-center gap-2">
-                        <PrivacyBadge level={c.privacyLevel} />
-                        <span className="px-2 py-0.5 rounded text-xs font-mono font-bold bg-purple-500/10 text-purple-400 border border-purple-500/30">
-                          {c.similarity}% Match
+            {isLoading ? (
+              <div className="p-16 rounded-2xl bg-card border border-border flex items-center justify-center">
+                <div className="flex items-center gap-3 text-muted-foreground font-mono text-sm">
+                  <Loader2 className="w-5 h-5 text-primary animate-spin" />
+                  <span>Searching vector knowledge base...</span>
+                </div>
+              </div>
+            ) : cases.length === 0 ? (
+              <div className="p-12 rounded-2xl bg-card border border-border text-center space-y-2">
+                <Database className="w-8 h-8 text-muted-foreground mx-auto opacity-60" />
+                <h3 className="text-base font-bold text-foreground">No Matching Records Found</h3>
+                <p className="text-xs text-muted-foreground max-w-md mx-auto leading-relaxed">
+                  Try adjusting search keywords or changing the category filter above.
+                </p>
+              </div>
+            ) : (
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
+                {cases.map(c => (
+                  <Link
+                    key={c.id}
+                    href={`/historical/${c.id}`}
+                    className="p-6 rounded-2xl bg-card border border-border/80 hover:border-primary/50 transition-all group shadow-sm flex flex-col justify-between"
+                  >
+                    <div className="space-y-3">
+                      <div className="flex items-center justify-between pb-3 border-b border-border/60">
+                        <span className="text-xs font-mono font-bold text-muted-foreground">{c.name}</span>
+                        <div className="flex items-center gap-2">
+                          <PrivacyBadge level={c.privacyLevel} />
+                          <span className="px-2 py-0.5 rounded text-xs font-mono font-bold bg-purple-500/10 text-purple-400 border border-purple-500/30">
+                            {c.similarity}% Match
+                          </span>
+                        </div>
+                      </div>
+
+                      <h4 className="text-base font-bold text-foreground group-hover:text-primary transition-colors">
+                        {c.companyAlias}
+                      </h4>
+                      <p className="text-xs text-muted-foreground leading-relaxed">
+                        {c.productDescription}
+                      </p>
+
+                      <div className="p-3 rounded-xl bg-surface-feed/70 border border-border/60 text-xs">
+                        <span className="text-[10px] font-mono text-rose-400 uppercase font-bold block mb-0.5">
+                          Failure Pattern:
                         </span>
+                        <p className="font-semibold text-foreground">{c.primaryFailurePattern}</p>
+                      </div>
+
+                      <div className="p-3 rounded-xl bg-emerald-500/5 border border-emerald-500/20 text-xs">
+                        <span className="text-[10px] font-mono text-emerald-400 uppercase font-bold block mb-0.5">
+                          Historical Outcome:
+                        </span>
+                        <p className="text-muted-foreground">{c.interventionOutcome}</p>
                       </div>
                     </div>
 
-                    <h4 className="text-base font-bold text-foreground group-hover:text-primary transition-colors">
-                      {c.companyAlias}
-                    </h4>
-                    <p className="text-xs text-muted-foreground leading-relaxed">
-                      {c.productDescription}
-                    </p>
-
-                    <div className="p-3 rounded-xl bg-surface-feed/70 border border-border/60 text-xs">
-                      <span className="text-[10px] font-mono text-rose-400 uppercase font-bold block mb-0.5">
-                        Failure Pattern:
-                      </span>
-                      <p className="font-semibold text-foreground">{c.primaryFailurePattern}</p>
+                    <div className="mt-5 pt-3 border-t border-border/50 flex items-center justify-between text-xs text-primary font-semibold">
+                      <span>Inspect Full Historical Case Study</span>
+                      <ArrowRight className="w-3.5 h-3.5 group-hover:translate-x-1 transition-transform" />
                     </div>
-
-                    <div className="p-3 rounded-xl bg-emerald-500/5 border border-emerald-500/20 text-xs">
-                      <span className="text-[10px] font-mono text-emerald-400 uppercase font-bold block mb-0.5">
-                        Historical Outcome:
-                      </span>
-                      <p className="text-muted-foreground">{c.interventionOutcome}</p>
-                    </div>
-                  </div>
-
-                  <div className="mt-5 pt-3 border-t border-border/50 flex items-center justify-between text-xs text-primary font-semibold">
-                    <span>Inspect Full Historical Case Study</span>
-                    <ArrowRight className="w-3.5 h-3.5 group-hover:translate-x-1 transition-transform" />
-                  </div>
-                </Link>
-              ))}
-            </div>
+                  </Link>
+                ))}
+              </div>
+            )}
           </div>
         </main>
       </div>
     </div>
   );
 }
+

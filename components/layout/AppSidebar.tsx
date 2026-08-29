@@ -32,21 +32,21 @@ export const AppSidebar: React.FC = () => {
   const { project } = useApp();
   const projectId = project.id;
 
-  const navigation = [
+  const navigation: { group: string; items: { name: string; href: string; icon: any; badge?: string }[] }[] = [
     {
       group: 'PROJECT INTELLIGENCE',
       items: [
         { name: 'Overview', href: `/projects/${projectId}/overview`, icon: LayoutDashboard },
-        { name: 'Evidence Intelligence', href: `/projects/${projectId}/evidence`, icon: FileText, badge: '5 Docs' },
-        { name: 'Signal Explorer', href: `/projects/${projectId}/signals`, icon: Activity, badge: '5 Active' },
-        { name: 'Failure DNA', href: `/projects/${projectId}/dna`, icon: Dna, badge: '88% Max' },
-        { name: 'Truth Engine', href: `/projects/${projectId}/truth-engine`, icon: Scale, badge: 'Challenged' },
-        { name: 'Failure Radar', href: `/projects/${projectId}/radar`, icon: Radar, badge: '82% Risk' },
+        { name: 'Evidence Intelligence', href: `/projects/${projectId}/evidence`, icon: FileText },
+        { name: 'Signal Explorer', href: `/projects/${projectId}/signals`, icon: Activity },
+        { name: 'Failure DNA', href: `/projects/${projectId}/dna`, icon: Dna },
+        { name: 'Truth Engine', href: `/projects/${projectId}/truth-engine`, icon: Scale },
+        { name: 'Failure Radar', href: `/projects/${projectId}/radar`, icon: Radar },
         { name: 'Causal Analysis', href: `/projects/${projectId}/causal`, icon: GitFork },
-        { name: 'Predicted Failure', href: `/projects/${projectId}/prediction`, icon: Compass, badge: 'Oct 15' },
-        { name: 'Interventions', href: `/projects/${projectId}/interventions`, icon: Lightbulb, badge: 'Recs' },
+        { name: 'Predicted Failure', href: `/projects/${projectId}/prediction`, icon: Compass },
+        { name: 'Interventions', href: `/projects/${projectId}/interventions`, icon: Lightbulb },
         { name: 'Experiments', href: `/projects/${projectId}/experiment`, icon: FlaskConical },
-        { name: 'Outcome Verification', href: `/projects/${projectId}/outcomes`, icon: CheckCircle2, badge: '+33pp' },
+        { name: 'Outcome Verification', href: `/projects/${projectId}/outcomes`, icon: CheckCircle2 },
       ],
     },
     {
@@ -60,6 +60,8 @@ export const AppSidebar: React.FC = () => {
       ],
     },
   ];
+
+
 
   return (
     <aside className="w-64 shrink-0 bg-sidebar border-r border-sidebar-border flex flex-col justify-between h-screen sticky top-0 overflow-y-auto no-scrollbar z-40 select-none">

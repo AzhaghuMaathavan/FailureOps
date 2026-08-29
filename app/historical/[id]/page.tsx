@@ -80,8 +80,9 @@ export default function HistoricalCaseDetailPage() {
               <div className="flex items-center gap-2">
                 <PrivacyBadge level={histCase.privacyLevel} />
                 <span className="px-2.5 py-0.5 rounded-full text-xs font-mono font-bold bg-purple-500/10 text-purple-400 border border-purple-500/30">
-                  {histCase.similarity}% Vector Similarity to Aurora
+                  {histCase.similarity}% Vector Similarity to Project
                 </span>
+
               </div>
             )}
           </div>

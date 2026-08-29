@@ -7,30 +7,13 @@ import { apiClient } from '@/lib/api/client';
 import { AssumptionCard } from '@/components/truth/AssumptionCard';
 import { AssumptionInvestigation } from '@/types';
 
-const defaultPricingInvestigation: AssumptionInvestigation = {
-  id: 'asm-pricing',
-  projectId: 'aurora',
-  assumptionText: 'Our adoption problem is mainly caused by pricing.',
-  status: 'CHALLENGED',
-  confidence: 94,
-  teamBelief: 'Executive leadership assumes trial users abandon because subscription tiers are too expensive.',
-  evidenceMetrics: [
-    { label: 'Technical Setup Drop-off (Step 4)', value: '68%', percentage: 68, isContradiction: true },
-    { label: 'Trial Abandonment at Compliance', value: '76%', percentage: 76, isContradiction: true },
-    { label: 'Pricing Page Visitors', value: '14%', percentage: 14, isContradiction: false },
-    { label: 'Pricing Feedback Complaints', value: '4%', percentage: 4, isContradiction: false },
-  ],
-  findingSummary: '76% of lost trials abandon during account provisioning (Step 4). Less than 14% of trial accounts ever visited the subscription pricing page.',
-  alternativeExplanation: 'The true root cause is friction in the 7-step mandatory compliance setup, not pricing elasticity.',
-  evidenceSources: ['customer_feedback.csv', 'product_metrics.csv', 'incident_reports.pdf'],
-};
-
 export default function TruthEnginePage() {
   const params = useParams();
   const projectId = (params?.id as string) || 'aurora';
-  const [claimInput, setClaimInput] = useState('Our adoption problem is mainly caused by pricing.');
-  const [investigation, setInvestigation] = useState<AssumptionInvestigation>(defaultPricingInvestigation);
+  const [claimInput, setClaimInput] = useState('');
+  const [investigation, setInvestigation] = useState<AssumptionInvestigation | null>(null);
   const [isSearching, setIsSearching] = useState(false);
+
 
   const runInvestigation = async (claimToTest: string) => {
     setIsSearching(true);
@@ -172,7 +155,18 @@ export default function TruthEnginePage() {
       </div>
 
       {/* Investigation Results Card */}
-      <AssumptionCard investigation={investigation} />
+      {investigation ? (
+        <AssumptionCard investigation={investigation} />
+      ) : (
+        <div className="p-12 rounded-2xl bg-card border border-border/80 text-center space-y-3">
+          <Scale className="w-10 h-10 text-primary/60 mx-auto" />
+          <h3 className="text-sm font-bold text-foreground">Awaiting Assumption Query</h3>
+          <p className="text-xs text-muted-foreground max-w-md mx-auto leading-relaxed">
+            Enter a team assumption or select a suggested claim above to cross-reference with all indexed telemetry and PRDs.
+          </p>
+        </div>
+      )}
     </div>
   );
 }
+

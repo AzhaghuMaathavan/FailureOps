@@ -11,28 +11,29 @@ import { apiClient } from '@/lib/api/client';
 import { OrganizationalMemoryEntry } from '@/types';
 
 export default function OrganizationalMemoryPage() {
-  const { memoryEntries: contextEntries } = useApp();
-  const [entries, setEntries] = useState<OrganizationalMemoryEntry[]>(contextEntries);
+  const [entries, setEntries] = useState<OrganizationalMemoryEntry[]>([]);
   const [searchQuery, setSearchQuery] = useState('');
   const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
     let mounted = true;
-    apiClient.getOrganizationalMemory('aurora')
+    apiClient.getOrganizationalMemory()
       .then(res => {
         if (mounted) {
           const rawEntries = res?.entries || (Array.isArray(res) ? res : []);
-          if (rawEntries.length > 0) {
-            setEntries(rawEntries);
-          }
+          setEntries(rawEntries);
           setIsLoading(false);
         }
       })
       .catch(() => {
-        if (mounted) setIsLoading(false);
+        if (mounted) {
+          setEntries([]);
+          setIsLoading(false);
+        }
       });
     return () => { mounted = false; };
   }, []);
+
 
   const filteredEntries = entries.filter(
     m =>
