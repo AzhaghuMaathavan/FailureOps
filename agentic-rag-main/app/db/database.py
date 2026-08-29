@@ -14,7 +14,8 @@ SessionLocal = None
 
 def init_engine():
     global engine, SessionLocal
-    storage_dir = os.path.join(os.getcwd(), "storage")
+    root_dir = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+    storage_dir = os.path.join(root_dir, "storage")
     os.makedirs(storage_dir, exist_ok=True)
     sqlite_fallback_url = f"sqlite:///{os.path.join(storage_dir, 'failureops.db')}"
 
@@ -47,6 +48,7 @@ def init_engine():
         logger.error(f"[DB] Failed to initialize database: {e}")
 
 init_engine()
+
 
 def get_db():
     if not SessionLocal:
