@@ -1,21 +1,90 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useParams } from 'next/navigation';
-import { Dna, ShieldAlert, Sparkles, Layers, Info } from 'lucide-react';
-import { getFailureDNA } from '@/data/mockFailureDNA';
+import { Dna, ShieldAlert, Sparkles, Layers, Info, Loader2, AlertTriangle } from 'lucide-react';
+import { apiClient } from '@/lib/api/client';
 import { FailureDNARadar } from '@/components/dna/FailureDNARadar';
 import { DimensionExplainer } from '@/components/dna/DimensionExplainer';
-import { FailureDNADimension } from '@/types';
+import { FailureDNA, FailureDNADimension } from '@/types';
 
 export default function FailureDNAPage() {
   const params = useParams();
   const projectId = (params?.id as string) || 'aurora';
-  const dna = getFailureDNA(projectId);
+  const [dna, setDna] = useState<FailureDNA | null>(null);
+  const [selectedDim, setSelectedDim] = useState<FailureDNADimension | null>(null);
+  const [isLoading, setIsLoading] = useState<boolean>(true);
+  const [error, setError] = useState<string | null>(null);
 
-  const [selectedDim, setSelectedDim] = useState<FailureDNADimension>(
-    dna.dimensions.find(d => d.dimension === 'Adoption') || dna.dimensions[0]
-  );
+  useEffect(() => {
+    let mounted = true;
+    setIsLoading(true);
+    setError(null);
+
+    apiClient.getFailureDNA(projectId)
+      .then(res => {
+        if (mounted) {
+          // Map backend FailureDNAPacket format to UI FailureDNA format
+          const overall = res?.overall || {};
+          const rawDims = res?.dimensions || [];
+
+          const mappedDimensions: FailureDNADimension[] = rawDims.map((d: any) => ({
+            dimension: d.dimension,
+            score: d.risk_score || d.score || 0,
+            status: d.status || 'NORMAL',
+            severity: d.severity || 'LOW',
+            keyDriver: d.key_driver || d.keyDriver || '',
+            whyExplainer: d.why_explainer || d.whyExplainer || '',
+            supportingEvidenceIds: d.evidence_ids || d.supportingEvidenceIds || [],
+            recommendedFocus: d.why_explainer ? `Targeted mitigation for ${d.dimension.toLowerCase()} risk drivers.` : 'Maintain regular telemetry monitoring.',
+          }));
+
+          const profile: FailureDNA = {
+            projectId,
+            dominantArchetype: overall.dominant_archetype || res?.dominantArchetype || 'Scope & Velocity Trap',
+            overallRisk: overall.risk_score || res?.overallRisk || 78,
+            dimensions: mappedDimensions,
+            generatedAt: res?.generated_at || new Date().toISOString().slice(0, 10),
+          };
+
+
+          setDna(profile);
+          if (mappedDimensions.length > 0) {
+            setSelectedDim(mappedDimensions.find(d => d.dimension === 'Adoption') || mappedDimensions[0]);
+          }
+          setIsLoading(false);
+        }
+      })
+      .catch(err => {
+        if (mounted) {
+          setError(err.message || 'Failed to load Failure DNA');
+          setIsLoading(false);
+        }
+      });
+
+    return () => { mounted = false; };
+  }, [projectId]);
+
+
+  if (isLoading) {
+    return (
+      <div className="p-16 rounded-2xl bg-card border border-border flex items-center justify-center">
+        <div className="flex items-center gap-3 text-muted-foreground font-mono text-sm">
+          <Loader2 className="w-5 h-5 text-primary animate-spin" />
+          <span>Calculating 6-axis Failure DNA risk vector from backend evidence...</span>
+        </div>
+      </div>
+    );
+  }
+
+  if (error || !dna || !selectedDim) {
+    return (
+      <div className="p-8 rounded-2xl bg-rose-500/10 border border-rose-500/30 text-rose-300 text-sm">
+        <p className="font-bold">Failed to load Failure DNA</p>
+        <p className="text-xs mt-1 text-rose-400">{error || 'No Failure DNA calculated yet.'}</p>
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-8">
@@ -65,7 +134,7 @@ export default function FailureDNAPage() {
           <div className="mt-6 pt-4 border-t border-border/60 flex items-center justify-between text-xs text-muted-foreground font-mono">
             <span className="flex items-center gap-1.5">
               <Info className="w-3.5 h-3.5 text-primary" />
-              Axis normalization across 1,240 historical cases
+              Axis normalization across historical cases
             </span>
             <span className="text-primary font-bold">Selected: {selectedDim.dimension}</span>
           </div>
@@ -79,3 +148,4 @@ export default function FailureDNAPage() {
     </div>
   );
 }
+

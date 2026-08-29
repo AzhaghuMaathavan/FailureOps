@@ -2,9 +2,8 @@
 
 import React, { useState, useEffect } from 'react';
 import { useParams } from 'next/navigation';
-import { Lightbulb, History, Sparkles, CheckCircle2, Calculator, ShieldCheck, ArrowRight } from 'lucide-react';
+import { Lightbulb, History, Sparkles, CheckCircle2, Calculator, ShieldCheck, ArrowRight, Loader2, AlertTriangle } from 'lucide-react';
 import { apiClient } from '@/lib/api/client';
-import { mockInterventions } from '@/data/mockInterventions';
 import { InterventionCard } from '@/components/intervention/InterventionCard';
 
 export default function InterventionsPage() {
@@ -13,25 +12,25 @@ export default function InterventionsPage() {
   const [interventions, setInterventions] = useState<any[]>([]);
   const [selectedBreakdown, setSelectedBreakdown] = useState<any | null>(null);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
     async function loadData() {
       try {
         setLoading(true);
+        setError(null);
         const res = await apiClient.getInterventions(projectId);
-        if (res?.interventions && res.interventions.length > 0) {
-          setInterventions(res.interventions);
-        } else {
-          setInterventions(mockInterventions);
-        }
-      } catch {
-        setInterventions(mockInterventions);
+        const items = res?.interventions || (Array.isArray(res) ? res : []);
+        setInterventions(items);
+      } catch (err: any) {
+        setError(err.message || 'Failed to load intervention plan.');
       } finally {
         setLoading(false);
       }
     }
     loadData();
   }, [projectId]);
+
 
   return (
     <div className="space-y-6 max-w-5xl mx-auto">
@@ -59,9 +58,28 @@ export default function InterventionsPage() {
         </div>
       </div>
 
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-        {interventions.map((item: any) => {
-          const isPydantic = !!item.intervention_id;
+      {loading ? (
+        <div className="p-16 rounded-2xl bg-card border border-border flex items-center justify-center">
+          <div className="flex items-center gap-3 text-muted-foreground font-mono text-sm">
+            <Loader2 className="w-5 h-5 text-primary animate-spin" />
+            <span>Calculating prioritized interventions and mitigation playbooks...</span>
+          </div>
+        </div>
+      ) : error ? (
+        <div className="p-8 rounded-2xl bg-rose-500/10 border border-rose-500/30 text-rose-300 text-sm">
+          <p className="font-bold">Failed to load interventions</p>
+          <p className="text-xs mt-1 text-rose-400">{error}</p>
+        </div>
+      ) : interventions.length === 0 ? (
+        <div className="p-12 rounded-2xl bg-card border border-border text-center">
+          <p className="text-sm font-bold text-foreground">No interventions generated yet</p>
+          <p className="text-xs text-muted-foreground mt-1">Run project analysis to synthesize grounded recovery interventions</p>
+        </div>
+      ) : (
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+          {interventions.map((item: any) => {
+            const isPydantic = !!item.intervention_id;
+
           const prioScore = item.priority_score || item.historicalEvidenceStrength || 85;
           const prioLvl = item.priority || 'HIGH';
           const title = item.title;
@@ -132,6 +150,10 @@ export default function InterventionsPage() {
           );
         })}
       </div>
+    )}
+
+
+
 
       {/* Formula Calculation Modal */}
       {selectedBreakdown && (

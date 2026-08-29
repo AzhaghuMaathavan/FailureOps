@@ -4,9 +4,6 @@ import { requireAuth } from '@/lib/server/auth';
 import { checkRateLimit } from '@/lib/server/rate-limit';
 import { apiSuccess, apiError, apiRateLimitExceeded } from '@/lib/server/response';
 import { SaveMemorySchema } from '@/lib/validation/schemas';
-import { mockMemoryEntries } from '@/data/mockMemory';
-import { OrganizationalMemoryEntry } from '@/types';
-
 import { serverConfig } from '@/lib/server/config';
 
 export async function GET(req: NextRequest) {
@@ -16,39 +13,35 @@ export async function GET(req: NextRequest) {
     if (!rate.success) return apiRateLimitExceeded(rate.resetSeconds);
 
     const { searchParams } = new URL(req.url);
-    const projectId = searchParams.get('projectId');
+    const projectId = searchParams.get('projectId') || 'aurora';
+    const view = searchParams.get('view');
+    const pattern = searchParams.get('pattern');
 
-    if (projectId) {
-      // Attempt to query real backend microservice for historical cases
-      try {
-        const backendResp = await fetch(
-          `${serverConfig.ragInternalUrl}/api/v1/projects/${encodeURIComponent(projectId)}/historical-cases`,
-          {
-            headers: {
-              'x-organization-id': session.organizationId,
-              'x-user-id': session.userId,
-            },
-            signal: AbortSignal.timeout(3000),
-          }
-        );
+    const endpointPath = view === 'historical'
+      ? `/api/v1/projects/${encodeURIComponent(projectId)}/historical-cases`
+      : `/api/v1/projects/${encodeURIComponent(projectId)}/organizational-memory${pattern ? `?pattern=${encodeURIComponent(pattern)}` : ''}`;
 
-        if (backendResp.ok) {
-          const memoryData = await backendResp.json();
-          if (memoryData && memoryData.matched_cases) {
-            return apiSuccess(memoryData.matched_cases);
-          }
-        }
-      } catch {
-        // Backend offline, proceed to fallback
+    const backendResp = await fetch(
+      `${serverConfig.ragInternalUrl}${endpointPath}`,
+      {
+        headers: {
+          'x-organization-id': session.organizationId,
+          'x-user-id': session.userId,
+        },
+        cache: 'no-store',
       }
+    );
+
+    if (!backendResp.ok) {
+      throw new Error(`Backend memory returned HTTP ${backendResp.status}`);
     }
 
-    return apiSuccess(mockMemoryEntries);
+    const memoryData = await backendResp.json();
+    return apiSuccess(memoryData);
   } catch (error) {
     return apiError(error, 'Unable to load organizational memory vault.');
   }
 }
-
 
 export async function POST(req: NextRequest) {
   try {
@@ -59,7 +52,7 @@ export async function POST(req: NextRequest) {
     const body = await req.json();
     const validated = SaveMemorySchema.parse(body);
 
-    const newEntry: OrganizationalMemoryEntry = {
+    const newEntry = {
       id: `mem-${Math.random().toString(36).substring(2, 6)}`,
       pattern: validated.pattern,
       evidenceSummary: validated.evidenceSummary,
@@ -70,11 +63,12 @@ export async function POST(req: NextRequest) {
       context: validated.context,
       tags: validated.tags,
       verifiedAt: new Date().toISOString().slice(0, 10),
+      organizationId: session.organizationId,
     };
 
-    mockMemoryEntries.unshift(newEntry);
     return apiSuccess(newEntry, 201);
   } catch (error) {
     return apiError(error, 'Failed to save validated learning to organizational memory.');
   }
 }
+

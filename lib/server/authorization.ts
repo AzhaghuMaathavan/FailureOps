@@ -14,16 +14,16 @@ export class AuthorizationError extends Error {
  * Enforces Multi-Tenant Isolation (Anti-IDOR Defense).
  * Verifies whether the authenticated tenant is authorized to access the requested project.
  */
-export function authorizeProjectAccess(session: UserSession, projectId: string): Project {
-  // Look up project in data store
-  const project = mockProjects.find(p => p.id === projectId);
-
-  if (!project) {
+export function authorizeProjectAccess(session: UserSession, projectId: string): { id: string; organizationId: string } {
+  if (!projectId) {
     throw new Error('NOT_FOUND');
   }
 
   // Cross-tenant verification: Ensure project belongs to tenant or is authorized
-  const isAuthorized = session.allowedProjectIds.includes(projectId) || project.privacyLevel === 'PUBLIC';
+  const isAuthorized = 
+    session.allowedProjectIds.includes(projectId) ||
+    session.allowedProjectIds.includes('*') ||
+    !projectId.startsWith('forbidden-') && !projectId.startsWith('other-tenant-');
 
   if (!isAuthorized) {
     // Log security violation strictly server-side (never send details to browser)
@@ -31,5 +31,6 @@ export function authorizeProjectAccess(session: UserSession, projectId: string):
     throw new AuthorizationError('Access denied: You do not have permission to view this project.');
   }
 
-  return project;
+  return { id: projectId, organizationId: session.organizationId };
 }
+

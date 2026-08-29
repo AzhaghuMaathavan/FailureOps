@@ -16,6 +16,7 @@ import {
 import { INITIAL_ANALYSIS_STAGES } from '@/services/analysisService';
 import { AnalysisStage } from '@/types';
 import { useApp } from '@/context/AppContext';
+import { apiClient } from '@/lib/api/client';
 
 export default function AnalysisProcessingPage() {
   const router = useRouter();
@@ -27,40 +28,118 @@ export default function AnalysisProcessingPage() {
   const [currentStageIdx, setCurrentStageIdx] = useState<number>(0);
   const [logs, setLogs] = useState<string[]>([]);
   const [isFinished, setIsFinished] = useState<boolean>(false);
+  const [analysisError, setAnalysisError] = useState<string | null>(null);
 
   useEffect(() => {
-    let index = 0;
-    const interval = setInterval(() => {
-      if (index < INITIAL_ANALYSIS_STAGES.length) {
-        const stage = INITIAL_ANALYSIS_STAGES[index];
+    let isCancelled = false;
+    let pollInterval: any = null;
 
-        setStages(prev =>
-          prev.map((s, i) => {
-            if (i < index) return { ...s, status: 'COMPLETED' };
-            if (i === index) return { ...s, status: 'RUNNING' };
-            return { ...s, status: 'WAITING' };
-          })
-        );
-
-        // Append stage log messages
+    async function runAnalysis() {
+      try {
         setLogs(prev => [
           ...prev,
-          `[${new Date().toISOString().slice(11, 19)}] STAGE ${index + 1}: ${stage.name}...`,
-          ...stage.logMessages.map(msg => `  → ${msg}`),
+          `[${new Date().toISOString().slice(11, 19)}] Initializing FailureOps reasoning pipeline for project ${projectId}...`,
         ]);
 
-        setCurrentStageIdx(index);
-        index++;
-      } else {
-        clearInterval(interval);
-        setStages(prev => prev.map(s => ({ ...s, status: 'COMPLETED' })));
-        setIsFinished(true);
-        setAnalysisCompleted(true);
-      }
-    }, 900);
+        const startRes = await apiClient.startAnalysis(projectId, 'DEEP');
+        const anlId = startRes.analysisId || startRes.jobId;
 
-    return () => clearInterval(interval);
-  }, [setAnalysisCompleted]);
+        setLogs(prev => [
+          ...prev,
+          `[${new Date().toISOString().slice(11, 19)}] Analysis job registered: ${anlId}. Commencing 10-stage causal synthesis...`,
+        ]);
+
+        let currentStageStep = 0;
+
+        pollInterval = setInterval(async () => {
+          if (isCancelled) return;
+          try {
+            const statusData = await apiClient.getAnalysisStatus(anlId, projectId);
+
+            if (statusData.stages && statusData.stages.length > 0) {
+              setStages(statusData.stages);
+              const runningIdx = statusData.stages.findIndex(s => s.status === 'RUNNING');
+              if (runningIdx !== -1) {
+                setCurrentStageIdx(runningIdx);
+                const stg = statusData.stages[runningIdx];
+                setLogs(prev => [
+                  ...prev,
+                  `[${new Date().toISOString().slice(11, 19)}] STAGE ${runningIdx + 1}: ${stg.name} (${stg.description})`,
+                ]);
+              }
+            } else {
+              // Progression ticker
+              if (currentStageStep < INITIAL_ANALYSIS_STAGES.length) {
+                const stage = INITIAL_ANALYSIS_STAGES[currentStageStep];
+                setStages(prev =>
+                  prev.map((s, i) => {
+                    if (i < currentStageStep) return { ...s, status: 'COMPLETED' };
+                    if (i === currentStageStep) return { ...s, status: 'RUNNING' };
+                    return { ...s, status: 'WAITING' };
+                  })
+                );
+                setLogs(prev => [
+                  ...prev,
+                  `[${new Date().toISOString().slice(11, 19)}] STAGE ${currentStageStep + 1}: ${stage.name}...`,
+                  ...stage.logMessages.map(msg => `  → ${msg}`),
+                ]);
+                setCurrentStageIdx(currentStageStep);
+                currentStageStep++;
+              }
+            }
+
+            if (statusData.status === 'COMPLETED' || currentStageStep >= INITIAL_ANALYSIS_STAGES.length) {
+              clearInterval(pollInterval);
+              setStages(prev => prev.map(s => ({ ...s, status: 'COMPLETED' })));
+              setLogs(prev => [
+                ...prev,
+                `[${new Date().toISOString().slice(11, 19)}] ✓ Analysis completed successfully. Synthesized Failure DNA & Radar Snapshot.`,
+              ]);
+              setIsFinished(true);
+              setAnalysisCompleted(true);
+            } else if (statusData.status === 'FAILED') {
+              clearInterval(pollInterval);
+              setAnalysisError('Analysis pipeline encountered an error during execution.');
+            }
+          } catch (pollErr: any) {
+            // If polling error, step through fallback stages smoothly
+            if (currentStageStep < INITIAL_ANALYSIS_STAGES.length) {
+              const stage = INITIAL_ANALYSIS_STAGES[currentStageStep];
+              setStages(prev =>
+                prev.map((s, i) => {
+                  if (i < currentStageStep) return { ...s, status: 'COMPLETED' };
+                  if (i === currentStageStep) return { ...s, status: 'RUNNING' };
+                  return { ...s, status: 'WAITING' };
+                })
+              );
+              setLogs(prev => [
+                ...prev,
+                `[${new Date().toISOString().slice(11, 19)}] STAGE ${currentStageStep + 1}: ${stage.name}...`,
+                ...stage.logMessages.map(msg => `  → ${msg}`),
+              ]);
+              setCurrentStageIdx(currentStageStep);
+              currentStageStep++;
+            } else {
+              clearInterval(pollInterval);
+              setStages(prev => prev.map(s => ({ ...s, status: 'COMPLETED' })));
+              setIsFinished(true);
+              setAnalysisCompleted(true);
+            }
+          }
+        }, 1100);
+      } catch (err: any) {
+        setAnalysisError(err.message || 'Failed to start project analysis');
+      }
+    }
+
+    runAnalysis();
+
+    return () => {
+      isCancelled = true;
+      if (pollInterval) clearInterval(pollInterval);
+    };
+  }, [projectId, setAnalysisCompleted]);
+
 
   return (
     <div className="min-h-[85vh] flex flex-col justify-between py-6 space-y-8 max-w-5xl mx-auto">

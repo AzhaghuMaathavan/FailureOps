@@ -1,13 +1,76 @@
 'use client';
 
-import React, { useState } from 'react';
-import { mockCausalNodes } from '@/data/mockCausalGraph';
+import React, { useState, useEffect } from 'react';
 import { CausalNode } from '@/types';
-import { ArrowDown, AlertTriangle, CheckCircle2, ShieldCheck, GitFork } from 'lucide-react';
+import { ArrowDown, AlertTriangle, CheckCircle2, ShieldCheck, GitFork, Loader2 } from 'lucide-react';
 import { RiskBadge } from '@/components/common/RiskBadge';
+import { apiClient } from '@/lib/api/client';
 
-export const CausalNodeGraph: React.FC = () => {
-  const [selectedNode, setSelectedNode] = useState<CausalNode>(mockCausalNodes[2]);
+interface CausalNodeGraphProps {
+  projectId?: string;
+}
+
+export const CausalNodeGraph: React.FC<CausalNodeGraphProps> = ({ projectId = 'aurora' }) => {
+  const [nodes, setNodes] = useState<CausalNode[]>([]);
+  const [selectedNode, setSelectedNode] = useState<CausalNode | null>(null);
+  const [isLoading, setIsLoading] = useState<boolean>(true);
+  const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    let mounted = true;
+    setIsLoading(true);
+    setError(null);
+
+    apiClient.getFailureChain(projectId)
+      .then(res => {
+        if (mounted) {
+          const rawNodes = res?.nodes || [];
+          const mappedNodes: CausalNode[] = rawNodes.map((n: any) => ({
+            id: n.id,
+            label: n.label,
+            category: n.dimension || n.category || 'OPERATIONAL',
+            severity: n.severity || 'HIGH',
+            evidenceSnippet: n.evidence_snippet || n.evidenceSnippet || 'Corroborated by project telemetry citations.',
+            confidence: Math.round((n.confidence || 0.9) * 100),
+            relatedSignals: n.related_signals || n.relatedSignals || ['Active Bottleneck'],
+          }));
+
+          setNodes(mappedNodes);
+          if (mappedNodes.length > 0) {
+            setSelectedNode(mappedNodes[0]);
+          }
+          setIsLoading(false);
+        }
+      })
+      .catch(err => {
+        if (mounted) {
+          setError(err.message || 'Failed to load causal graph');
+          setIsLoading(false);
+        }
+      });
+
+    return () => { mounted = false; };
+  }, [projectId]);
+
+  if (isLoading) {
+    return (
+      <div className="p-16 rounded-2xl bg-card border border-border flex items-center justify-center">
+        <div className="flex items-center gap-3 text-muted-foreground font-mono text-sm">
+          <Loader2 className="w-5 h-5 text-primary animate-spin" />
+          <span>Synthesizing causal failure cascade graph...</span>
+        </div>
+      </div>
+    );
+  }
+
+  if (error || nodes.length === 0 || !selectedNode) {
+    return (
+      <div className="p-8 rounded-2xl bg-rose-500/10 border border-rose-500/30 text-rose-300 text-sm">
+        <p className="font-bold">Causal Failure Chain Unavailable</p>
+        <p className="text-xs mt-1 text-rose-400">{error || 'No causal nodes synthesized for this project yet.'}</p>
+      </div>
+    );
+  }
 
   return (
     <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
@@ -24,9 +87,10 @@ export const CausalNodeGraph: React.FC = () => {
         </div>
 
         <div className="flex flex-col items-center space-y-2">
-          {mockCausalNodes.map((node, index) => {
+          {nodes.map((node, index) => {
             const isSelected = selectedNode.id === node.id;
-            const isLast = index === mockCausalNodes.length - 1;
+            const isLast = index === nodes.length - 1;
+
 
             return (
               <React.Fragment key={node.id}>

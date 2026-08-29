@@ -1,25 +1,52 @@
 'use client';
 
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { useParams } from 'next/navigation';
-import { Compass, AlertOctagon, ArrowDown, Lightbulb, ArrowRight, ShieldCheck, Clock, CheckCircle } from 'lucide-react';
+import { Compass, AlertOctagon, ArrowDown, Lightbulb, ArrowRight, ShieldCheck, Clock, CheckCircle, Loader2 } from 'lucide-react';
 import { useApp } from '@/context/AppContext';
+import { apiClient } from '@/lib/api/client';
 
 export default function PredictionPage() {
   const params = useParams();
   const projectId = (params?.id as string) || 'aurora';
-  const { project } = useApp();
+  const { project: contextProject } = useApp();
+  const [predictionData, setPredictionData] = useState<any>(null);
+  const [isLoading, setIsLoading] = useState<boolean>(true);
 
-  const reasoningSteps = [
+  useEffect(() => {
+    let mounted = true;
+    apiClient.getPredictions(projectId)
+      .then(res => {
+        if (mounted) {
+          setPredictionData(res);
+          setIsLoading(false);
+        }
+      })
+      .catch(() => {
+        if (mounted) setIsLoading(false);
+      });
+    return () => { mounted = false; };
+  }, [projectId]);
+
+  const pred = predictionData?.prediction || predictionData || {};
+  const predictedFailureTitle = pred.predicted_failure || pred.predictedNextFailure || contextProject.predictedNextFailure || 'Missed Beta Release';
+  const riskScore = pred.risk_score || pred.failureRisk || contextProject.failureRisk || 82;
+  const confidence = Math.round((pred.confidence || (contextProject.predictionConfidence / 100) || 0.86) * 100);
+  const timeHorizon = pred.time_horizon || '4-6 Weeks';
+  const explanation = pred.explanation || 'Compounding build failures and activation drop-offs are accelerating velocity decay.';
+  const rawSteps = predictionData?.progression_steps || pred.progression_steps;
+
+  const reasoningSteps = rawSteps || [
     { title: 'Engineering Overload & Overtime Spikes (58 hrs/wk)', category: 'Operational Drag' },
     { title: 'Code Review Idle Latency Expands to 3.4 Days', category: 'Bottleneck' },
     { title: 'Testing Coverage Erosion (12 Suites Quarantined)', category: 'Quality Deficit' },
     { title: 'Deployment Pipeline Breakage Surges to 28.6%', category: 'CI/CD Paralysis' },
     { title: 'Compounding P1/P2 Bug Backlog (+311% Growth)', category: 'Regression Debt' },
     { title: 'Sprint Feature Velocity Declines by -38%', category: 'Delivery Drag' },
-    { title: 'Zero Slack Remaining for October 15 Beta Milestone', category: 'Milestone Breach' },
+    { title: `Zero Slack Remaining for ${timeHorizon} Milestone`, category: 'Milestone Breach' },
   ];
+
 
   return (
     <div className="space-y-8 max-w-4xl mx-auto">
@@ -63,20 +90,20 @@ export default function PredictionPage() {
                 Most Probable Failure Horizon
               </span>
               <h2 className="text-2xl font-black text-foreground tracking-tight">
-                {project.predictedNextFailure}
+                {predictedFailureTitle}
               </h2>
             </div>
           </div>
 
           <div className="flex items-center gap-3 font-mono">
             <div className="text-right">
-              <span className="text-[10px] text-muted-foreground uppercase block">Probability</span>
-              <span className="text-2xl font-extrabold text-rose-400">82%</span>
+              <span className="text-[10px] text-muted-foreground uppercase block">Risk Score</span>
+              <span className="text-2xl font-extrabold text-rose-400">{riskScore}%</span>
             </div>
             <div className="h-8 w-px bg-border" />
             <div className="text-right">
               <span className="text-[10px] text-muted-foreground uppercase block">Confidence</span>
-              <span className="text-2xl font-extrabold text-primary">{project.predictionConfidence}%</span>
+              <span className="text-2xl font-extrabold text-primary">{confidence}%</span>
             </div>
           </div>
         </div>
@@ -96,7 +123,7 @@ export default function PredictionPage() {
             Forecasted Causal Progression Chain
           </h3>
           <div className="space-y-2">
-            {reasoningSteps.map((step, idx) => (
+            {reasoningSteps.map((step: any, idx: number) => (
               <React.Fragment key={idx}>
                 <div className="flex items-center justify-between p-3.5 rounded-xl bg-surface-feed/70 border border-border/70 text-xs">
                   <div className="flex items-center gap-3">

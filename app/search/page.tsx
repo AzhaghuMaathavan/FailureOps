@@ -1,21 +1,43 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import Link from 'next/link';
-import { Search, Database, History, Lightbulb, Dna, ArrowRight, ShieldCheck, Filter } from 'lucide-react';
-import { mockHistoricalCases } from '@/data/mockHistoricalCases';
-import { mockProjects } from '@/data/mockProjects';
-import { mockMemoryEntries } from '@/data/mockMemory';
+import { Search, Database, History, Lightbulb, Dna, ArrowRight, ShieldCheck, Filter, Loader2 } from 'lucide-react';
 import { PrivacyBadge } from '@/components/common/PrivacyBadge';
 import { AppSidebar } from '@/components/layout/AppSidebar';
 import { TopHeader } from '@/components/layout/TopHeader';
+import { apiClient } from '@/lib/api/client';
 
 export default function GlobalSearchPage() {
   const [query, setQuery] = useState('expense tracker');
   const [selectedFilter, setSelectedFilter] = useState('ALL');
+  const [cases, setCases] = useState<any[]>([]);
+  const [memoryMatches, setMemoryMatches] = useState<any[]>([]);
+  const [isLoading, setIsLoading] = useState(false);
 
-  const cases = mockHistoricalCases;
-  const memory = mockMemoryEntries;
+  useEffect(() => {
+    let mounted = true;
+    setIsLoading(true);
+    const timeout = setTimeout(() => {
+      apiClient.search(query, selectedFilter)
+        .then(res => {
+          if (mounted) {
+            setCases(res?.historicalMatches || []);
+            setMemoryMatches(res?.organizationalMemoryMatches || []);
+            setIsLoading(false);
+          }
+        })
+        .catch(() => {
+          if (mounted) setIsLoading(false);
+        });
+    }, 250);
+
+    return () => {
+      mounted = false;
+      clearTimeout(timeout);
+    };
+  }, [query, selectedFilter]);
+
 
   return (
     <div className="min-h-screen flex w-full bg-background text-foreground">

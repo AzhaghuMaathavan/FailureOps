@@ -85,36 +85,64 @@ export const apiClient = {
     });
   },
 
-  // Evidence
-  async getEvidence(projectId: string = 'aurora'): Promise<EvidenceItem[]> {
-    return request<EvidenceItem[]>(`/api/evidence?projectId=${encodeURIComponent(projectId)}`);
+  // Evidence & Document Upload
+  async getEvidence(projectId: string = 'aurora', analysisId?: string): Promise<any> {
+    const q = analysisId ? `&analysisId=${encodeURIComponent(analysisId)}` : '';
+    return request<any>(`/api/evidence?projectId=${encodeURIComponent(projectId)}${q}`);
   },
 
-  // Signals
-  async getSignals(projectId: string = 'aurora'): Promise<Signal[]> {
-    return request<Signal[]>(`/api/signals?projectId=${encodeURIComponent(projectId)}`);
+  async uploadProjectFile(projectId: string, file: File, title?: string, documentType: string = 'PROJECT_DOC', description?: string) {
+    const formData = new FormData();
+    formData.append('file', file, file.name);
+    formData.append('projectId', projectId);
+    if (title) formData.append('title', title);
+    formData.append('documentType', documentType);
+    if (description) formData.append('description', description);
+
+    const response = await fetch('/api/evidence/upload', {
+      method: 'POST',
+      body: formData,
+    });
+
+    const body = await response.json().catch(() => ({ success: false, message: 'Upload parse error' }));
+    if (!response.ok || !body.success) {
+      throw new ApiError(body.message || 'File upload failed', response.status);
+    }
+    return body.data;
   },
 
   async uploadEvidenceMetadata(input: EvidenceUploadInput) {
-
     return request('/api/evidence/upload', {
       method: 'POST',
       body: JSON.stringify(input),
     });
   },
 
+  // Signals
+  async getSignals(projectId: string = 'aurora', analysisId?: string): Promise<Signal[]> {
+    const q = analysisId ? `&analysisId=${encodeURIComponent(analysisId)}` : '';
+    return request<Signal[]>(`/api/signals?projectId=${encodeURIComponent(projectId)}${q}`);
+  },
+
   // Analysis
-  async startAnalysis(projectId: string) {
-    return request<{ jobId: string; status: string }>('/api/analysis', {
+  async startAnalysis(projectId: string, reasoningDepth: string = 'DEEP') {
+    return request<{ jobId: string; analysisId: string; status: string; message?: string }>('/api/analysis', {
       method: 'POST',
-      body: JSON.stringify({ projectId }),
+      body: JSON.stringify({ projectId, reasoningDepth }),
     });
   },
 
-  async getAnalysisStatus(jobId: string) {
-    return request<{ jobId: string; status: string; stages: any[] }>(
-      `/api/analysis/status?jobId=${encodeURIComponent(jobId)}`
-    );
+  async getAnalysisStatus(jobId: string, projectId: string = 'aurora') {
+    return request<{
+      jobId: string;
+      analysisId: string;
+      projectId: string;
+      status: string;
+      currentStage?: string;
+      progressPercent?: number;
+      stages: any[];
+      resultSummary?: any;
+    }>(`/api/analysis/status?jobId=${encodeURIComponent(jobId)}&projectId=${encodeURIComponent(projectId)}`);
   },
 
   // Truth Engine
@@ -126,13 +154,21 @@ export const apiClient = {
   },
 
   // Failure DNA
-  async getFailureDNA(projectId: string = 'aurora'): Promise<FailureDNA> {
-    return request<FailureDNA>(`/api/dna?projectId=${encodeURIComponent(projectId)}`);
+  async getFailureDNA(projectId: string = 'aurora'): Promise<any> {
+    return request<any>(`/api/dna?projectId=${encodeURIComponent(projectId)}`);
   },
 
-  // Failure Radar
+  // Failure Radar & Causal Chain & Predictions
   async getRadarTelemetry(projectId: string = 'aurora') {
-    return request<any>(`/api/radar?projectId=${encodeURIComponent(projectId)}`);
+    return request<any>(`/api/radar?view=executive&projectId=${encodeURIComponent(projectId)}`);
+  },
+
+  async getFailureChain(projectId: string = 'aurora') {
+    return request<any>(`/api/radar?view=chain&projectId=${encodeURIComponent(projectId)}`);
+  },
+
+  async getPredictions(projectId: string = 'aurora') {
+    return request<any>(`/api/radar?view=predictions&projectId=${encodeURIComponent(projectId)}`);
   },
 
   // Global Search
@@ -143,12 +179,13 @@ export const apiClient = {
   },
 
   // Organizational Memory & Historical Cases
-  async getOrganizationalMemory(): Promise<OrganizationalMemoryEntry[]> {
-    return request<OrganizationalMemoryEntry[]>('/api/memory');
+  async getOrganizationalMemory(projectId: string = 'aurora', pattern?: string): Promise<any> {
+    const q = pattern ? `&pattern=${encodeURIComponent(pattern)}` : '';
+    return request<any>(`/api/memory?projectId=${encodeURIComponent(projectId)}${q}`);
   },
 
   async getHistoricalCases(projectId: string = 'aurora') {
-    return request<any>(`/api/memory?projectId=${encodeURIComponent(projectId)}`);
+    return request<any>(`/api/memory?view=historical&projectId=${encodeURIComponent(projectId)}`);
   },
 
   async saveOrganizationalMemory(entry: any): Promise<OrganizationalMemoryEntry> {
@@ -158,42 +195,33 @@ export const apiClient = {
     });
   },
 
-  // Predictions & Failure Chain
-  async getFailureChain(projectId: string = 'aurora') {
-    return request<any>(`/api/radar?projectId=${encodeURIComponent(projectId)}`);
-  },
-
-  async getPredictions(projectId: string = 'aurora') {
-    return request<any>(`/api/radar?projectId=${encodeURIComponent(projectId)}`);
-  },
-
-  // What-if Simulations & Experiments
-  async getExperiments(projectId: string = 'aurora'): Promise<any> {
-    return request<any>(`/api/experiments?projectId=${encodeURIComponent(projectId)}`);
-  },
-
-  async runSimulation(projectId: string = 'aurora', scenarioId: string = 'simplify_onboarding') {
-    return request<any>('/api/experiments', {
-      method: 'POST',
-      body: JSON.stringify({ projectId, scenarioId }),
-    });
-  },
-
   // Member 4: Interventions, Experiments, Outcomes & Radar
   async getInterventions(projectId: string = 'aurora') {
     return request<any>(`/api/interventions?projectId=${encodeURIComponent(projectId)}`);
   },
 
+  async getExperiments(projectId: string = 'aurora'): Promise<any> {
+    return request<any>(`/api/experiments?projectId=${encodeURIComponent(projectId)}`);
+  },
+
   async startExperiment(projectId: string = 'aurora', experimentId: string = 'exp_01') {
-    return request<any>(`/api/experiments?action=start&projectId=${encodeURIComponent(projectId)}&experimentId=${encodeURIComponent(experimentId)}`, {
+    return request<any>('/api/experiments', {
       method: 'POST',
+      body: JSON.stringify({ projectId, experimentId, action: 'start' }),
     });
   },
 
-  async verifyExperiment(projectId: string = 'aurora', experimentId: string = 'exp_01', metrics?: any) {
-    return request<any>(`/api/experiments?action=verify&projectId=${encodeURIComponent(projectId)}&experimentId=${encodeURIComponent(experimentId)}`, {
+  async verifyExperiment(projectId: string = 'aurora', experimentId: string = 'exp_01', measuredMetrics?: any) {
+    return request<any>('/api/experiments', {
       method: 'POST',
-      body: JSON.stringify({ metrics }),
+      body: JSON.stringify({ projectId, experimentId, action: 'verify', measuredMetrics }),
+    });
+  },
+
+  async runSimulation(projectId: string = 'aurora', scenarioId: string = 'simplify_onboarding') {
+    return request<any>('/api/experiments', {
+      method: 'POST',
+      body: JSON.stringify({ projectId, scenarioId, action: 'simulate' }),
     });
   },
 
@@ -204,6 +232,7 @@ export const apiClient = {
   async getExecutiveRadarSnapshot(projectId: string = 'aurora') {
     return request<any>(`/api/radar?view=executive&projectId=${encodeURIComponent(projectId)}`);
   },
+
 };
 
 

@@ -1,10 +1,14 @@
 'use client';
 
 import React from 'react';
+import { useParams } from 'next/navigation';
 import { GitFork, ShieldCheck } from 'lucide-react';
 import { CausalNodeGraph } from '@/components/causal/CausalNodeGraph';
 
 export default function CausalAnalysisPage() {
+  const params = useParams();
+  const projectId = (params?.id as string) || 'aurora';
+
   return (
     <div className="space-y-6">
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-6 border-b border-border">
@@ -14,7 +18,7 @@ export default function CausalAnalysisPage() {
               Causal Graph Engine
             </span>
             <span className="px-2 py-0.5 rounded-full text-[10px] font-mono bg-purple-500/10 text-purple-400 border border-purple-500/30">
-              7 Interconnected Nodes
+              Live Causal Topology
             </span>
           </div>
           <h1 className="text-2xl lg:text-3xl font-extrabold text-foreground tracking-tight mt-1">
@@ -31,7 +35,8 @@ export default function CausalAnalysisPage() {
         </div>
       </div>
 
-      <CausalNodeGraph />
+      <CausalNodeGraph projectId={projectId} />
     </div>
   );
 }
+

@@ -23,10 +23,35 @@ import { TopHeader } from '@/components/layout/TopHeader';
 import { StatCard } from '@/components/common/StatCard';
 import { RiskBadge } from '@/components/common/RiskBadge';
 import { PrivacyBadge } from '@/components/common/PrivacyBadge';
-import { mockProjects } from '@/data/mockProjects';
+import { apiClient } from '@/lib/api/client';
+import { Project } from '@/types';
 
 export default function GlobalDashboardPage() {
   const router = useRouter();
+  const [projects, setProjects] = React.useState<Project[]>([]);
+  const [isLoading, setIsLoading] = React.useState<boolean>(true);
+  const [error, setError] = React.useState<string | null>(null);
+
+  React.useEffect(() => {
+    let mounted = true;
+    apiClient.getProjects()
+      .then(data => {
+        if (mounted) {
+          setProjects(data || []);
+          setIsLoading(false);
+        }
+      })
+      .catch(err => {
+        if (mounted) {
+          setError(err.message || 'Failed to load projects');
+          setIsLoading(false);
+        }
+      });
+    return () => { mounted = false; };
+  }, []);
+
+  const atRiskCount = projects.filter(p => p.health === 'CRITICAL' || p.health === 'AT_RISK').length;
+
 
   return (
     <div className="min-h-screen flex w-full bg-background text-foreground">
@@ -65,14 +90,14 @@ export default function GlobalDashboardPage() {
           <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-3">
             <StatCard
               label="Active Projects"
-              value="3"
+              value={isLoading ? "..." : String(projects.length)}
               subtext="Monitored in Enclave"
               icon={Building2}
             />
             <StatCard
               label="Projects at Risk"
-              value="2"
-              trend="67% of Portfolio"
+              value={isLoading ? "..." : String(atRiskCount)}
+              trend={projects.length > 0 ? `${Math.round((atRiskCount / projects.length) * 100)}% of Portfolio` : "0%"}
               isRiskTrend
               trendDirection="up"
               icon={AlertTriangle}
@@ -89,7 +114,7 @@ export default function GlobalDashboardPage() {
             />
             <StatCard
               label="Predicted Failures"
-              value="3"
+              value={isLoading ? "..." : String(projects.filter(p => p.predictedNextFailure).length)}
               subtext="High Probability"
               icon={Compass}
               accentColor="text-purple-400"
@@ -116,16 +141,37 @@ export default function GlobalDashboardPage() {
                 </p>
               </div>
               <span className="text-xs font-mono text-muted-foreground">
-                Showing 3 of 3 Active Enclaves
+                Showing {projects.length} Active Enclaves
               </span>
             </div>
 
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
-              {mockProjects.map(p => {
-                const isCritical = p.health === 'CRITICAL';
-                const isAtRisk = p.health === 'AT_RISK';
+            {isLoading ? (
+              <div className="p-12 rounded-2xl bg-card border border-border flex items-center justify-center">
+                <div className="flex items-center gap-3 text-muted-foreground font-mono text-sm">
+                  <div className="w-4 h-4 border-2 border-primary border-t-transparent rounded-full animate-spin" />
+                  <span>Loading projects from backend database...</span>
+                </div>
+              </div>
+            ) : error ? (
+              <div className="p-8 rounded-2xl bg-rose-500/10 border border-rose-500/30 text-rose-300 text-sm">
+                <p className="font-bold">Failed to load projects</p>
+                <p className="text-xs mt-1 text-rose-400">{error}</p>
+              </div>
+            ) : projects.length === 0 ? (
+              <div className="p-12 rounded-2xl bg-card border border-border text-center">
+                <p className="text-sm font-bold text-foreground">No projects registered yet</p>
+                <p className="text-xs text-muted-foreground mt-1">Register your first product to begin failure risk analysis</p>
+                <Link href="/register" className="inline-block mt-4 px-4 py-2 bg-primary text-white text-xs font-bold rounded-xl">
+                  Register Product
+                </Link>
+              </div>
+            ) : (
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
+                {projects.map(p => {
+                  const isCritical = p.health === 'CRITICAL';
+                  const isAtRisk = p.health === 'AT_RISK';
 
-                return (
+                  return (
                   <div
                     key={p.id}
                     onClick={() => router.push(`/projects/${p.id}/overview`)}
@@ -216,7 +262,9 @@ export default function GlobalDashboardPage() {
                 );
               })}
             </div>
-          </div>
+          )}
+        </div>
+
 
           {/* Quick Deep Link into Demo Flow */}
           <div className="p-6 rounded-2xl bg-surface-feed border border-border/80 flex flex-col md:flex-row items-center justify-between gap-4">

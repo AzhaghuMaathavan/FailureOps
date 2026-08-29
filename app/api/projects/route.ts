@@ -4,8 +4,7 @@ import { requireAuth } from '@/lib/server/auth';
 import { checkRateLimit } from '@/lib/server/rate-limit';
 import { apiSuccess, apiError, apiRateLimitExceeded } from '@/lib/server/response';
 import { ProjectRegistrationSchema } from '@/lib/validation/schemas';
-import { mockProjects } from '@/data/mockProjects';
-import { Project } from '@/types';
+import { serverConfig } from '@/lib/server/config';
 
 export async function GET(req: NextRequest) {
   try {
@@ -13,30 +12,22 @@ export async function GET(req: NextRequest) {
     const rate = checkRateLimit(req, 'general');
     if (!rate.success) return apiRateLimitExceeded(rate.resetSeconds);
 
-    // Multi-tenant filter: Only return projects this organization is authorized to access
-    const userProjects = mockProjects.filter(
-      p => session.allowedProjectIds.includes(p.id) || p.privacyLevel === 'PUBLIC'
-    );
+    const resp = await fetch(`${serverConfig.ragInternalUrl}/api/v1/projects`, {
+      headers: {
+        'x-organization-id': session.organizationId,
+        'x-user-id': session.userId,
+      },
+      cache: 'no-store',
+    });
 
-    // Data minimization: Return sanitized project summaries
-    const sanitized = userProjects.map(p => ({
-      id: p.id,
-      name: p.name,
-      codeName: p.codeName,
-      company: p.company,
-      description: p.description,
-      industry: p.industry,
-      stage: p.stage,
-      health: p.health,
-      failureRisk: p.failureRisk,
-      riskTrend: p.riskTrend,
-      predictedNextFailure: p.predictedNextFailure,
-      privacyLevel: p.privacyLevel,
-    }));
+    if (!resp.ok) {
+      throw new Error(`Backend returned HTTP ${resp.status}`);
+    }
 
-    return apiSuccess(sanitized);
+    const projects = await resp.json();
+    return apiSuccess(projects);
   } catch (error) {
-    return apiError(error, 'Unable to retrieve authorized project portfolio.');
+    return apiError(error, 'Unable to retrieve authorized project portfolio from backend.');
   }
 }
 
@@ -49,31 +40,25 @@ export async function POST(req: NextRequest) {
     const body = await req.json();
     const validated = ProjectRegistrationSchema.parse(body);
 
-    const newProject: Project = {
-      id: validated.name.toLowerCase().replace(/[^a-z0-9]/g, '-'),
-      name: validated.name,
-      codeName: `PROJECT ${validated.name.toUpperCase().slice(0, 6)}`,
-      company: validated.company,
-      description: validated.description,
-      industry: validated.industry,
-      stage: validated.stage,
-      targetUsers: validated.targetUsers,
-      expectedLaunchDate: validated.expectedLaunchDate,
-      health: 'AT_RISK',
-      failureRisk: 82,
-      riskTrend: '+24% over 4 weeks',
-      predictedNextFailure: 'Missed Beta Release',
-      predictionConfidence: 86,
-      historicalSimilarity: 89,
-      privacyLevel: validated.privacyLevel,
-      sourcesUploaded: validated.sourcesUploaded,
-      lastAnalyzedAt: 'Just now',
-      activeFailureSeedsCount: 4,
-    };
+    const resp = await fetch(`${serverConfig.ragInternalUrl}/api/v1/projects`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'x-organization-id': session.organizationId,
+        'x-user-id': session.userId,
+      },
+      body: JSON.stringify(validated),
+    });
 
-    mockProjects.push(newProject);
-    return apiSuccess(newProject, 201);
+    if (!resp.ok) {
+      const errDetail = await resp.text();
+      throw new Error(`Backend registration failed (${resp.status}): ${errDetail}`);
+    }
+
+    const createdProject = await resp.json();
+    return apiSuccess(createdProject, 201);
   } catch (error) {
-    return apiError(error, 'Failed to register project in enclave.');
+    return apiError(error, 'Failed to register project in database.');
   }
 }
+

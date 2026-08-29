@@ -22,8 +22,8 @@ interface ServerConfig {
 }
 
 export const serverConfig: ServerConfig = {
-  backendInternalUrl: process.env.BACKEND_INTERNAL_URL || 'http://internal-backend.failureops.local:8080',
-  ragInternalUrl: process.env.RAG_INTERNAL_URL || 'http://internal-rag-service.failureops.local:8000',
+  backendInternalUrl: process.env.BACKEND_INTERNAL_URL || 'http://127.0.0.1:8000',
+  ragInternalUrl: process.env.RAG_INTERNAL_URL || 'http://127.0.0.1:8000',
   databaseUrl: process.env.DATABASE_URL || 'postgresql://app_user:placeholder@internal-db.failureops.local:5432/failureops',
   llmApiKey: process.env.LLM_API_KEY || 'sk_dev_mock_key_server_only',
   authSecret: process.env.AUTH_SECRET || 'dev_secret_key_change_in_production_32char',

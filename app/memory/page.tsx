@@ -1,23 +1,47 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import Link from 'next/link';
-import { Database, Search, PlusCircle, ShieldCheck, Tag } from 'lucide-react';
+import { Database, Search, PlusCircle, ShieldCheck, Tag, Loader2 } from 'lucide-react';
 import { useApp } from '@/context/AppContext';
 import { MemoryCard } from '@/components/memory/MemoryCard';
 import { AppSidebar } from '@/components/layout/AppSidebar';
 import { TopHeader } from '@/components/layout/TopHeader';
+import { apiClient } from '@/lib/api/client';
+import { OrganizationalMemoryEntry } from '@/types';
 
 export default function OrganizationalMemoryPage() {
-  const { memoryEntries } = useApp();
+  const { memoryEntries: contextEntries } = useApp();
+  const [entries, setEntries] = useState<OrganizationalMemoryEntry[]>(contextEntries);
   const [searchQuery, setSearchQuery] = useState('');
+  const [isLoading, setIsLoading] = useState(true);
 
-  const filteredEntries = memoryEntries.filter(
+  useEffect(() => {
+    let mounted = true;
+    apiClient.getOrganizationalMemory('aurora')
+      .then(res => {
+        if (mounted) {
+          const rawEntries = res?.entries || (Array.isArray(res) ? res : []);
+          if (rawEntries.length > 0) {
+            setEntries(rawEntries);
+          }
+          setIsLoading(false);
+        }
+      })
+      .catch(() => {
+        if (mounted) setIsLoading(false);
+      });
+    return () => { mounted = false; };
+  }, []);
+
+  const filteredEntries = entries.filter(
     m =>
+      !searchQuery ||
       m.pattern.toLowerCase().includes(searchQuery.toLowerCase()) ||
       m.intervention.toLowerCase().includes(searchQuery.toLowerCase()) ||
       m.tags.some(t => t.toLowerCase().includes(searchQuery.toLowerCase()))
   );
+
 
   return (
     <div className="min-h-screen flex w-full bg-background text-foreground">
@@ -33,8 +57,9 @@ export default function OrganizationalMemoryPage() {
                   Institutional Vault
                 </span>
                 <span className="px-2.5 py-0.5 rounded-full text-xs font-mono bg-emerald-500/10 text-emerald-400 border border-emerald-500/30">
-                  {memoryEntries.length} Validated Learnings
+                  {entries.length} Validated Learnings
                 </span>
+
               </div>
               <h1 className="text-2xl lg:text-3xl font-extrabold text-foreground tracking-tight mt-1">
                 Organizational Memory

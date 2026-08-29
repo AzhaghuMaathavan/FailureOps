@@ -30,18 +30,34 @@ export default function ProjectOverviewPage() {
   const router = useRouter();
   const params = useParams();
   const projectId = (params?.id as string) || 'aurora';
-  const { project } = useApp();
+  const { project: contextProject, setProject } = useApp();
+  const [project, setCurrentProject] = React.useState<any>(contextProject);
   const [signals, setSignals] = React.useState<Signal[]>([]);
+  const [isLoading, setIsLoading] = React.useState<boolean>(true);
 
   React.useEffect(() => {
     let isMounted = true;
-    apiClient.getSignals(projectId).then(res => {
-      if (isMounted && res && res.length > 0) {
-        setSignals(res);
+    setIsLoading(true);
+
+    Promise.all([
+      apiClient.getProject(projectId).catch(() => null),
+      apiClient.getSignals(projectId).catch(() => []),
+    ]).then(([projData, sigs]) => {
+      if (isMounted) {
+        if (projData && projData.id) {
+          setCurrentProject(projData);
+          setProject(projData);
+        }
+        if (sigs) {
+          setSignals(sigs);
+        }
+        setIsLoading(false);
       }
-    }).catch(() => {});
+    });
+
     return () => { isMounted = false; };
   }, [projectId]);
+
 
 
   return (

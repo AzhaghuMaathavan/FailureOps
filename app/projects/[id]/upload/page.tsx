@@ -82,27 +82,55 @@ export default function EvidenceUploadPage() {
     },
   ];
 
-  const handleSimulateUpload = async (cat: EvidenceSourceType, filename: string) => {
-    setActiveFileCategory(cat);
+  const [uploadError, setUploadError] = useState<string | null>(null);
+  const fileInputRef = React.useRef<HTMLInputElement | null>(null);
+  const [selectedUploadCategory, setSelectedUploadCategory] = useState<EvidenceSourceType>('PRODUCT_PLAN');
+
+  const handleRealFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
     setIsProcessing(true);
+    setUploadError(null);
+    setActiveFileCategory(selectedUploadCategory);
 
-    await simulateFileUpload(filename, cat, progress => {
+    try {
+      // Stream real file to FastAPI backend
+      const { apiClient } = await import('@/lib/api/client');
+      await apiClient.uploadProjectFile(projectId, file, file.name, selectedUploadCategory);
+
+      // Track progress
       setProgressList(prev => [
-        ...prev.filter(p => p.file !== filename),
-        progress,
+        ...prev.filter(p => p.file !== file.name),
+        {
+          file: file.name,
+          category: selectedUploadCategory,
+          stage: 'COMPLETED',
+          progress: 100,
+        },
       ]);
-    });
+      addUploadedFile(selectedUploadCategory, file.name);
+    } catch (err: any) {
+      setUploadError(err.message || 'File upload failed');
+    } finally {
+      setIsProcessing(false);
+      if (fileInputRef.current) fileInputRef.current.value = '';
+    }
+  };
 
-    addUploadedFile(cat, filename);
-    setIsProcessing(false);
+  const triggerFileInput = (cat: EvidenceSourceType) => {
+    setSelectedUploadCategory(cat);
+    if (fileInputRef.current) {
+      fileInputRef.current.click();
+    }
   };
 
   const handleLoadAuroraDefaults = async () => {
     setIsProcessing(true);
+    setUploadError(null);
     for (const cat of categories) {
       addUploadedFile(cat.type, cat.defaultFile);
     }
-    // Mock fast batch indexing
     setProgressList(
       categories.map(c => ({
         file: c.defaultFile,
@@ -113,6 +141,7 @@ export default function EvidenceUploadPage() {
     );
     setIsProcessing(false);
   };
+
 
   const totalFiles = Object.values(uploadedFiles).reduce((acc, curr) => acc + curr.length, 0);
 
@@ -221,9 +250,9 @@ export default function EvidenceUploadPage() {
               {/* Upload Action Button */}
               <div className="mt-5 pt-3 border-t border-border/50">
                 <button
-                  onClick={() => handleSimulateUpload(cat.type, cat.defaultFile)}
+                  onClick={() => triggerFileInput(cat.type)}
                   disabled={isProcessing}
-                  className="w-full py-2 px-3 rounded-xl bg-surface-feed hover:bg-card border border-border hover:border-primary/50 text-xs font-semibold text-foreground transition-all flex items-center justify-center gap-2"
+                  className="w-full py-2 px-3 rounded-xl bg-surface-feed hover:bg-card border border-border hover:border-primary/50 text-xs font-semibold text-foreground transition-all flex items-center justify-center gap-2 cursor-pointer"
                 >
                   {isCurrentActive ? (
                     <>
@@ -242,6 +271,21 @@ export default function EvidenceUploadPage() {
           );
         })}
       </div>
+
+      <input
+        type="file"
+        ref={fileInputRef}
+        onChange={handleRealFileUpload}
+        className="hidden"
+        accept=".pdf,.docx,.csv,.xlsx,.json,.txt,.md"
+      />
+
+      {uploadError && (
+        <div className="p-3.5 rounded-xl bg-rose-500/10 border border-rose-500/30 text-rose-300 text-xs font-mono">
+          {uploadError}
+        </div>
+      )}
+
 
       {/* Upload Processing Visualization Component */}
       <ProcessingTimeline

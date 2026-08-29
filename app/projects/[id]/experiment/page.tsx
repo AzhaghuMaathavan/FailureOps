@@ -41,7 +41,8 @@ export default function ExperimentPage() {
         </Link>
       </div>
 
-      <ExperimentWidget experiment={experiment} />
+      <ExperimentWidget experiment={experiment} projectId={projectId} />
+
     </div>
   );
 }

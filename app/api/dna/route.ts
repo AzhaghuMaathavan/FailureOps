@@ -4,8 +4,6 @@ import { requireAuth } from '@/lib/server/auth';
 import { authorizeProjectAccess } from '@/lib/server/authorization';
 import { checkRateLimit } from '@/lib/server/rate-limit';
 import { apiSuccess, apiError, apiRateLimitExceeded } from '@/lib/server/response';
-import { getFailureDNA } from '@/data/mockFailureDNA';
-
 import { serverConfig } from '@/lib/server/config';
 
 export async function GET(req: NextRequest) {
@@ -19,33 +17,26 @@ export async function GET(req: NextRequest) {
 
     authorizeProjectAccess(session, projectId);
 
-    // Attempt to query real backend microservice
-    try {
-      const backendResp = await fetch(
-        `${serverConfig.ragInternalUrl}/api/v1/projects/${encodeURIComponent(projectId)}/failure-dna`,
-        {
-          headers: {
-            'x-organization-id': session.organizationId,
-            'x-user-id': session.userId,
-          },
-          signal: AbortSignal.timeout(3000),
-        }
-      );
-
-      if (backendResp.ok) {
-        const dnaData = await backendResp.json();
-        if (dnaData && dnaData.dimensions && dnaData.dimensions.length > 0) {
-          return apiSuccess(dnaData);
-        }
+    const backendResp = await fetch(
+      `${serverConfig.ragInternalUrl}/api/v1/projects/${encodeURIComponent(projectId)}/failure-dna`,
+      {
+        headers: {
+          'x-organization-id': session.organizationId,
+          'x-user-id': session.userId,
+        },
+        cache: 'no-store',
       }
-    } catch {
-      // Backend offline, proceed to fallback
+    );
+
+    if (!backendResp.ok) {
+      throw new Error(`Backend Failure DNA returned HTTP ${backendResp.status}`);
     }
 
-    const dna = getFailureDNA(projectId);
-    return apiSuccess(dna);
+    const dnaData = await backendResp.json();
+    return apiSuccess(dnaData);
   } catch (error) {
     return apiError(error, 'Unable to retrieve Failure DNA profile.');
   }
 }
+
 

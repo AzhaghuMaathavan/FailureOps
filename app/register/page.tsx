@@ -61,30 +61,34 @@ export default function RegisterProductPage() {
     }
   };
 
-  const handleFinish = () => {
-    setProject({
-      id: 'aurora',
-      name: productName,
-      codeName: `PROJECT ${productName.toUpperCase().slice(0, 6)}`,
-      company: companyName,
-      description,
-      industry,
-      stage,
-      targetUsers,
-      expectedLaunchDate,
-      health: 'AT_RISK',
-      failureRisk: 82,
-      riskTrend: '+24% over 4 weeks',
-      predictedNextFailure: 'Missed Beta Release',
-      predictionConfidence: 86,
-      historicalSimilarity: 89,
-      privacyLevel,
-      sourcesUploaded: selectedSources,
-      lastAnalyzedAt: 'Just now',
-      activeFailureSeedsCount: 4,
-    });
-    router.push('/projects/aurora/upload');
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [submitError, setSubmitError] = useState<string | null>(null);
+
+  const handleFinish = async () => {
+    setIsSubmitting(true);
+    setSubmitError(null);
+    try {
+      const { apiClient } = await import('@/lib/api/client');
+      const created = await apiClient.registerProject({
+        name: productName,
+        company: companyName,
+        description,
+        industry,
+        stage,
+        targetUsers,
+        expectedLaunchDate,
+        privacyLevel,
+        sourcesUploaded: selectedSources,
+      });
+
+      setProject(created);
+      router.push(`/projects/${created.id}/upload`);
+    } catch (err: any) {
+      setSubmitError(err.message || 'Failed to register project in database.');
+      setIsSubmitting(false);
+    }
   };
+
 
   const evidenceOptions = [
     {
@@ -430,6 +434,12 @@ export default function RegisterProductPage() {
             <div />
           )}
 
+          {submitError && (
+            <div className="p-3.5 rounded-xl bg-rose-500/10 border border-rose-500/30 text-rose-300 text-xs font-mono">
+              {submitError}
+            </div>
+          )}
+
           {step < 3 ? (
             <button
               onClick={() => setStep(step + 1)}
@@ -441,10 +451,11 @@ export default function RegisterProductPage() {
           ) : (
             <button
               onClick={handleFinish}
-              className="inline-flex items-center gap-2 px-6 py-2.5 rounded-xl bg-primary hover:bg-primary-hover text-white text-xs font-bold tracking-wide transition-all shadow-[0_0_20px_-5px_rgba(255,122,0,0.4)]"
+              disabled={isSubmitting}
+              className="inline-flex items-center gap-2 px-6 py-2.5 rounded-xl bg-primary hover:bg-primary-hover disabled:opacity-50 text-white text-xs font-bold tracking-wide transition-all shadow-[0_0_20px_-5px_rgba(255,122,0,0.4)]"
             >
               <FolderPlus className="w-4 h-4" />
-              <span>Register & Build Evidence Base</span>
+              <span>{isSubmitting ? 'Registering in Database...' : 'Register & Build Evidence Base'}</span>
             </button>
           )}
         </div>
