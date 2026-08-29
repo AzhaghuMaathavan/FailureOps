@@ -153,9 +153,8 @@ def compress_tabular_evidence(evidence: List[Dict[str, Any]], targets: List[str]
     for chunk in evidence:
         content = chunk.get("content", "")
         lines = content.split("\n")
-        
-        # If not tabular enough (few lines), keep as is
-        if len(lines) < 3:
+        looks_tabular = bool(chunk.get("is_table")) or content.count("|") >= 2 or len(lines) >= 8
+        if not looks_tabular:
             compressed_evidence.append(chunk)
             continue
             
