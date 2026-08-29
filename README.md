@@ -6,11 +6,11 @@ FailureOps is an end-to-end organizational failure intelligence system that cont
 
 ## 🌐 Live Production Deployment
 
-- **Frontend Application**: [http://3.110.185.102/](http://3.110.185.102/)
-- **Executive Failure Radar**: [http://3.110.185.102/projects/aurora/radar](http://3.110.185.102/projects/aurora/radar)
-- **Prioritized Interventions**: [http://3.110.185.102/projects/aurora/interventions](http://3.110.185.102/projects/aurora/interventions)
-- **FastAPI API Engine**: [http://3.110.185.102/api/v1/](http://3.110.185.102/api/v1/)
-- **Interactive OpenAPI Documentation**: [http://3.110.185.102/docs](http://3.110.185.102/docs)
+- **Frontend Application**: [https://failureops.shyxon.com/](https://failureops.shyxon.com/)
+- **Executive Failure Radar**: [https://failureops.shyxon.com/projects/aurora/radar](https://failureops.shyxon.com/projects/aurora/radar)
+- **Prioritized Interventions**: [https://failureops.shyxon.com/projects/aurora/interventions](https://failureops.shyxon.com/projects/aurora/interventions)
+- **FastAPI API Engine**: [https://backendops.shyxon.com/](https://backendops.shyxon.com/)
+- **Interactive OpenAPI Documentation**: [https://backendops.shyxon.com/docs](https://backendops.shyxon.com/docs)
 
 ---
 
