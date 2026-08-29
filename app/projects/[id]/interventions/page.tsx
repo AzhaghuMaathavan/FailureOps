@@ -80,12 +80,12 @@ export default function InterventionsPage() {
           {interventions.map((item: any) => {
             const isPydantic = !!item.intervention_id;
 
-          const prioScore = item.priority_score || item.historicalEvidenceStrength || 85;
+          const prioScore = item.priority_score ?? item.historicalEvidenceStrength ?? 80;
           const prioLvl = item.priority || 'HIGH';
           const title = item.title;
           const summary = item.problem_addressed || item.summary;
           const actions = item.action_steps || item.actionItems || [];
-          const evidenceIds = item.evidence_ids || ['#ev_102', '#ev_118'];
+          const evidenceIds = item.evidence_ids || [];
           const breakdown = item.priority_breakdown;
 
           return (
@@ -128,19 +128,21 @@ export default function InterventionsPage() {
                 </div>
 
                 {/* Evidence Lineage */}
-                <div className="mt-4 flex flex-wrap items-center gap-1.5">
-                  <span className="text-[10px] font-mono text-muted-foreground uppercase">Grounding:</span>
-                  {evidenceIds.map((eid: string) => (
-                    <span key={eid} className="px-2 py-0.5 rounded-md text-[10px] font-mono bg-surface-feed border border-border text-primary">
-                      {eid}
-                    </span>
-                  ))}
-                </div>
+                {evidenceIds.length > 0 && (
+                  <div className="mt-4 flex flex-wrap items-center gap-1.5">
+                    <span className="text-[10px] font-mono text-muted-foreground uppercase">Grounding:</span>
+                    {evidenceIds.map((eid: string) => (
+                      <span key={eid} className="px-2 py-0.5 rounded-md text-[10px] font-mono bg-surface-feed border border-border text-primary">
+                        {eid}
+                      </span>
+                    ))}
+                  </div>
+                )}
               </div>
 
               <div className="mt-5 pt-4 border-t border-border flex items-center justify-between">
                 <span className="text-xs font-mono text-emerald-400 font-semibold">
-                  Expected Reduction: -{item.expected_risk_reduction || 22} pts
+                  Expected Reduction: -{item.expected_risk_reduction || 15} pts
                 </span>
                 <span className="text-[11px] font-mono text-muted-foreground">
                   Owner: {item.owner_role || 'Engineering Lead'}
@@ -148,6 +150,7 @@ export default function InterventionsPage() {
               </div>
             </div>
           );
+
         })}
       </div>
     )}

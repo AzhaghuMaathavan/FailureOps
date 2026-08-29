@@ -31,20 +31,17 @@ export default function FailureRadarPage() {
     loadRadar();
   }, [projectId]);
 
-  const overallRisk = snapshot?.overall_risk_score || 78;
-  const overallHealth = snapshot?.overall_health || 'CRITICAL';
-  const velocity = snapshot?.risk_velocity || 'DETERIORATING';
-  const topRisks = snapshot?.top_failure_risks || [
-    { rank: 1, name: 'Technical Pipeline Stress', dimension: 'Technical', risk_level: 'CRITICAL', risk_score: 82, confidence: 0.94, primary_evidence_id: '#ev_102' },
-    { rank: 2, name: 'Adoption Gate Friction', dimension: 'Adoption', risk_level: 'CRITICAL', risk_score: 85, confidence: 0.90, primary_evidence_id: '#ev_201' },
-    { rank: 3, name: 'Operational Overload', dimension: 'Operational', risk_level: 'HIGH', risk_score: 74, confidence: 0.88, primary_evidence_id: '#ev_301' }
-  ];
-  const predictedFailure = snapshot?.predicted_next_failure || 'Missed Release Milestone';
-  const recommendedAction = snapshot?.recommended_primary_action || 'Stabilize CI/CD Pipeline & Merge Queue';
-  const primaryPriority = snapshot?.primary_action_priority || 91;
-  const activeExpTitle = snapshot?.active_experiment_title || 'CI Pipeline Stabilization Sprint';
-  const activeExpProgress = snapshot?.active_experiment_progress || 60;
-  const recoveryDelta = snapshot?.best_historical_recovery_delta || 'Release delays ↓ 43% (Project Phoenix)';
+  const overallRisk = snapshot?.overall_risk_score ?? snapshot?.executive_summary?.overall_risk_score ?? 0;
+  const overallHealth = snapshot?.overall_health || snapshot?.executive_summary?.health_status || 'WATCH';
+  const velocity = snapshot?.risk_velocity || snapshot?.executive_summary?.risk_velocity || 'STABLE';
+  const topRisks = snapshot?.top_failure_risks || snapshot?.top_risks || [];
+  const predictedFailure = snapshot?.predicted_next_failure || snapshot?.executive_summary?.top_failure_risk || 'No Immediate Failure Predicted';
+  const recommendedAction = snapshot?.recommended_primary_action || snapshot?.executive_summary?.primary_recommended_action || 'Review Evidence and Active Signals';
+  const primaryPriority = snapshot?.primary_action_priority || 80;
+  const activeExpTitle = snapshot?.active_experiment_title || 'Progressive Recovery Experiment';
+  const activeExpProgress = snapshot?.active_experiment_progress || 0;
+  const recoveryDelta = snapshot?.best_historical_recovery_delta || 'Historical benchmark matched in memory';
+
 
   return (
     <div className="space-y-8">

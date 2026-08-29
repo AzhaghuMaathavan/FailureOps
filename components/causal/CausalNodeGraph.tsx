@@ -63,14 +63,27 @@ export const CausalNodeGraph: React.FC<CausalNodeGraphProps> = ({ projectId = 'a
     );
   }
 
-  if (error || nodes.length === 0 || !selectedNode) {
+  if (error) {
     return (
       <div className="p-8 rounded-2xl bg-rose-500/10 border border-rose-500/30 text-rose-300 text-sm">
-        <p className="font-bold">Causal Failure Chain Unavailable</p>
-        <p className="text-xs mt-1 text-rose-400">{error || 'No causal nodes synthesized for this project yet.'}</p>
+        <p className="font-bold">Unable to Load Causal Graph</p>
+        <p className="text-xs mt-1 text-rose-400">{error}</p>
       </div>
     );
   }
+
+  if (nodes.length === 0 || !selectedNode) {
+    return (
+      <div className="p-12 rounded-2xl bg-card border border-border text-center space-y-3">
+        <GitFork className="w-8 h-8 text-muted-foreground mx-auto opacity-60" />
+        <p className="text-base font-bold text-foreground">No Causal Failure Chain Available Yet</p>
+        <p className="text-xs text-muted-foreground max-w-md mx-auto leading-relaxed">
+          Upload project documents and run analysis to synthesize empirical causal failure cascades from extracted evidence and signal correlations.
+        </p>
+      </div>
+    );
+  }
+
 
   return (
     <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">

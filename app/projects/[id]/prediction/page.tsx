@@ -29,23 +29,63 @@ export default function PredictionPage() {
     return () => { mounted = false; };
   }, [projectId]);
 
-  const pred = predictionData?.prediction || predictionData || {};
-  const predictedFailureTitle = pred.predicted_failure || pred.predictedNextFailure || contextProject.predictedNextFailure || 'Missed Beta Release';
-  const riskScore = pred.risk_score || pred.failureRisk || contextProject.failureRisk || 82;
-  const confidence = Math.round((pred.confidence || (contextProject.predictionConfidence / 100) || 0.86) * 100);
-  const timeHorizon = pred.time_horizon || '4-6 Weeks';
-  const explanation = pred.explanation || 'Compounding build failures and activation drop-offs are accelerating velocity decay.';
-  const rawSteps = predictionData?.progression_steps || pred.progression_steps;
+  const pred = predictionData?.prediction || predictionData || null;
+  const isAvailable = pred && pred.predicted_failure && pred.predicted_failure !== 'No Failure Predicted (Awaiting Analysis)' && pred.status !== 'UNLIKELY';
 
-  const reasoningSteps = rawSteps || [
-    { title: 'Engineering Overload & Overtime Spikes (58 hrs/wk)', category: 'Operational Drag' },
-    { title: 'Code Review Idle Latency Expands to 3.4 Days', category: 'Bottleneck' },
-    { title: 'Testing Coverage Erosion (12 Suites Quarantined)', category: 'Quality Deficit' },
-    { title: 'Deployment Pipeline Breakage Surges to 28.6%', category: 'CI/CD Paralysis' },
-    { title: 'Compounding P1/P2 Bug Backlog (+311% Growth)', category: 'Regression Debt' },
-    { title: 'Sprint Feature Velocity Declines by -38%', category: 'Delivery Drag' },
-    { title: `Zero Slack Remaining for ${timeHorizon} Milestone`, category: 'Milestone Breach' },
+  if (isLoading) {
+    return (
+      <div className="p-16 rounded-2xl bg-card border border-border flex items-center justify-center">
+        <div className="flex items-center gap-3 text-muted-foreground font-mono text-sm">
+          <Loader2 className="w-5 h-5 text-primary animate-spin" />
+          <span>Retrieving probabilistic failure forecast...</span>
+        </div>
+      </div>
+    );
+  }
+
+  if (!isAvailable) {
+    return (
+      <div className="space-y-8 max-w-4xl mx-auto">
+        <div className="flex items-center justify-between pb-6 border-b border-border">
+          <div>
+            <h1 className="text-2xl lg:text-3xl font-extrabold text-foreground tracking-tight">
+              Predicted Next Failure Milestone
+            </h1>
+            <p className="text-sm text-muted-foreground mt-0.5">
+              Probabilistic trajectory forecast synthesized from cross-source velocity decay and historical case matching.
+            </p>
+          </div>
+        </div>
+
+        <div className="p-12 rounded-2xl bg-card border border-border text-center space-y-3">
+          <Compass className="w-8 h-8 text-muted-foreground mx-auto opacity-60" />
+          <p className="text-base font-bold text-foreground">Prediction Unavailable</p>
+          <p className="text-xs text-muted-foreground max-w-md mx-auto leading-relaxed">
+            Insufficient telemetry or analysis has not completed yet. Upload project documents and run analysis to synthesize predictive failure milestones.
+          </p>
+          <Link
+            href={`/projects/${projectId}/analysis`}
+            className="inline-block mt-2 px-4 py-2 rounded-xl bg-primary text-white text-xs font-bold"
+          >
+            Run Project Analysis
+          </Link>
+        </div>
+      </div>
+    );
+  }
+
+  const predictedFailureTitle = pred.predicted_failure || 'Missed Beta Release';
+  const riskScore = pred.risk_score || 75;
+  const confidence = Math.round((pred.confidence || 0.85) * (pred.confidence <= 1 ? 100 : 1));
+  const timeHorizon = pred.time_horizon || '2-4 weeks';
+  const explanation = pred.explanation || 'Compounding build failures and activation drop-offs are accelerating velocity decay.';
+  const reasoningSteps = pred.progression_steps || [
+    { title: 'Operational bottleneck accelerates review friction', category: 'Operational Drag' },
+    { title: 'Defect queue expands across release branches', category: 'Quality Deficit' },
+    { title: 'Pipeline failure rate compounds testing delays', category: 'CI/CD Paralysis' },
+    { title: `Zero slack remaining for ${timeHorizon} milestone`, category: 'Milestone Breach' },
   ];
+
 
 
   return (

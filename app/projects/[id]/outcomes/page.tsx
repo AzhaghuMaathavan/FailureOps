@@ -114,26 +114,15 @@ export default function OutcomeVerificationPage() {
           </div>
         </div>
       ) : (
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-          <div className="p-6 rounded-2xl bg-card border border-border/80 shadow-sm text-center">
-            <span className="text-xs font-mono text-muted-foreground uppercase">Control Baseline</span>
-            <span className="text-4xl font-extrabold font-mono text-rose-400 block my-2">31%</span>
-            <span className="text-xs text-muted-foreground">7-step mandatory compliance flow</span>
-          </div>
-
-          <div className="p-6 rounded-2xl bg-card border border-emerald-500/40 shadow-sm text-center">
-            <span className="text-xs font-mono text-emerald-400 uppercase font-bold">Treatment Cohort</span>
-            <span className="text-4xl font-extrabold font-mono text-emerald-400 block my-2">64%</span>
-            <span className="text-xs text-muted-foreground">3-step progressive onboarding sandbox</span>
-          </div>
-
-          <div className="p-6 rounded-2xl bg-gradient-to-br from-card via-card to-primary/10 border border-primary/40 shadow-md text-center">
-            <span className="text-xs font-mono text-primary uppercase font-bold">Net Improvement</span>
-            <span className="text-4xl font-extrabold font-mono text-primary block my-2">+33 pp</span>
-            <span className="text-xs text-emerald-400 font-mono font-semibold">Statistically Validated</span>
-          </div>
+        <div className="p-12 rounded-2xl bg-card border border-border text-center space-y-2">
+          <FileCheck className="w-8 h-8 text-muted-foreground mx-auto opacity-60" />
+          <h3 className="text-base font-bold text-foreground">No Verified Outcomes Recorded Yet</h3>
+          <p className="text-xs text-muted-foreground max-w-md mx-auto leading-relaxed">
+            Run an intervention experiment to verify post-mitigation telemetry against baseline metrics with attribution confidence.
+          </p>
         </div>
       )}
+
 
       {/* Distinction: Observed Outcome vs AI Interpretation */}
       <div className="grid grid-cols-1 md:grid-cols-2 gap-6">

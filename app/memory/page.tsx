@@ -90,11 +90,29 @@ export default function OrganizationalMemoryPage() {
           </div>
 
           {/* Learnings Grid */}
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-            {filteredEntries.map(entry => (
-              <MemoryCard key={entry.id} entry={entry} />
-            ))}
-          </div>
+          {isLoading ? (
+            <div className="p-16 rounded-2xl bg-card border border-border flex items-center justify-center">
+              <div className="flex items-center gap-3 text-muted-foreground font-mono text-sm">
+                <Loader2 className="w-5 h-5 text-primary animate-spin" />
+                <span>Loading institutional memory records...</span>
+              </div>
+            </div>
+          ) : filteredEntries.length === 0 ? (
+            <div className="p-12 rounded-2xl bg-card border border-border text-center space-y-2">
+              <Database className="w-8 h-8 text-muted-foreground mx-auto opacity-60" />
+              <h3 className="text-base font-bold text-foreground">No Organizational Learnings Found</h3>
+              <p className="text-xs text-muted-foreground max-w-md mx-auto leading-relaxed">
+                No matching verified failure patterns or interventions were found in organizational memory.
+              </p>
+            </div>
+          ) : (
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+              {filteredEntries.map(entry => (
+                <MemoryCard key={entry.id} entry={entry} />
+              ))}
+            </div>
+          )}
+
         </main>
       </div>
     </div>
