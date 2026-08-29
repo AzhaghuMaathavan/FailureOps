@@ -141,7 +141,11 @@ def heuristic_extract_evidence(dimension: str, chunks: List[Dict[str, Any]]) -> 
     Enforces dimension keyword affinity to prevent cross-contamination.
     """
     from app.services.evidence_retriever import EVIDENCE_DIMENSIONS
-    dim_terms = [t.lower() for t in EVIDENCE_DIMENSIONS.get(dimension, {}).get("bm25_terms", "").split() if len(t) > 2]
+    GENERIC_TERMS = {"rate", "user", "test", "time", "date", "team", "error", "code", "data", "week", "first"}
+    dim_terms = [
+        t.lower() for t in EVIDENCE_DIMENSIONS.get(dimension, {}).get("bm25_terms", "").split()
+        if len(t) > 2 and t.lower() not in GENERIC_TERMS
+    ]
 
     items = []
     for idx, c in enumerate(chunks[:5]):
@@ -149,6 +153,7 @@ def heuristic_extract_evidence(dimension: str, chunks: List[Dict[str, Any]]) -> 
         # Require chunk to have affinity with the dimension
         if dim_terms and not any(t in content.lower() for t in dim_terms):
             continue
+
 
         lines = [line.strip() for line in content.split("\n") if len(line.strip()) > 20]
         for line in lines:
