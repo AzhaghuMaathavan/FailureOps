@@ -12,7 +12,7 @@ class OrganizationalMemoryItem(BaseModel):
     intervention_title: str
     outcome_status: str = "SUCCESS" # SUCCESS, PARTIAL_SUCCESS, REGRESSION, NO_EFFECT
     observed_impact: str
-    confidence: float = Field(ge=0.0, le=1.0, default=0.92)
+    confidence: float = Field(ge=0.0, le=1.0, default=0.0)
     key_lessons: List[str] = Field(default_factory=list)
     evidence_ids: List[str] = Field(default_factory=list)
     visibility: str = "ORGANIZATION" # PRIVATE, ORGANIZATION, GLOBAL_ANONYMIZED

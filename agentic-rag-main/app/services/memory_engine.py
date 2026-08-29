@@ -2,6 +2,7 @@ import logging
 from typing import List, Dict, Any, Optional
 from datetime import datetime, timezone
 
+from app.core.config import settings
 from app.schemas.signal_packet import SignalPacket
 from app.schemas.failure_dna import FailureDNAPacket
 from app.schemas.historical_memory import HistoricalCase, HistoricalMemoryPacket
@@ -132,21 +133,23 @@ def search_historical_failure_cases(
     signals = signal_packet.signals
     auth_org = caller_org_id or organization_id
 
-    # 1. Determine active pattern
-    active_pattern = "ONBOARDING_ADOPTION_COLLAPSE"
+    active_pattern = "UNKNOWN"
     all_sig_names = " ".join([f"{s.name} {s.category}".lower() for s in signals])
 
     if any(kw in all_sig_names for kw in ["ci", "pipeline", "bug", "defect", "technical"]):
         active_pattern = "TECHNICAL_PIPELINE_COLLAPSE"
     elif any(kw in all_sig_names for kw in ["overtime", "hours", "pr review", "burnout"]):
         active_pattern = "OPERATIONAL_BURNOUT_DEBT"
+    elif any(kw in all_sig_names for kw in ["onboarding", "activation", "signup", "adoption"]):
+        active_pattern = "ONBOARDING_ADOPTION_COLLAPSE"
     elif any(kw in all_sig_names for kw in ["growth", "increased from"]):
         active_pattern = "HEALTHY_EXPANSION_TRAJECTORY"
 
     matched_cases: List[HistoricalCase] = []
 
-    # 2. Evaluate candidate cases with privacy checks
     for case in BENCHMARK_HISTORICAL_CASES:
+        if case.is_synthetic_demo and not settings.DEMO_MODE:
+            continue
         # Privacy policy enforcement
         if case.visibility == "PRIVATE":
             if case.source_project_id != project_id or case.organization_id != auth_org:

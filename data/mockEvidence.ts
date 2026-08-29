@@ -1,3 +1,4 @@
+/** DEV-ONLY fixture. Not imported by production routes or pages. */
 import { EvidenceItem } from '@/types';
 
 export const mockEvidence: EvidenceItem[] = [

@@ -32,15 +32,15 @@ export default function FailureDNAPage() {
             dimension: d.dimension,
             score: d.risk_score ?? d.score ?? 0,
             severity: (d.severity || (d.risk_score > 70 ? 'CRITICAL' : d.risk_score > 40 ? 'HIGH' : 'NORMAL')) as any,
-            primaryDrivers: Array.isArray(d.primary_drivers) ? d.primary_drivers : d.key_driver ? [d.key_driver] : ['Corroborated by project evidence citations.'],
-            evidenceConfidence: Math.round((d.confidence || 0.90) * ((d.confidence || 0.90) <= 1 ? 100 : 1)),
-            historicalCorrelation: d.historical_correlation || 'Correlated with historical recovery benchmarks in institutional memory.',
-            whyExplanation: d.why_explainer || d.whyExplanation || `Operational risk on the ${d.dimension} dimension calculated from extracted telemetry evidence.`,
+            primaryDrivers: Array.isArray(d.primary_drivers) ? d.primary_drivers : d.key_driver ? [d.key_driver] : [],
+            evidenceConfidence: Math.round((typeof d.confidence === 'number' ? d.confidence : 0) * ((typeof d.confidence === 'number' && d.confidence <= 1) ? 100 : 1)),
+            historicalCorrelation: d.historical_correlation || 'No historical correlation recorded.',
+            whyExplanation: d.why_explainer || d.whyExplanation || `No engine rationale was returned for the ${d.dimension} dimension.`,
           }));
 
           const profile: FailureDNA = {
             projectId,
-            dominantArchetype: overall.dominant_archetype || res?.dominantArchetype || 'Balanced Execution Horizon',
+            dominantArchetype: overall.dominant_archetype || res?.dominantArchetype || 'Unknown',
             overallRisk: overall.risk_score ?? res?.overallRisk ?? 0,
             dimensions: mappedDimensions,
             generatedAt: res?.generated_at || new Date().toISOString().slice(0, 10),

@@ -31,16 +31,18 @@ export default function FailureRadarPage() {
     loadRadar();
   }, [projectId]);
 
-  const overallRisk = snapshot?.overall_risk_score ?? snapshot?.executive_summary?.overall_risk_score ?? 0;
-  const overallHealth = snapshot?.overall_health || snapshot?.executive_summary?.health_status || 'WATCH';
-  const velocity = snapshot?.risk_velocity || snapshot?.executive_summary?.risk_velocity || 'STABLE';
+  const overallRisk = snapshot?.overall_risk_score ?? snapshot?.executive_summary?.overall_risk_score;
+  const overallHealth = snapshot?.overall_health || snapshot?.executive_summary?.health_status || 'INSUFFICIENT_EVIDENCE';
+  const velocity = snapshot?.risk_velocity || snapshot?.executive_summary?.risk_velocity || 'UNKNOWN';
   const topRisks = snapshot?.top_failure_risks || snapshot?.top_risks || [];
-  const predictedFailure = snapshot?.predicted_next_failure || snapshot?.executive_summary?.top_failure_risk || 'No Immediate Failure Predicted';
-  const recommendedAction = snapshot?.recommended_primary_action || snapshot?.executive_summary?.primary_recommended_action || 'Review Evidence and Active Signals';
-  const primaryPriority = snapshot?.primary_action_priority || 80;
-  const activeExpTitle = snapshot?.active_experiment_title || 'Progressive Recovery Experiment';
-  const activeExpProgress = snapshot?.active_experiment_progress || 0;
-  const recoveryDelta = snapshot?.best_historical_recovery_delta || 'Historical benchmark matched in memory';
+  const predictedFailure = snapshot?.predicted_next_failure || snapshot?.executive_summary?.top_failure_risk || 'Insufficient evidence for a reliable failure prediction.';
+  const predictionConfidence = snapshot?.prediction_confidence ?? snapshot?.executive_summary?.prediction_confidence;
+  const recommendedAction = snapshot?.recommended_primary_action || snapshot?.executive_summary?.primary_recommended_action || 'Insufficient evidence for a recommended action';
+  const primaryPriority = snapshot?.primary_action_priority;
+  const activeExpTitle = snapshot?.active_experiment_title || null;
+  const activeExpProgress = snapshot?.active_experiment_progress ?? 0;
+  const recoveryDelta = snapshot?.best_historical_recovery_delta || null;
+  const trajectory = snapshot?.risk_trajectory_history || snapshot?.trajectory || [];
 
 
   return (
@@ -53,7 +55,7 @@ export default function FailureRadarPage() {
               Executive Decision Support
             </span>
             <span className="px-2 py-0.5 rounded-full text-[10px] font-mono bg-rose-500/10 text-rose-400 border border-rose-500/30">
-              Health: {overallHealth} ({overallRisk}%)
+              Health: {overallHealth}{typeof overallRisk === 'number' ? ` (${overallRisk}%)` : ''}
             </span>
             <span className="px-2 py-0.5 rounded-full text-[10px] font-mono bg-amber-500/10 text-amber-400 border border-amber-500/30">
               Velocity: {velocity}
@@ -77,25 +79,35 @@ export default function FailureRadarPage() {
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
         <div className="p-5 rounded-2xl bg-card border border-border/80 shadow-sm">
           <span className="text-xs font-mono text-muted-foreground uppercase block">Project Risk</span>
-          <span className="text-3xl font-extrabold font-mono text-rose-400 block my-1">{overallRisk}%</span>
+          <span className="text-3xl font-extrabold font-mono text-rose-400 block my-1">
+            {typeof overallRisk === 'number' ? `${overallRisk}%` : 'n/a'}
+          </span>
           <span className="text-[11px] font-mono text-rose-400">Trajectory: {velocity}</span>
         </div>
 
         <div className="p-5 rounded-2xl bg-card border border-border/80 shadow-sm">
           <span className="text-xs font-mono text-muted-foreground uppercase block">Predicted Failure</span>
           <span className="text-sm font-bold text-foreground block my-1 leading-snug">{predictedFailure}</span>
-          <span className="text-[11px] font-mono text-amber-400">Confidence: 91%</span>
+          <span className="text-[11px] font-mono text-amber-400">
+            {typeof predictionConfidence === 'number'
+              ? `Confidence: ${predictionConfidence <= 1 ? Math.round(predictionConfidence * 100) : predictionConfidence}%`
+              : 'Confidence: insufficient evidence'}
+          </span>
         </div>
 
         <div className="p-5 rounded-2xl bg-card border border-primary/40 shadow-sm">
           <span className="text-xs font-mono text-primary uppercase font-bold block">Top Recommended Action</span>
           <span className="text-sm font-bold text-foreground block my-1 leading-snug">{recommendedAction}</span>
-          <span className="text-[11px] font-mono text-primary font-bold">Priority: {primaryPriority}/100</span>
+          <span className="text-[11px] font-mono text-primary font-bold">
+            {typeof primaryPriority === 'number' ? `Priority: ${primaryPriority}/100` : 'Priority: n/a'}
+          </span>
         </div>
 
         <div className="p-5 rounded-2xl bg-card border border-emerald-500/30 shadow-sm">
           <span className="text-xs font-mono text-emerald-400 uppercase font-bold block">Historical Precedent</span>
-          <span className="text-xs font-bold text-foreground block my-1">{recoveryDelta}</span>
+          <span className="text-xs font-bold text-foreground block my-1">
+            {recoveryDelta || 'No permitted historical match'}
+          </span>
           <span className="text-[11px] font-mono text-muted-foreground">Benchmark Verified</span>
         </div>
       </div>
@@ -108,13 +120,13 @@ export default function FailureRadarPage() {
             <p className="text-xs text-muted-foreground">Historical acceleration vs projected zero-slack horizon</p>
           </div>
           <div className="flex items-center gap-2 text-xs font-mono">
-            <span className="flex items-center gap-1 text-emerald-400">Sprint -3 (42%)</span>
-            <span>→</span>
-            <span className="flex items-center gap-1 text-rose-400 font-bold">Current ({overallRisk}%)</span>
+            <span className="flex items-center gap-1 text-rose-400 font-bold">
+              Current ({typeof overallRisk === 'number' ? `${overallRisk}%` : 'n/a'})
+            </span>
           </div>
         </div>
 
-        <TrajectoryChart />
+        <TrajectoryChart data={trajectory} />
       </div>
 
       {/* Top Failure Risks Section */}
@@ -147,7 +159,7 @@ export default function FailureRadarPage() {
 
               <div className="pt-3 border-t border-border/50 flex items-center justify-between text-xs font-mono text-muted-foreground">
                 <span className="text-primary font-semibold">{risk.primary_evidence_id}</span>
-                <span>{Math.round((risk.confidence || 0.9) * 100)}% Conf.</span>
+                <span>{typeof risk.confidence === 'number' ? `${Math.round((risk.confidence <= 1 ? risk.confidence * 100 : risk.confidence))}% Conf.` : 'n/a'}</span>
               </div>
             </div>
           ))}
@@ -161,9 +173,11 @@ export default function FailureRadarPage() {
             <FlaskConical className="w-4 h-4 text-emerald-400" />
             <span className="text-xs font-mono font-bold uppercase text-emerald-400">Active Experiment in Flight</span>
           </div>
-          <h4 className="text-base font-bold text-foreground">{activeExpTitle}</h4>
+          <h4 className="text-base font-bold text-foreground">{activeExpTitle || 'No active experiment'}</h4>
           <p className="text-xs text-muted-foreground">
-            A/B cohort testing against immutable baseline. Current progress: {activeExpProgress}% through 14-day observation window.
+            {activeExpTitle
+              ? `Current progress: ${activeExpProgress}%`
+              : 'No backend experiment is currently running for this project.'}
           </p>
         </div>
 

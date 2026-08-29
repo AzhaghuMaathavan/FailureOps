@@ -9,6 +9,8 @@ from app.services.nemotron_client import parse_page_image
 from app.services.document_normalizer import normalize_parser_blocks
 from app.services.chunking_service import create_chunks_for_document
 from app.services.agent_service import call_llm, extract_json
+from app.core.object_storage import materialize_document_file
+from app.core.storage import get_pages_dir
 
 logger = logging.getLogger(__name__)
 
@@ -34,7 +36,12 @@ def extract_document_profile(db: Session, doc: Document):
     try:
         content = call_llm(sys_prompt, user_prompt, json_mode=True, timeout=20.0)
         parsed = extract_json(content)
-        doc.extracted_metadata = parsed
+        existing = doc.extracted_metadata if isinstance(doc.extracted_metadata, dict) else {}
+        storage_block = existing.get("storage")
+        merged = {**existing, **(parsed if isinstance(parsed, dict) else {"profile": parsed})}
+        if storage_block:
+            merged["storage"] = storage_block
+        doc.extracted_metadata = merged
         db.commit()
     except Exception as e:
         logger.warning(f"Document profiling failed for {doc.id}: {e}")
@@ -46,7 +53,7 @@ from app.services.csv_parser import parse_csv_to_blocks
 from app.services.txt_parser import parse_txt_to_blocks
 from app.services.markdown_parser import parse_markdown_to_blocks
 
-def process_document(document_id: str, file_path: str):
+def process_document(document_id: str, file_path: str = None):
     db: Session = SessionLocal()
     try:
         doc = db.query(Document).filter(Document.id == document_id).first()
@@ -57,7 +64,22 @@ def process_document(document_id: str, file_path: str):
         doc.status = "PROCESSING"
         db.commit()
 
-        ext = os.path.splitext(file_path)[1].lower()
+        with materialize_document_file(doc, fallback_path=file_path) as local_path:
+            _run_document_pipeline(db, doc, document_id, local_path)
+
+    except Exception as e:
+        logger.error(f"Unexpected error in document pipeline: {e}")
+        doc = db.query(Document).filter(Document.id == document_id).first()
+        if doc:
+            doc.status = "FAILED"
+            doc.error_message = f"Unexpected error: {e}"
+            db.commit()
+    finally:
+        db.close()
+
+
+def _run_document_pipeline(db: Session, doc: Document, document_id: str, file_path: str):
+        ext = os.path.splitext(doc.filename or file_path)[1].lower()
         on_disk = os.path.getsize(file_path) if os.path.exists(file_path) else 0
         logger.info("[PARSER] document_id=%s path_exists=%s size=%s ext=%s", document_id, os.path.exists(file_path), on_disk, ext)
 
@@ -71,8 +93,8 @@ def process_document(document_id: str, file_path: str):
         all_success = True
 
         if ext == '.pdf':
-            # 1. Render Pages
-            output_dir = os.path.join(os.path.dirname(file_path), f"{document_id}_pages")
+            # 1. Render Pages — working copies only; original bytes stay in object storage
+            output_dir = get_pages_dir(document_id)
             try:
                 image_paths = render_pdf_pages(file_path, output_dir)
                 logger.info("[PARSER] document_id=%s status=completed pages=%s", document_id, len(image_paths))
@@ -203,13 +225,3 @@ def process_document(document_id: str, file_path: str):
         # Complete document
         doc.status = "COMPLETED" if all_success else "PARTIAL_SUCCESS"
         db.commit()
-
-    except Exception as e:
-        logger.error(f"Unexpected error in document pipeline: {e}")
-        doc = db.query(Document).filter(Document.id == document_id).first()
-        if doc:
-            doc.status = "FAILED"
-            doc.error_message = f"Unexpected error: {e}"
-            db.commit()
-    finally:
-        db.close()

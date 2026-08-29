@@ -150,32 +150,30 @@ export function mapHistoricalCase(raw: any) {
 }
 
 export function mapMemoryEntry(raw: any) {
-  const confidenceRaw = raw.confidence ?? 0.9;
+  const confidenceRaw = raw.confidence;
   const confidence =
     typeof confidenceRaw === 'number'
       ? confidenceRaw <= 1
         ? Math.round(confidenceRaw * 100)
         : confidenceRaw
-      : 90;
+      : 0;
 
   return {
     id: raw.memory_id || raw.id,
-    pattern: raw.pattern_name || raw.pattern || 'Validated Learning',
+    pattern: raw.pattern_name || raw.pattern || 'Unnamed memory',
     evidenceSummary: raw.key_lessons || raw.evidenceSummary || raw.evidence_ids || [],
     intervention: raw.intervention_title || raw.intervention || '',
     experimentDesign: raw.source_experiment_id || raw.experimentDesign || '',
     outcome: raw.observed_impact || raw.outcome || '',
     confidence,
     context: raw.context || {
-      industry: 'Cross-Industry',
-      stage: 'Validated',
+      industry: 'Unspecified',
+      stage: 'Unspecified',
       targetMarket: raw.visibility || 'Organization',
     },
     tags: Array.isArray(raw.tags)
       ? raw.tags
       : [raw.pattern_name, raw.memory_type, raw.outcome_status].filter(Boolean),
-    verifiedAt:
-      String(raw.created_at || raw.verifiedAt || '').slice(0, 10) ||
-      new Date().toISOString().slice(0, 10),
+    verifiedAt: String(raw.created_at || raw.verifiedAt || '').slice(0, 10),
   };
 }

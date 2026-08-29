@@ -1,3 +1,4 @@
+/** DEV-ONLY fixture. Not imported by production routes or pages. */
 import { Signal } from '@/types';
 
 export const mockSignals: Signal[] = [

@@ -11,6 +11,7 @@ export default function RagPipelinePage() {
   const params = useParams();
   const projectId = (params?.id as string) || 'aurora';
   const [pipeline, setPipeline] = useState<any>(null);
+  const [health, setHealth] = useState<any>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
@@ -18,8 +19,12 @@ export default function RagPipelinePage() {
     setIsLoading(true);
     setError(null);
     try {
-      const data = await apiClient.getRagPipeline(projectId);
+      const [data, h] = await Promise.all([
+        apiClient.getRagPipeline(projectId),
+        apiClient.getRagHealth().catch(() => null),
+      ]);
       setPipeline(data);
+      setHealth(h);
     } catch (err: unknown) {
       setPipeline(null);
       setError(isRagUnavailable(err) ? 'RAG unavailable' : err instanceof Error ? err.message : 'Unable to load pipeline');
@@ -33,6 +38,8 @@ export default function RagPipelinePage() {
     const id = setInterval(load, 4000);
     return () => clearInterval(id);
   }, [projectId]);
+
+  const totals = pipeline?.totals || {};
 
   return (
     <div className="space-y-8 max-w-5xl mx-auto">
@@ -84,17 +91,40 @@ export default function RagPipelinePage() {
             stages={pipeline.stages}
             reachable={pipeline.health?.reachable !== false}
             database={pipeline.health?.database}
+            rustfsReachable={pipeline.health?.rustfsReachable}
+            rustfsProvider={pipeline.health?.rustfsProvider}
             compact={false}
           />
+
+          <section className="p-6 rounded-2xl bg-card border border-border/80 space-y-3">
+            <h2 className="text-sm font-bold text-foreground">Service status</h2>
+            <p className="text-xs text-muted-foreground" role="status" aria-atomic="true">
+              RAG {health?.reachable ? 'reachable' : 'unreachable'}
+              {' · '}Vector DB {health?.vectorStore ? 'connected' : 'unknown'}
+              {' · '}RustFS {health?.rustfsReachable ? 'connected' : health?.rustfsProvider || 'not reported'}
+              {' · '}Embeddings {health?.embeddingProviderConfigured ? 'configured' : 'missing'}
+              {' · '}LLM {health?.llmProviderConfigured ? 'configured' : 'missing'}
+            </p>
+            <dl className="grid grid-cols-1 sm:grid-cols-2 gap-2 text-[11px] font-mono text-muted-foreground">
+              <div>Latest analysis: {pipeline.analysisStatus || 'none'}</div>
+              <div>Analysis ID: {pipeline.evidenceAnalysisId || 'none'}</div>
+              <div>Storage bucket: {health?.rustfsBucket || pipeline.storageHealth?.bucket || 'n/a'}</div>
+              <div>Evidence agent: {pipeline.metrics?.evidence_agent_status || 'not run'}</div>
+              <div>Signal agent: {pipeline.metrics?.signal_agent_status || 'not run'}</div>
+            </dl>
+          </section>
+
           <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
             {[
-              ['Documents', pipeline.totals.documents],
-              ['Bytes stored', pipeline.totals.bytes ?? 0],
-              ['Chunks', pipeline.totals.chunks],
-              ['Embeddings', pipeline.totals.embedded],
-              ['Evidence', pipeline.totals.evidence],
-              ['Signals', pipeline.totals.signals],
-              ['Chunks searched', pipeline.totals.chunksSearched],
+              ['Documents', totals.documents],
+              ['Bytes stored', totals.bytes ?? 0],
+              ['Pages', totals.pages ?? 0],
+              ['Chunks', totals.chunks],
+              ['Embeddings', totals.embedded],
+              ['Vectors', totals.vectors ?? totals.embedded],
+              ['Retrieved', totals.retrieved ?? totals.chunksSearched],
+              ['Evidence', totals.evidence],
+              ['Signals', totals.signals],
             ].map(([label, value]) => (
               <div key={String(label)} className="p-4 rounded-xl bg-card border border-border">
                 <p className="text-[10px] font-mono uppercase text-muted-foreground">{label}</p>
@@ -102,6 +132,30 @@ export default function RagPipelinePage() {
               </div>
             ))}
           </div>
+
+          {Array.isArray(pipeline.documents) && pipeline.documents.length > 0 && (
+            <section className="p-6 rounded-2xl bg-card border border-border/80 space-y-3">
+              <h2 className="text-sm font-bold text-foreground">Documents</h2>
+              <ul className="space-y-3">
+                {pipeline.documents.map((doc: any) => (
+                  <li key={doc.document_id} className="text-xs font-mono text-muted-foreground border border-border rounded-xl p-3">
+                    <p className="text-foreground font-bold">{doc.filename}</p>
+                    <p>
+                      Type: {doc.document_type || 'PROJECT_DOC'} · Size: {doc.file_size} B · Storage: {doc.storage?.provider}
+                      {doc.storage?.exists ? ' ✓' : ' missing'}
+                    </p>
+                    <p>
+                      Pages: {doc.page_count} · Chunks: {doc.chunk_count} · Embeddings: {doc.embedded_count} · Vectors: {doc.vector_count}
+                    </p>
+                    <p>Status: {doc.status}</p>
+                    {doc.error_message && (
+                      <p role="alert" className="text-rose-400">Reason: {doc.error_message}</p>
+                    )}
+                  </li>
+                ))}
+              </ul>
+            </section>
+          )}
         </div>
       ) : null}
     </div>

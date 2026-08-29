@@ -68,15 +68,15 @@ def calculate_failure_dna(
             dimension_risks.append(
                 DimensionRisk(
                     dimension=dim_display_name,
-                    risk_score=25,
-                    confidence=0.85,
-                    status="MEASURED",
-                    severity="HEALTHY",
-                    primary_drivers=[f"Empirical observations indicate healthy baseline within {dim_display_name}."],
-                    evidence_count=1,
+                    risk_score=None,
+                    confidence=0.0,
+                    status="NO_SIGNALS",
+                    severity="NO_EVIDENCE",
+                    primary_drivers=[],
+                    evidence_count=0,
                     evidence_ids=[],
-                    why_explanation=f"{dim_display_name} indicators remain within expected operating tolerances.",
-                    historical_correlation="Consistent with stable pre-launch projects"
+                    why_explanation=f"Source coverage existed for {dim_display_name} but no operational signal was synthesized.",
+                    historical_correlation=None
                 )
             )
             continue
@@ -130,7 +130,7 @@ def calculate_failure_dna(
                 evidence_count=len(dim_ev_ids),
                 evidence_ids=list(dim_ev_ids),
                 why_explanation=why_exp,
-                historical_correlation=f"Correlates with {final_risk}% failure rate in similar B2B cohorts"
+                historical_correlation=None
             )
         )
 
@@ -139,7 +139,7 @@ def calculate_failure_dna(
     
     if len(measured_dims) < 2:
         overall_health = OverallProjectHealth(
-            risk_score=50,
+            risk_score=0,
             status="INSUFFICIENT_EVIDENCE",
             trend="UNKNOWN",
             dominant_archetype="Insufficient Empirical Evidence",

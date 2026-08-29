@@ -29,7 +29,7 @@ export interface Project {
   historicalSimilarity: number;
   privacyLevel: PrivacyLevel;
   sourcesUploaded: EvidenceSourceType[];
-  lastAnalyzedAt: string;
+  lastAnalyzedAt: string | null;
   activeFailureSeedsCount: number;
 }
 

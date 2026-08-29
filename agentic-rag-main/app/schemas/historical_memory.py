@@ -13,8 +13,8 @@ class HistoricalCase(BaseModel):
     intervention: str
     outcome: str
     outcome_type: str = "RECOVERED" # RECOVERED, FAILED, DELAYED
-    similarity: int = Field(ge=0, le=100, default=85)
-    confidence: float = Field(ge=0.0, le=1.0, default=0.90)
+    similarity: int = Field(ge=0, le=100, default=0)
+    confidence: float = Field(ge=0.0, le=1.0, default=0.0)
     visibility: str = "GLOBAL_ANONYMIZED" # PRIVATE, ORGANIZATION, GLOBAL_ANONYMIZED
     organization_id: Optional[str] = None
     source_project_id: Optional[str] = None

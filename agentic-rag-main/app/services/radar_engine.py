@@ -29,9 +29,9 @@ def synthesize_failure_radar_snapshot(
     analysis_id = signal_packet.analysis_id
 
     # 1. Overall Health & Risk
-    overall_risk = dna_packet.overall.risk_score if dna_packet else 78
-    overall_health = dna_packet.overall.status if dna_packet else "CRITICAL"
-    velocity = dna_packet.overall.trend if dna_packet else "DETERIORATING"
+    overall_risk = dna_packet.overall.risk_score if dna_packet else 0
+    overall_health = dna_packet.overall.status if dna_packet else "INSUFFICIENT_EVIDENCE"
+    velocity = dna_packet.overall.trend if dna_packet else "UNKNOWN"
 
     # 2. Extract Top 3 Failure Risks from DNA and Signals
     top_risks: List[RadarTopRisk] = []
@@ -57,12 +57,16 @@ def synthesize_failure_radar_snapshot(
             )
 
     # 3. Prediction
-    pred_title = chain_packet.prediction.predicted_failure if chain_packet else "Missed Release Milestone"
-    pred_conf = chain_packet.prediction.confidence if chain_packet else 0.88
+    pred_title = (
+        chain_packet.prediction.predicted_failure
+        if chain_packet and chain_packet.prediction
+        else "Insufficient evidence for a reliable failure prediction."
+    )
+    pred_conf = chain_packet.prediction.confidence if chain_packet and chain_packet.prediction else 0.0
 
     # 4. Primary Intervention
-    primary_action = "Stabilize CI/CD Pipeline & Merge Queue"
-    primary_prio = 91
+    primary_action = "Insufficient evidence for a recommended action"
+    primary_prio = 0
     if intervention_plan and intervention_plan.interventions:
         top_int = intervention_plan.interventions[0]
         primary_action = top_int.title
@@ -71,7 +75,7 @@ def synthesize_failure_radar_snapshot(
     # 5. Active Experiment
     active_exp_title = None
     active_exp_count = 0
-    active_exp_progress = 60
+    active_exp_progress = 0
     if experiment_list and experiment_list.experiments:
         active_exps = [e for e in experiment_list.experiments if e.status == "ACTIVE"]
         active_exp_count = len(active_exps)
@@ -80,19 +84,18 @@ def synthesize_failure_radar_snapshot(
             active_exp_progress = active_exps[0].progress_percent
 
     # 6. Historical Matches
-    hist_count = memory_packet.total_matches if memory_packet else 3
-    best_recovery = "Release delays ↓ 43% (Project Phoenix)"
+    hist_count = memory_packet.total_matches if memory_packet else 0
+    best_recovery = None
     if memory_packet and memory_packet.matched_cases:
         top_c = memory_packet.matched_cases[0]
         best_recovery = f"{top_c.outcome} ({top_c.name})"
 
     # 7. Time-series Trajectory History (Backed by realistic interval steps)
-    trajectory_points = [
-        RadarTrajectoryPoint(timestamp="Sprint -3", label="W1", risk_score=max(20, overall_risk - 36)),
-        RadarTrajectoryPoint(timestamp="Sprint -2", label="W2", risk_score=max(30, overall_risk - 27)),
-        RadarTrajectoryPoint(timestamp="Sprint -1", label="W3", risk_score=max(45, overall_risk - 14)),
-        RadarTrajectoryPoint(timestamp="Current", label="W4", risk_score=overall_risk)
-    ]
+    trajectory_points = []
+    if dna_packet and overall_risk is not None:
+        trajectory_points = [
+            RadarTrajectoryPoint(timestamp="Current", label="Now", risk_score=int(overall_risk))
+        ]
 
     all_ev_ids = [s.supporting_evidence_ids[0] for s in signal_packet.signals if s.supporting_evidence_ids]
 

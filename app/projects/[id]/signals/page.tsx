@@ -208,7 +208,7 @@ export default function SignalExplorerPage() {
                 {/* Footer Metrics */}
                 <div className="mt-5 pt-3 border-t border-border/50 flex items-center justify-between text-xs font-mono text-muted-foreground">
                   <span title="Signal Strength: Weight of empirical evidence supporting the signal">
-                    Strength: <strong className="text-foreground">{sig.signalStrength || 85}%</strong>
+                    Strength: <strong className="text-foreground">{sig.signalStrength ?? 0}%</strong>
                   </span>
                   <span title="Signal Confidence: Citation grounding validity & lack of conflict">
                     Confidence: <strong className="text-foreground">{sig.confidence}%</strong>

@@ -1,3 +1,4 @@
+/** DEV-ONLY fixture. Not imported by production routes or pages. */
 import { FailureDNA } from '@/types';
 
 export const mockFailureDNA: Record<string, FailureDNA> = {

@@ -16,4 +16,4 @@ pytest-asyncio>=0.23.6
 python-docx
 python-pptx
 openpyxl
-markdown
+boto3>=1.34.0

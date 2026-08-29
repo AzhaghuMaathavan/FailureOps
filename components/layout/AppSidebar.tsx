@@ -23,12 +23,12 @@ import {
   Shield,
   Sparkles,
   MessageSquare,
-  Binary,
 } from 'lucide-react';
 import { useApp } from '@/context/AppContext';
 import { RiskBadge } from '@/components/common/RiskBadge';
 import { PrivacyBadge } from '@/components/common/PrivacyBadge';
 import { BrandLogo } from '@/components/common/BrandLogo';
+import { isNavItemActive } from '@/lib/navigation';
 
 export const AppSidebar: React.FC = () => {
   const pathname = usePathname();
@@ -41,6 +41,7 @@ export const AppSidebar: React.FC = () => {
       items: [
         { name: 'Overview', href: `/projects/${projectId}/overview`, icon: LayoutDashboard },
         { name: 'Evidence Intelligence', href: `/projects/${projectId}/evidence`, icon: FileText },
+        { name: 'Evidence Ask', href: `/projects/${projectId}/ask`, icon: MessageSquare },
         { name: 'RAG Pipeline Health', href: `/projects/${projectId}/pipeline`, icon: Database },
         { name: 'Signal Explorer', href: `/projects/${projectId}/signals`, icon: Activity },
         { name: 'Failure DNA', href: `/projects/${projectId}/dna`, icon: Dna },
@@ -103,7 +104,7 @@ export const AppSidebar: React.FC = () => {
               </h5>
               <div className="space-y-0.5 mt-1">
                 {section.items.map(item => {
-                  const isActive = pathname === item.href || (item.href !== '/' && pathname.startsWith(item.href));
+                  const isActive = isNavItemActive(pathname, item.href);
                   const Icon = item.icon;
 
                   return (

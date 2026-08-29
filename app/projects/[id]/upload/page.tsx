@@ -382,6 +382,8 @@ export default function EvidenceUploadPage() {
           stages={pipeline.stages}
           reachable
           database={pipeline.health?.database}
+          rustfsReachable={pipeline.health?.rustfsReachable}
+          rustfsProvider={pipeline.health?.rustfsProvider}
         />
       )}
       {backendDocs.length > 0 && (
@@ -414,8 +416,11 @@ export default function EvidenceUploadPage() {
                     <p className="text-[10px] font-mono text-muted-foreground mt-0.5">
                       Type: <span className="text-foreground">{doc.document_type || 'PROJECT_DOC'}</span>
                       {' '}• Size: <span className="text-foreground font-bold">{Number(doc.file_size ?? 0)} B</span>
+                      {' '}• Storage: <span className="text-foreground font-bold">{doc.storage_provider || doc.storage?.provider || 'unknown'}{doc.file_exists || doc.storage?.exists ? ' ✓' : ''}</span>
+                      {' '}• Pages: <span className="text-foreground font-bold">{Number(doc.page_count ?? 0)}</span>
                       {' '}• Chunks: <span className="text-foreground font-bold">{Number(doc.chunk_count ?? 0)}</span>
                       {' '}• Embedded: <span className="text-foreground font-bold">{Number(doc.embedded_count ?? 0)}</span>
+                      {' '}• Vectors: <span className="text-foreground font-bold">{Number(doc.embedded_count ?? 0)}</span>
                     </p>
                     <span
                       className={`inline-block mt-2 px-2 py-0.5 rounded text-[9px] font-mono font-bold border ${

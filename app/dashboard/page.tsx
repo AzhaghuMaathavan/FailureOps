@@ -53,6 +53,12 @@ export default function GlobalDashboardPage() {
   }, []);
 
   const atRiskCount = projects.filter(p => p.health === 'CRITICAL' || p.health === 'AT_RISK').length;
+  const emergingSeeds = projects.reduce((sum, p) => sum + Number(p.activeFailureSeedsCount || 0), 0);
+  const predictedCount = projects.filter((p) => {
+    const label = String(p.predictedNextFailure || '');
+    return label.length > 0 && !/awaiting|insufficient|no failure predicted/i.test(label);
+  }).length;
+  const analyzedCount = projects.filter((p) => Boolean(p.lastAnalyzedAt) && p.lastAnalyzedAt !== 'Never').length;
 
 
   return (
@@ -112,25 +118,22 @@ export default function GlobalDashboardPage() {
             />
             <StatCard
               label="Emerging Seeds"
-              value="8"
-              trend="+3 this week"
-              isRiskTrend
-              trendDirection="up"
+              value={isLoading ? "..." : String(emergingSeeds)}
+              subtext="From completed analyses"
               icon={Flame}
               accentColor="text-amber-400"
             />
             <StatCard
               label="Predicted Failures"
-              value={isLoading ? "..." : String(projects.filter(p => p.predictedNextFailure).length)}
-              subtext="High Probability"
+              value={isLoading ? "..." : String(predictedCount)}
+              subtext="Backend predictions only"
               icon={Compass}
               accentColor="text-purple-400"
             />
             <StatCard
-              label="Verified Learnings"
-              value="12"
-              trend="94% Success Rate"
-              trendDirection="up"
+              label="Analyzed Projects"
+              value={isLoading ? "..." : String(analyzedCount)}
+              subtext="Completed RAG analysis"
               icon={CheckCircle2}
               accentColor="text-emerald-400"
             />

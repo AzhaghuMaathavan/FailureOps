@@ -7,7 +7,8 @@ from sqlalchemy.orm import Session
 from app.db.database import get_db
 from app.models.document import Document
 from app.models.chunk import Chunk
-from app.core.storage import persist_upload, file_size_or_zero
+from app.core.storage import persist_upload, document_storage_fields, merge_storage_metadata
+from app.core.object_storage import delete_object
 from app.services.document_service import process_document
 from app.services.embedding_service import generate_embeddings
 
@@ -23,7 +24,7 @@ def list_documents(db: Session = Depends(get_db)):
         embedded_count = db.query(Chunk).filter(Chunk.document_id == d.id, Chunk.embedding_status == "COMPLETED").count()
         page_count = db.query(Page).filter(Page.document_id == d.id).count()
 
-        file_size = file_size_or_zero(d.original_path)
+        file_fields = document_storage_fields(d)
 
         results.append({
             "id": d.id,
@@ -35,13 +36,13 @@ def list_documents(db: Session = Depends(get_db)):
             "chunk_count": chunk_count,
             "embedded_count": embedded_count,
             "page_count": page_count,
-            "file_size": file_size,
             "title": d.title,
             "document_type": d.document_type,
             "department": d.department,
             "academic_year": d.academic_year,
             "topics": d.topics,
-            "version": d.version
+            "version": d.version,
+            **file_fields,
         })
     return results
 
@@ -75,7 +76,7 @@ async def upload_document(
         raise HTTPException(status_code=400, detail=f"Unsupported file format. Allowed: {', '.join(allowed_extensions)}")
 
     doc_id = str(uuid.uuid4())
-    file_path, saved_bytes = await persist_upload(file, doc_id)
+    stored = await persist_upload(file, doc_id, project_id="aurora")
 
     def safe_json(val):
         if not val: return []
@@ -85,7 +86,7 @@ async def upload_document(
     db_doc = Document(
         id=doc_id,
         filename=file.filename,
-        original_path=file_path,
+        original_path=stored.uri,
         status="PENDING",
         title=title,
         document_type=document_type,
@@ -100,14 +101,27 @@ async def upload_document(
         effective_from=effective_from,
         effective_until=effective_until,
         version=version,
-        priority=priority
+        priority=priority,
+        extracted_metadata=merge_storage_metadata({}, stored),
     )
     db.add(db_doc)
     db.commit()
 
-    background_tasks.add_task(process_document, doc_id, file_path)
+    local_hint = stored.uri if stored.provider == "local" else None
+    background_tasks.add_task(process_document, doc_id, local_hint)
 
-    return {"document_id": doc_id, "status": "PENDING", "bytes": saved_bytes}
+    return {
+        "document_id": doc_id,
+        "status": "PENDING",
+        "bytes": stored.size,
+        "storage": {
+            "provider": stored.provider,
+            "bucket": stored.bucket,
+            "key": stored.key,
+            "exists": stored.exists,
+            "size": stored.size,
+        },
+    }
 
 @router.get("/{document_id}")
 def get_document_status(document_id: str, db: Session = Depends(get_db)):
@@ -133,12 +147,18 @@ def download_document(document_id: str, db: Session = Depends(get_db)):
     if not doc:
         raise HTTPException(status_code=404, detail="Document not found")
 
-    import os
-    if not os.path.exists(doc.original_path):
-        raise HTTPException(status_code=404, detail="Original document file not found on disk")
-
-    from fastapi.responses import FileResponse
+    from fastapi.responses import Response
     import urllib.parse
+    from app.core.object_storage import download_object_bytes, stored_object_from_document
+
+    stored = stored_object_from_document(doc)
+    if not stored.exists:
+        raise HTTPException(status_code=404, detail="Original document file not found in object storage")
+
+    try:
+        content = download_object_bytes(doc.original_path, bucket=stored.bucket, key=stored.key if stored.provider == "rustfs" else None)
+    except Exception as exc:
+        raise HTTPException(status_code=404, detail=f"Unable to read original document from storage: {exc}") from exc
 
     filename = urllib.parse.quote(doc.filename)
     ext = os.path.splitext(doc.filename)[1].lower()
@@ -158,11 +178,9 @@ def download_document(document_id: str, db: Session = Depends(get_db)):
     renderable_exts = {".pdf", ".csv", ".md", ".txt"}
     disp_type = "inline" if ext in renderable_exts else "attachment"
 
-    return FileResponse(
-        path=doc.original_path,
-        filename=doc.filename,
+    return Response(
+        content=content,
         media_type=media_type,
-        content_disposition_type=disp_type,
         headers={"Content-Disposition": f"{disp_type}; filename*=utf-8''{filename}"}
     )
 
@@ -176,10 +194,8 @@ def delete_document(document_id: str, db: Session = Depends(get_db)):
     db.delete(doc)
     db.commit()
 
-    # Try to delete original file
     try:
-        if os.path.exists(doc.original_path):
-            os.remove(doc.original_path)
+        delete_object(doc.original_path)
     except Exception:
         pass
 

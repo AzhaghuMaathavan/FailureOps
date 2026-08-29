@@ -3,6 +3,7 @@ import uuid
 from typing import List, Dict, Any, Optional
 from datetime import datetime, timezone
 
+from app.core.config import settings
 from app.schemas.outcome import OutcomeVerificationPacket, ExperimentOutcomeReport
 from app.schemas.org_memory import OrganizationalMemoryItem, OrganizationalMemoryPacket
 
@@ -108,7 +109,7 @@ def convert_outcome_to_memory(
         intervention_title=outcome.intervention_title,
         outcome_status=outcome.status,
         observed_impact=impact_str,
-        confidence=0.92,
+        confidence=0.0,
         key_lessons=lessons,
         evidence_ids=outcome.evidence_ids,
         visibility=visibility,
@@ -130,11 +131,11 @@ def query_organizational_memory(
     effective_org = caller_org_id or organization_id
     allowed_memories: List[OrganizationalMemoryItem] = []
 
-    # Include benchmark global anonymized memories
-    for mem in BENCHMARK_ORGANIZATIONAL_MEMORIES:
-        if mem.visibility == "GLOBAL_ANONYMIZED":
-            if not pattern_filter or mem.pattern_name.upper() == pattern_filter.upper():
-                allowed_memories.append(mem)
+    if settings.DEMO_MODE:
+        for mem in BENCHMARK_ORGANIZATIONAL_MEMORIES:
+            if mem.visibility == "GLOBAL_ANONYMIZED":
+                if not pattern_filter or mem.pattern_name.upper() == pattern_filter.upper():
+                    allowed_memories.append(mem)
 
     # Filter by organization boundaries
     # Note: In real DB this executes through SQLAlchemy tenant filters

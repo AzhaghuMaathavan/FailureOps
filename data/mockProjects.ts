@@ -1,3 +1,4 @@
+/** DEV-ONLY fixture. Not imported by production routes or pages. */
 import { Project } from '@/types';
 
 export const mockProjects: Project[] = [

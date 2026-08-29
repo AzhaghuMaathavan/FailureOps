@@ -89,14 +89,18 @@ export default function GlobalSearchPage() {
           {/* Search Input */}
           <div className="p-4 rounded-2xl bg-card border border-border shadow-md space-y-3">
             <div className="relative w-full">
-              <Search className="absolute left-4 top-3.5 w-4 h-4 text-muted-foreground" />
+              <Search className="pointer-events-none absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
               <input
-                type="text"
+                id="global-search-input"
+                type="search"
                 value={query}
                 onChange={e => setQuery(e.target.value)}
                 placeholder="Search products, failure patterns, interventions (e.g., 'onboarding friction', 'CI failure')..."
-                className="w-full pl-11 pr-4 py-3 rounded-xl bg-surface-feed border border-border text-foreground text-sm focus:outline-none focus:border-primary font-medium"
+                className="w-full pl-11 pr-16 py-3 rounded-xl bg-surface-feed border border-border text-foreground text-sm focus:outline-none focus-visible:ring-2 focus-visible:ring-primary focus:border-primary font-medium"
               />
+              <kbd className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 hidden sm:inline-flex px-1.5 py-0.5 rounded bg-card border border-border text-[10px] font-mono text-muted-foreground">
+                ⌘K
+              </kbd>
             </div>
 
             <div className="flex items-center gap-2 overflow-x-auto text-xs font-mono text-muted-foreground">

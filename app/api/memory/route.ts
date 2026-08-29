@@ -1,5 +1,5 @@
 export const dynamic = 'force-dynamic';
-import { NextRequest } from 'next/server';
+import { NextRequest, NextResponse } from 'next/server';
 import { requireAuth } from '@/lib/server/auth';
 import { checkRateLimit } from '@/lib/server/rate-limit';
 import { apiSuccess, apiError, apiRateLimitExceeded } from '@/lib/server/response';
@@ -55,23 +55,17 @@ export async function POST(req: NextRequest) {
     if (!rate.success) return apiRateLimitExceeded(rate.resetSeconds);
 
     const body = await req.json();
-    const validated = SaveMemorySchema.parse(body);
+    SaveMemorySchema.parse(body);
 
-    const newEntry = {
-      id: `mem-${Math.random().toString(36).substring(2, 6)}`,
-      pattern: validated.pattern,
-      evidenceSummary: validated.evidenceSummary,
-      intervention: validated.intervention,
-      experimentDesign: validated.experimentDesign,
-      outcome: validated.outcome,
-      confidence: validated.confidence,
-      context: validated.context,
-      tags: validated.tags,
-      verifiedAt: new Date().toISOString().slice(0, 10),
-      organizationId: session.organizationId,
-    };
-
-    return apiSuccess(newEntry, 201);
+    return NextResponse.json(
+      {
+        success: false,
+        error: 'Not Supported',
+        message:
+          'Organizational memory is derived from verified experiment outcomes. There is no standalone write store.',
+      },
+      { status: 409 }
+    );
   } catch (error) {
     return apiError(error, 'Failed to save validated learning to organizational memory.');
   }

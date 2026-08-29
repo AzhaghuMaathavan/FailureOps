@@ -1,8 +1,15 @@
 import logging
 import os
-from typing import Optional, Tuple
+from typing import Optional
 
 from fastapi import HTTPException, UploadFile
+
+from app.core.object_storage import (
+    StoredObject,
+    sha256_hex,
+    stored_object_from_document,
+    upload_object,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -20,8 +27,14 @@ def get_upload_dir() -> str:
     return path
 
 
+def get_pages_dir(document_id: str) -> str:
+    path = os.path.join(get_backend_root(), "storage", "pages", document_id)
+    os.makedirs(path, exist_ok=True)
+    return path
+
+
 def file_size_or_zero(path: Optional[str]) -> int:
-    if not path or not os.path.exists(path):
+    if not path or str(path).startswith("s3://") or not os.path.exists(path):
         return 0
     try:
         return os.path.getsize(path)
@@ -29,26 +42,43 @@ def file_size_or_zero(path: Optional[str]) -> int:
         return 0
 
 
-async def persist_upload(file: UploadFile, doc_id: str) -> Tuple[str, int]:
-    """
-    Read multipart bytes, reject empty payloads, and write them under RAG storage.
+def merge_storage_metadata(existing: Optional[dict], stored: StoredObject) -> dict:
+    meta = dict(existing or {}) if isinstance(existing, dict) else {}
+    meta["storage"] = {
+        "provider": stored.provider,
+        "bucket": stored.bucket,
+        "key": stored.key,
+        "size": stored.size,
+        "checksum": stored.checksum,
+        "content_type": stored.content_type,
+        "exists": stored.exists,
+        "uri": stored.uri,
+    }
+    return meta
 
-    A document is stored only when the destination exists AND size > 0.
+
+async def persist_upload(
+    file: UploadFile,
+    doc_id: str,
+    project_id: str = "aurora",
+) -> StoredObject:
+    """
+    Read multipart bytes, reject empty payloads, and persist ORIGINAL bytes
+    to RustFS (or local fallback). A document is stored only when exists AND size > 0.
     """
     original_name = os.path.basename(file.filename or "upload.bin") or "upload.bin"
-    dest = os.path.join(get_upload_dir(), f"{doc_id}_{original_name}")
     content_type = file.content_type or "application/octet-stream"
 
     content = await file.read()
     size = len(content)
 
     logger.info(
-        "[UPLOAD] document_id=%s filename=%s content_type=%s bytes=%s dest=%s",
+        "[UPLOAD] document_id=%s project_id=%s filename=%s content_type=%s bytes=%s",
         doc_id,
+        project_id,
         original_name,
         content_type,
         size,
-        dest,
     )
 
     if size == 0:
@@ -86,35 +116,70 @@ async def persist_upload(file: UploadFile, doc_id: str) -> Tuple[str, int]:
             },
         )
 
-    with open(dest, "wb") as handle:
-        handle.write(content)
-        handle.flush()
-        os.fsync(handle.fileno())
+    try:
+        stored = upload_object(
+            content=content,
+            project_id=project_id,
+            document_id=doc_id,
+            filename=original_name,
+            content_type=content_type,
+        )
+    except Exception as exc:
+        logger.error("[STORAGE] upload failed document_id=%s error=%s", doc_id, exc)
+        raise HTTPException(
+            status_code=503,
+            detail={
+                "error": "Object storage upload failed",
+                "document_id": doc_id,
+                "stage": "storage",
+                "reason": str(exc),
+            },
+        ) from exc
 
-    exists = os.path.exists(dest)
-    saved = file_size_or_zero(dest)
-    logger.info("[FILE SAVED] document_id=%s path=%s exists=%s size=%s", doc_id, dest, exists, saved)
+    logger.info(
+        "[STORAGE] provider=%s bucket=%s key=%s exists=%s size=%s checksum=%s",
+        stored.provider,
+        stored.bucket,
+        stored.key,
+        stored.exists,
+        stored.size,
+        stored.checksum,
+    )
 
-    if not exists or saved <= 0:
+    if not stored.exists or stored.size <= 0:
         raise HTTPException(
             status_code=500,
             detail={
-                "error": "Failed to persist uploaded file",
+                "error": stored.error or "Failed to persist uploaded file",
                 "document_id": doc_id,
-                "stage": "upload",
+                "stage": "storage",
             },
         )
 
-    if saved != size:
+    if stored.size != size:
         raise HTTPException(
             status_code=500,
             detail={
                 "error": "Persisted file size does not match uploaded bytes",
                 "document_id": doc_id,
-                "stage": "upload",
+                "stage": "storage",
                 "bytes": size,
-                "saved": saved,
+                "saved": stored.size,
             },
         )
 
-    return dest, saved
+    return stored
+
+
+def document_storage_fields(doc) -> dict:
+    stored = stored_object_from_document(doc)
+    return {
+        "file_size": stored.size,
+        "file_exists": stored.exists,
+        "storage_provider": stored.provider,
+        "storage_bucket": stored.bucket,
+        "storage_key": stored.key,
+        "storage_checksum": stored.checksum,
+        "storage_uri": stored.uri,
+        "storage_error": stored.error,
+    }

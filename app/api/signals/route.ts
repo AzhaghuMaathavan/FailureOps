@@ -7,6 +7,11 @@ import { apiSuccess, apiError, apiRateLimitExceeded } from '@/lib/server/respons
 import { ragFetch } from '@/lib/server/rag';
 import { Signal } from '@/types';
 
+function toPercent(value: unknown): number {
+  if (typeof value !== 'number' || Number.isNaN(value)) return 0;
+  return value <= 1 ? Math.round(value * 100) : Math.round(value);
+}
+
 export async function GET(req: NextRequest) {
   try {
     const session = requireAuth(req);
@@ -34,13 +39,13 @@ export async function GET(req: NextRequest) {
       severity: s.severity || 'MEDIUM',
       direction: s.polarity || 'NEGATIVE',
       trend: s.status === 'IMPROVING' ? 'DECREASING' : 'INCREASING',
-      confidence: Math.round((s.signal_confidence || 0.9) * 100),
+      confidence: toPercent(s.signal_confidence),
       metricChange: s.metric_change || 'Observed anomaly',
       supportingEvidenceIds: s.supporting_evidence_ids || [],
       supportingRelationshipIds: s.supporting_relationship_ids || [],
-      historicalPrevalence: s.historical_prevalence || 85,
+      historicalPrevalence: typeof s.historical_prevalence === 'number' ? s.historical_prevalence : 0,
       description: s.summary,
-      signalStrength: Math.round((s.signal_strength || 0.85) * 100),
+      signalStrength: toPercent(s.signal_strength),
       status: s.status,
       signalType: s.signal_type,
     }));

@@ -68,9 +68,8 @@ def run_project_analysis_pipeline(
             except Exception as e:
                 logger.error(f"Error processing pending document {doc.id}: {e}")
 
-        # Stage 2: Chunking & Indexing
+        # Stage 2: Chunking & Indexing (real work already ran during ingest)
         update_analysis_stage(db, analysis_id, "INDEXING", "Indexing semantic chunks and embeddings...", 30)
-        time.sleep(0.3)
 
         # Stage 3: 16-Dimension Targeted Hybrid Retrieval (with Acceptance Gating)
         update_analysis_stage(db, analysis_id, "RETRIEVING_EVIDENCE", "Executing 16-dimension hybrid retrieval...", 50)
@@ -89,102 +88,185 @@ def run_project_analysis_pipeline(
             document_ids=doc_ids
         )
 
-        # Stage 4: Evidence Extraction & Citation Validation (Member 1)
-        update_analysis_stage(db, analysis_id, "EXTRACTING_EVIDENCE", "Extracting verified facts and citations...", 70)
-        
-        t_duration = time.time() - t_start
-        evidence_packet = run_evidence_agent(
-            organization_id=organization_id,
-            project_id=project_id,
-            analysis_id=analysis_id,
-            dimension_chunks_map=dimension_chunks,
-            total_docs_count=len(project_docs),
-            processing_time=t_duration
-        )
+        retrieval_count = sum(len(v or []) for v in (dimension_chunks or {}).values())
+        logger.info("[RETRIEVAL] query_id=%s chunks=%s", analysis_id, retrieval_count)
 
-        # Stage 5: Signal Input Validation & Evidence Grouping (Member 2 Stage 1 & 2)
-        update_analysis_stage(db, analysis_id, "GROUPING_EVIDENCE", "Validating input packet and clustering evidence...", 80)
-        signal_input_context = consume_evidence_packet(
-            packet_input=evidence_packet,
-            authorized_org_id=organization_id,
-            expected_project_id=project_id
-        )
-        evidence_groups = group_verified_evidence(signal_input_context)
+        pipeline_flags = {
+            "total_chunks_searched": retrieval_count,
+            "retrieval_status": "COMPLETED" if retrieval_count > 0 else "BLOCKED",
+            "retrieval_reason": None if retrieval_count > 0 else "No retrieved chunks",
+            "evidence_agent_status": "PENDING",
+            "signal_agent_status": "PENDING",
+        }
 
-        # Stage 6: Trend & Relationship Detection (Member 2 Stage 3 & 4)
-        update_analysis_stage(db, analysis_id, "CORRELATING_PATTERNS", "Detecting numerical trends and cross-source patterns...", 88)
-        detected_trends = detect_trends_from_groups(evidence_groups)
-        relationships = detect_evidence_relationships(evidence_groups, detected_trends)
+        # Stage 4: Evidence Extraction — cannot run without retrieved chunks
+        if retrieval_count == 0:
+            logger.warning("[EVIDENCE_AGENT] status=BLOCKED reason=no retrieved evidence analysis_id=%s", analysis_id)
+            t_duration = time.time() - t_start
+            evidence_packet = run_evidence_agent(
+                organization_id=organization_id,
+                project_id=project_id,
+                analysis_id=analysis_id,
+                dimension_chunks_map={},
+                total_docs_count=len(project_docs),
+                processing_time=t_duration
+            )
+            pipeline_flags["evidence_agent_status"] = "BLOCKED"
+            pipeline_flags["evidence_agent_reason"] = "BLOCKED — no retrieved evidence"
+            pipeline_flags["signal_agent_status"] = "BLOCKED"
+            pipeline_flags["signal_agent_reason"] = "BLOCKED — no grounded evidence"
+            logger.warning("[SIGNAL_AGENT] status=BLOCKED reason=no grounded evidence analysis_id=%s", analysis_id)
+            from app.schemas.signal_packet import SignalPacket, OverallSignalSummary
+            signal_packet = SignalPacket(
+                project_id=project_id,
+                analysis_id=analysis_id,
+                organization_id=organization_id,
+                signals=[],
+                summary=OverallSignalSummary(),
+            )
+            from app.services.dna_engine import calculate_failure_dna
+            from app.services.failure_chain_engine import generate_failure_chain_and_prediction
+            from app.services.memory_engine import search_historical_failure_cases
+            from app.services.simulation_engine import run_what_if_simulations
+            from app.services.intervention_engine import generate_intervention_plan
+            from app.services.experiment_engine import generate_initial_experiments_from_plan
+            from app.services.outcome_engine import verify_all_project_experiments
+            from app.services.radar_engine import synthesize_failure_radar_snapshot
+            dna_packet = calculate_failure_dna(signal_packet=signal_packet, evidence_packet=evidence_packet)
+            chain_packet = generate_failure_chain_and_prediction(signal_packet=signal_packet, dna_packet=dna_packet)
+            memory_packet = search_historical_failure_cases(
+                project_id=project_id,
+                organization_id=organization_id,
+                signal_packet=signal_packet,
+                dna_packet=dna_packet,
+            )
+            simulation_packet = run_what_if_simulations(
+                project_id=project_id,
+                organization_id=organization_id,
+                signal_packet=signal_packet,
+                dna_packet=dna_packet,
+            )
+            intervention_plan = generate_intervention_plan(
+                signal_packet=signal_packet,
+                dna_packet=dna_packet,
+                chain_packet=chain_packet,
+                memory_packet=memory_packet,
+                simulation_packet=simulation_packet,
+            )
+            experiment_list = generate_initial_experiments_from_plan(intervention_plan)
+            outcome_packet = verify_all_project_experiments(experiment_list.experiments)
+            radar_snapshot = synthesize_failure_radar_snapshot(
+                signal_packet=signal_packet,
+                dna_packet=dna_packet,
+                chain_packet=chain_packet,
+                intervention_plan=intervention_plan,
+                experiment_list=experiment_list,
+                memory_packet=memory_packet,
+            )
+        else:
+            update_analysis_stage(db, analysis_id, "EXTRACTING_EVIDENCE", "Extracting verified facts and citations...", 70)
+            t_duration = time.time() - t_start
+            evidence_packet = run_evidence_agent(
+                organization_id=organization_id,
+                project_id=project_id,
+                analysis_id=analysis_id,
+                dimension_chunks_map=dimension_chunks,
+                total_docs_count=len(project_docs),
+                processing_time=t_duration
+            )
+            evidence_count = len(evidence_packet.evidence or [])
+            logger.info("[EVIDENCE_AGENT] input_chunks=%s evidence_items=%s", retrieval_count, evidence_count)
 
-        # Stage 7: Signal Agent Synthesis & Grounding (Member 2 Stage 5)
-        update_analysis_stage(db, analysis_id, "SYNTHESIZING_SIGNALS", "Synthesizing operational signals and strength metrics...", 88)
-        signal_packet = generate_signal_packet(
-            context=signal_input_context,
-            groups=evidence_groups,
-            trends=detected_trends,
-            relationships=relationships
-        )
+            if evidence_count == 0:
+                pipeline_flags["evidence_agent_status"] = "COMPLETED"
+                pipeline_flags["evidence_agent_reason"] = None
+                pipeline_flags["signal_agent_status"] = "BLOCKED"
+                pipeline_flags["signal_agent_reason"] = "BLOCKED — no grounded evidence"
+                logger.warning("[SIGNAL_AGENT] status=BLOCKED reason=no grounded evidence analysis_id=%s", analysis_id)
+                from app.schemas.signal_packet import SignalPacket, OverallSignalSummary
+                signal_packet = SignalPacket(
+                    project_id=project_id,
+                    analysis_id=analysis_id,
+                    organization_id=organization_id,
+                    signals=[],
+                    summary=OverallSignalSummary(),
+                )
+            else:
+                pipeline_flags["evidence_agent_status"] = "COMPLETED"
+                update_analysis_stage(db, analysis_id, "GROUPING_EVIDENCE", "Validating input packet and clustering evidence...", 80)
+                signal_input_context = consume_evidence_packet(
+                    packet_input=evidence_packet,
+                    authorized_org_id=organization_id,
+                    expected_project_id=project_id
+                )
+                evidence_groups = group_verified_evidence(signal_input_context)
+                update_analysis_stage(db, analysis_id, "CORRELATING_PATTERNS", "Detecting numerical trends and cross-source patterns...", 88)
+                detected_trends = detect_trends_from_groups(evidence_groups)
+                relationships = detect_evidence_relationships(evidence_groups, detected_trends)
+                update_analysis_stage(db, analysis_id, "SYNTHESIZING_SIGNALS", "Synthesizing operational signals and strength metrics...", 88)
+                signal_packet = generate_signal_packet(
+                    context=signal_input_context,
+                    groups=evidence_groups,
+                    trends=detected_trends,
+                    relationships=relationships
+                )
+                pipeline_flags["signal_agent_status"] = "COMPLETED"
+                logger.info(
+                    "[SIGNAL_AGENT] input_evidence=%s signals=%s",
+                    evidence_count,
+                    len(signal_packet.signals or []),
+                )
 
-        # Stage 8: Failure DNA & Multi-Dimensional Health (Member 3 Feature 4)
-        update_analysis_stage(db, analysis_id, "CALCULATING_FAILURE_DNA", "Computing multi-dimensional Failure DNA & Health...", 92)
-        from app.services.dna_engine import calculate_failure_dna
-        dna_packet = calculate_failure_dna(
-            signal_packet=signal_packet,
-            evidence_packet=evidence_packet
-        )
+            from app.services.dna_engine import calculate_failure_dna
+            from app.services.failure_chain_engine import generate_failure_chain_and_prediction
+            from app.services.memory_engine import search_historical_failure_cases
+            from app.services.simulation_engine import run_what_if_simulations
+            from app.services.intervention_engine import generate_intervention_plan
+            from app.services.experiment_engine import generate_initial_experiments_from_plan
+            from app.services.outcome_engine import verify_all_project_experiments
+            from app.services.radar_engine import synthesize_failure_radar_snapshot
 
-        # Stage 9: Failure Chain & Trajectory Prediction (Member 3 Feature 1)
-        update_analysis_stage(db, analysis_id, "BUILDING_FAILURE_CHAIN", "Modeling causal failure trajectory & predictions...", 95)
-        from app.services.failure_chain_engine import generate_failure_chain_and_prediction
-        chain_packet = generate_failure_chain_and_prediction(
-            signal_packet=signal_packet,
-            dna_packet=dna_packet
-        )
-
-        # Stage 10: Historical Failure Memory & What-if Simulation (Member 3 Features 2 & 3)
-        update_analysis_stage(db, analysis_id, "RUNNING_SIMULATIONS", "Matching historical memory & simulating what-if scenarios...", 97)
-        from app.services.memory_engine import search_historical_failure_cases
-        from app.services.simulation_engine import run_what_if_simulations
-        
-        memory_packet = search_historical_failure_cases(
-            project_id=project_id,
-            organization_id=organization_id,
-            signal_packet=signal_packet,
-            dna_packet=dna_packet
-        )
-        simulation_packet = run_what_if_simulations(
-            project_id=project_id,
-            organization_id=organization_id,
-            signal_packet=signal_packet,
-            dna_packet=dna_packet
-        )
-
-        # Stage 11: Member 4 Decision & Action Layer (Interventions, Experiments, Outcomes, Radar)
-        update_analysis_stage(db, analysis_id, "SYNTHESIZING_DECISIONS", "Formulating prioritized interventions & failure radar...", 98)
-        from app.services.intervention_engine import generate_intervention_plan
-        from app.services.experiment_engine import generate_initial_experiments_from_plan
-        from app.services.outcome_engine import verify_all_project_experiments
-        from app.services.radar_engine import synthesize_failure_radar_snapshot
-
-        intervention_plan = generate_intervention_plan(
-            signal_packet=signal_packet,
-            dna_packet=dna_packet,
-            chain_packet=chain_packet,
-            memory_packet=memory_packet,
-            simulation_packet=simulation_packet
-        )
-
-        experiment_list = generate_initial_experiments_from_plan(intervention_plan)
-        outcome_packet = verify_all_project_experiments(experiment_list.experiments)
-
-        radar_snapshot = synthesize_failure_radar_snapshot(
-            signal_packet=signal_packet,
-            dna_packet=dna_packet,
-            chain_packet=chain_packet,
-            intervention_plan=intervention_plan,
-            experiment_list=experiment_list,
-            memory_packet=memory_packet
-        )
+            update_analysis_stage(db, analysis_id, "CALCULATING_FAILURE_DNA", "Computing multi-dimensional Failure DNA & Health...", 92)
+            dna_packet = calculate_failure_dna(
+                signal_packet=signal_packet,
+                evidence_packet=evidence_packet
+            )
+            update_analysis_stage(db, analysis_id, "BUILDING_FAILURE_CHAIN", "Modeling causal failure trajectory & predictions...", 95)
+            chain_packet = generate_failure_chain_and_prediction(
+                signal_packet=signal_packet,
+                dna_packet=dna_packet
+            )
+            update_analysis_stage(db, analysis_id, "RUNNING_SIMULATIONS", "Matching historical memory & simulating what-if scenarios...", 97)
+            memory_packet = search_historical_failure_cases(
+                project_id=project_id,
+                organization_id=organization_id,
+                signal_packet=signal_packet,
+                dna_packet=dna_packet
+            )
+            simulation_packet = run_what_if_simulations(
+                project_id=project_id,
+                organization_id=organization_id,
+                signal_packet=signal_packet,
+                dna_packet=dna_packet
+            )
+            update_analysis_stage(db, analysis_id, "SYNTHESIZING_DECISIONS", "Formulating prioritized interventions & failure radar...", 98)
+            intervention_plan = generate_intervention_plan(
+                signal_packet=signal_packet,
+                dna_packet=dna_packet,
+                chain_packet=chain_packet,
+                memory_packet=memory_packet,
+                simulation_packet=simulation_packet
+            )
+            experiment_list = generate_initial_experiments_from_plan(intervention_plan)
+            outcome_packet = verify_all_project_experiments(experiment_list.experiments)
+            radar_snapshot = synthesize_failure_radar_snapshot(
+                signal_packet=signal_packet,
+                dna_packet=dna_packet,
+                chain_packet=chain_packet,
+                intervention_plan=intervention_plan,
+                experiment_list=experiment_list,
+                memory_packet=memory_packet
+            )
 
         # Stage 12: Relational Database Persistence
         update_analysis_stage(db, analysis_id, "PERSISTING_ANALYSIS", "Persisting Intelligence & Decision Packets...", 99)
@@ -201,7 +283,9 @@ def run_project_analysis_pipeline(
             analysis.experiments = experiment_list.model_dump()
             analysis.outcomes = outcome_packet.model_dump()
             analysis.radar_snapshot = radar_snapshot.model_dump()
-            analysis.metrics = evidence_packet.metrics.model_dump()
+            merged_metrics = evidence_packet.metrics.model_dump() if evidence_packet.metrics else {}
+            merged_metrics.update(pipeline_flags)
+            analysis.metrics = merged_metrics
             
             # Clear any existing items for this analysis_id to ensure idempotency
             db.query(EvidenceItem).filter(EvidenceItem.analysis_id == analysis_id).delete()

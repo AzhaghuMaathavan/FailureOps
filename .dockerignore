@@ -1,0 +1,8 @@
+node_modules
+.next
+.git
+agentic-rag-main
+*.md
+.env
+.env.*
+!.env.example

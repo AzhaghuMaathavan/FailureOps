@@ -56,7 +56,8 @@ export default function OutcomeVerificationPage() {
 
         <button
           onClick={() => setIsModalOpen(true)}
-          className="inline-flex items-center gap-2 px-4 py-2 rounded-xl bg-primary hover:bg-primary-hover text-white text-xs font-bold transition-all shadow-[0_0_15px_-3px_rgba(255,122,0,0.4)]"
+          disabled={!primaryOutcome}
+          className="inline-flex items-center gap-2 px-4 py-2 rounded-xl bg-primary hover:bg-primary-hover text-white text-xs font-bold transition-all shadow-[0_0_15px_-3px_rgba(255,122,0,0.4)] cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
         >
           <Database className="w-3.5 h-3.5" />
           <span>Save to Org Memory</span>
@@ -143,7 +144,7 @@ export default function OutcomeVerificationPage() {
             <span>Epistemic Attribution Safety</span>
           </div>
           <p className="text-xs text-foreground/90 leading-relaxed font-medium">
-            {primaryOutcome?.epistemic_safety_note || 'Improvement observed after intervention. Attribution reflects observed correlation.'} {primaryOutcome?.attribution_reasoning}
+            {primaryOutcome?.epistemic_safety_note || 'No attribution note is available until a verified outcome is recorded.'} {primaryOutcome?.attribution_reasoning}
           </p>
         </div>
       </div>
@@ -159,13 +160,14 @@ export default function OutcomeVerificationPage() {
 
         <button
           onClick={() => setIsModalOpen(true)}
-          className="px-5 py-2.5 rounded-xl bg-primary hover:bg-primary-hover text-white text-xs font-bold uppercase tracking-wide transition-all shadow-sm shrink-0"
+          disabled={!primaryOutcome}
+          className="px-5 py-2.5 rounded-xl bg-primary hover:bg-primary-hover text-white text-xs font-bold uppercase tracking-wide transition-all shadow-sm shrink-0 cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
         >
           Commit Learning Now
         </button>
       </div>
 
-      <SaveMemoryModal isOpen={isModalOpen} onClose={() => setIsModalOpen(false)} />
+      <SaveMemoryModal isOpen={isModalOpen} onClose={() => setIsModalOpen(false)} outcome={primaryOutcome} />
     </div>
   );
 }

@@ -1,3 +1,4 @@
+/** DEV-ONLY fixture. Not imported by production routes or pages. */
 import { Intervention } from '@/types';
 
 export const mockInterventions: Intervention[] = [

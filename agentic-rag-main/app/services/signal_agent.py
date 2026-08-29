@@ -192,7 +192,7 @@ def generate_signal_packet(
             metric_change=delta_str,
             signal_strength=strength,
             signal_confidence=confidence,
-            historical_prevalence=88 if severity == "CRITICAL" else 82,
+            historical_prevalence=0,
             supporting_evidence_ids=rel.supporting_evidence_ids,
             supporting_relationship_ids=[rel.relationship_id]
         )
@@ -260,7 +260,7 @@ def generate_signal_packet(
             metric_change=delta_str,
             signal_strength=strength,
             signal_confidence=confidence,
-            historical_prevalence=75 if is_single else 84,
+            historical_prevalence=0,
             supporting_evidence_ids=grp_ev_ids,
             supporting_relationship_ids=[]
         )

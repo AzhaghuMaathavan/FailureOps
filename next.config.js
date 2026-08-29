@@ -1,7 +1,18 @@
+const PROJECT_ROUTE_ALIASES = require('./lib/route-aliases.json');
+const DEFAULT_PROJECT_ID = 'aurora';
+
 /** @type {import('next').NextConfig} */
 const nextConfig = {
   reactStrictMode: true,
   poweredByHeader: false, // Prevent leakage of Next.js / framework signature
+  async rewrites() {
+    return {
+      afterFiles: PROJECT_ROUTE_ALIASES.map((entry) => ({
+        source: entry.alias,
+        destination: `/projects/${DEFAULT_PROJECT_ID}/${entry.projectPath}`,
+      })),
+    };
+  },
   headers: async () => [
     {
       source: '/:path*',

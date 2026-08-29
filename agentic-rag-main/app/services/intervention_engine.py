@@ -70,14 +70,14 @@ def generate_intervention_plan(
     ad_signals = [s for s in signals if s.category.upper() in ["ADOPTION", "CUSTOMER"]]
     op_signals = [s for s in signals if s.category.upper() in ["OPERATIONAL", "TEAM", "DELIVERY", "PROCESS"]]
 
-    baseline_risk = dna_packet.overall.risk_score if dna_packet else 78
-    pred_conf = chain_packet.prediction.confidence if chain_packet else 0.88
+    baseline_risk = dna_packet.overall.risk_score if dna_packet else 0
+    pred_conf = chain_packet.prediction.confidence if chain_packet else 0.0
 
     # 1. Technical Reliability / CI Stabilization Intervention
     if tech_signals or (dna_packet and any(d.dimension == "Technical" and d.status in ["ELEVATED", "CRITICAL"] for d in dna_packet.dimensions)):
         all_ev_ids = [eid for s in tech_signals for eid in s.supporting_evidence_ids]
         tech_dim = next((d for d in dna_packet.dimensions if d.dimension == "Technical"), None) if dna_packet else None
-        severity = float(tech_dim.risk_score) if (tech_dim and tech_dim.risk_score is not None) else 78.0
+        severity = float(tech_dim.risk_score) if (tech_dim and tech_dim.risk_score is not None) else 0.0
         expected_red = 22
         
         breakdown = calculate_deterministic_priority_score(

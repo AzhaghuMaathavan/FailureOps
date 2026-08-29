@@ -198,6 +198,12 @@ export const apiClient = {
       ragStatus?: string;
       database?: string;
       vectorStore?: boolean;
+      rustfsReachable?: boolean;
+      rustfsProvider?: string;
+      rustfsBucket?: string;
+      embeddingProviderConfigured?: boolean;
+      llmProviderConfigured?: boolean;
+      parseProviderConfigured?: boolean;
       error?: string;
     }>('/api/rag/health');
   },
@@ -205,13 +211,24 @@ export const apiClient = {
   async getRagPipeline(projectId: string = 'aurora') {
     return request<{
       projectId: string;
-      health: { reachable: boolean; ragStatus?: string; database?: string; vectorStore?: boolean };
+      health: {
+        reachable: boolean;
+        ragStatus?: string;
+        database?: string;
+        vectorStore?: boolean;
+        rustfsReachable?: boolean;
+        rustfsProvider?: string;
+        rustfsBucket?: string;
+      };
       documents: any[];
       totals: {
         documents: number;
         bytes?: number;
+        pages?: number;
         chunks: number;
         embedded: number;
+        vectors?: number;
+        retrieved?: number;
         evidence: number;
         signals: number;
         chunksSearched: number;
@@ -219,6 +236,8 @@ export const apiClient = {
       evidenceAnalysisId: string | null;
       signalAnalysisId: string | null;
       metrics: any;
+      storageHealth?: any;
+      analysisStatus?: string | null;
       stages: {
         key: string;
         label: string;
@@ -226,6 +245,10 @@ export const apiClient = {
         detail: string;
         count?: number;
         error?: string | null;
+        input_count?: number;
+        output_count?: number;
+        started_at?: string | null;
+        completed_at?: string | null;
       }[];
     }>(`/api/rag/pipeline?projectId=${encodeURIComponent(projectId)}`);
   },

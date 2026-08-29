@@ -8,7 +8,7 @@ from sqlalchemy.orm import Session
 from app.db.database import get_db
 from app.core.config import settings
 from app.core.tenant import get_tenant_context
-from app.models.document import Document
+from app.models.document import Document, Page
 from app.models.chunk import Chunk
 from app.models.analysis import ProjectAnalysis
 from app.models.evidence import EvidenceItem, EvidenceConflict
@@ -19,21 +19,15 @@ from app.schemas.failure_dna import FailureDNAPacket, OverallProjectHealth
 from app.schemas.failure_chain import FailureChainPacket, FailurePrediction
 from app.schemas.historical_memory import HistoricalMemoryPacket
 from app.schemas.simulation import SimulationComparisonPacket
-from app.schemas.intervention import InterventionItem, PriorityCalculationBreakdown
 
 from app.models.signal import SignalItem
 from app.models.project import Project
 from app.services.document_service import process_document
 from app.services.analysis_orchestrator import run_project_analysis_pipeline
-from app.services.dna_engine import calculate_failure_dna
-from app.services.failure_chain_engine import generate_failure_chain_and_prediction
-from app.services.intervention_engine import generate_intervention_plan
-from app.services.experiment_engine import generate_initial_experiments_from_plan, create_experiment_from_intervention
-
-from app.services.memory_engine import search_historical_failure_cases
-from app.services.outcome_engine import verify_all_project_experiments, verify_experiment_outcome
-from app.services.radar_engine import synthesize_failure_radar_snapshot
-from app.core.storage import persist_upload, file_size_or_zero
+from app.services.outcome_engine import verify_experiment_outcome
+from app.core.storage import persist_upload, merge_storage_metadata, document_storage_fields
+from app.core.object_storage import delete_object
+from app.services.pipeline_status import build_project_pipeline, document_pipeline_dict
 from app.services.retrieval_service import search_knowledge_base
 from pydantic import BaseModel
 
@@ -74,20 +68,32 @@ def list_organization_projects(
             ProjectAnalysis.status == "COMPLETED"
         ).order_by(ProjectAnalysis.created_at.desc()).first()
 
-        failure_risk = p.failure_risk
-        risk_trend = p.risk_trend or "+24% over 4 weeks"
-        predicted_failure = p.predicted_next_failure or "Missed Beta Release"
-        pred_conf = p.prediction_confidence or 86
-        health = p.health
+        failure_risk = p.failure_risk if p.failure_risk is not None else 0
+        risk_trend = p.risk_trend or "Awaiting Analysis"
+        predicted_failure = p.predicted_next_failure or "No Failure Predicted (Awaiting Analysis)"
+        pred_conf = p.prediction_confidence if p.prediction_confidence is not None else 0
+        health = p.health or "WATCH"
+        historical_similarity = p.historical_similarity if p.historical_similarity is not None else 0
+        last_analyzed = None
+        signal_count = 0
 
         if latest_analysis and latest_analysis.failure_dna:
             dna_overall = latest_analysis.failure_dna.get("overall", {})
             failure_risk = dna_overall.get("risk_score", failure_risk)
             health = dna_overall.get("status", health)
+            last_analyzed = latest_analysis.completed_at.isoformat() if latest_analysis.completed_at else None
             if latest_analysis.failure_chain and latest_analysis.failure_chain.get("prediction"):
                 pred = latest_analysis.failure_chain["prediction"]
-                predicted_failure = pred.get("predicted_failure", predicted_failure)
-                pred_conf = int(pred.get("confidence", 0.86) * 100) if isinstance(pred.get("confidence"), float) else pred.get("confidence", 86)
+                predicted_failure = pred.get("predicted_failure") or predicted_failure
+                raw_conf = pred.get("confidence")
+                if isinstance(raw_conf, float) and raw_conf <= 1:
+                    pred_conf = int(raw_conf * 100)
+                elif isinstance(raw_conf, (int, float)):
+                    pred_conf = int(raw_conf)
+            if latest_analysis.historical_matches:
+                historical_similarity = latest_analysis.historical_matches.get("top_similarity") or historical_similarity
+            if latest_analysis.signal_packet:
+                signal_count = len(latest_analysis.signal_packet.get("signals") or [])
 
         results.append({
             "id": p.id,
@@ -104,11 +110,11 @@ def list_organization_projects(
             "riskTrend": risk_trend,
             "predictedNextFailure": predicted_failure,
             "predictionConfidence": pred_conf,
-            "historicalSimilarity": p.historical_similarity or 89,
+            "historicalSimilarity": historical_similarity,
             "privacyLevel": p.privacy_level,
-            "sourcesUploaded": p.sources_uploaded or ["PRODUCT_PLAN", "CUSTOMER_FEEDBACK"],
-            "lastAnalyzedAt": "Recently",
-            "activeFailureSeedsCount": 4
+            "sourcesUploaded": p.sources_uploaded or [],
+            "lastAnalyzedAt": last_analyzed,
+            "activeFailureSeedsCount": signal_count
         })
     return results
 
@@ -174,7 +180,7 @@ def register_project(
         "historicalSimilarity": new_proj.historical_similarity,
         "privacyLevel": new_proj.privacy_level,
         "sourcesUploaded": new_proj.sources_uploaded,
-        "lastAnalyzedAt": "Just now",
+        "lastAnalyzedAt": None,
         "activeFailureSeedsCount": 4
     }
 
@@ -217,8 +223,12 @@ def get_project_details(
         health = dna_overall.get("status", health)
         if latest_analysis.failure_chain and latest_analysis.failure_chain.get("prediction"):
             pred = latest_analysis.failure_chain["prediction"]
-            predicted_failure = pred.get("predicted_failure", predicted_failure)
-            pred_conf = int(pred.get("confidence", 0.86) * 100) if isinstance(pred.get("confidence"), float) else pred.get("confidence", 86)
+            predicted_failure = pred.get("predicted_failure") or predicted_failure
+            raw_conf = pred.get("confidence")
+            if isinstance(raw_conf, float) and raw_conf <= 1:
+                pred_conf = int(raw_conf * 100)
+            elif isinstance(raw_conf, (int, float)):
+                pred_conf = int(raw_conf)
 
     active_seeds = len(latest_analysis.signal_packet.get("signals", [])) if (latest_analysis and latest_analysis.signal_packet) else 0
 
@@ -240,7 +250,7 @@ def get_project_details(
         "historicalSimilarity": p.historical_similarity if p.historical_similarity is not None else 0,
         "privacyLevel": p.privacy_level,
         "sourcesUploaded": p.sources_uploaded or [],
-        "lastAnalyzedAt": "Recently" if latest_analysis else "Never",
+        "lastAnalyzedAt": latest_analysis.completed_at.isoformat() if latest_analysis and latest_analysis.completed_at else None,
         "activeFailureSeedsCount": active_seeds
     }
 
@@ -656,12 +666,12 @@ async def upload_project_document(
         raise HTTPException(status_code=400, detail=f"Unsupported format. Allowed: {', '.join(allowed_extensions)}")
 
     doc_id = f"doc_{uuid.uuid4().hex[:12]}"
-    file_path, saved_bytes = await persist_upload(file, doc_id)
+    stored = await persist_upload(file, doc_id, project_id=project_id)
 
     db_doc = Document(
         id=doc_id,
         filename=file.filename,
-        original_path=file_path,
+        original_path=stored.uri,
         organization_id=org_id,
         project_id=project_id,
         visibility=visibility or "PRIVATE",
@@ -669,12 +679,14 @@ async def upload_project_document(
         status="PENDING",
         title=title or file.filename,
         document_type=document_type,
-        description=description
+        description=description,
+        extracted_metadata=merge_storage_metadata({}, stored),
     )
     db.add(db_doc)
     db.commit()
 
-    background_tasks.add_task(process_document, doc_id, file_path)
+    local_hint = stored.uri if stored.provider == "local" else None
+    background_tasks.add_task(process_document, doc_id, local_hint)
 
     return {
         "document_id": doc_id,
@@ -683,7 +695,15 @@ async def upload_project_document(
         "organization_id": org_id,
         "status": "PENDING",
         "visibility": visibility or "PRIVATE",
-        "bytes": saved_bytes,
+        "bytes": stored.size,
+        "storage": {
+            "provider": stored.provider,
+            "bucket": stored.bucket,
+            "key": stored.key,
+            "exists": stored.exists,
+            "size": stored.size,
+            "checksum": stored.checksum,
+        },
     }
 
 
@@ -710,14 +730,14 @@ def list_project_documents(
             "status": d.status,
             "error_message": d.error_message,
             "visibility": d.visibility,
+            "page_count": db.query(Page).filter(Page.document_id == d.id).count(),
             "chunk_count": db.query(Chunk).filter(Chunk.document_id == d.id).count(),
             "embedded_count": db.query(Chunk).filter(
                 Chunk.document_id == d.id,
                 Chunk.embedding_status == "COMPLETED"
             ).count(),
-            "file_size": file_size_or_zero(d.original_path),
-            "file_exists": bool(d.original_path and os.path.exists(d.original_path)),
-            "created_at": d.created_at.isoformat() if d.created_at else None
+            "created_at": d.created_at.isoformat() if d.created_at else None,
+            **document_storage_fields(d),
         }
         for d in docs
     ]
@@ -746,13 +766,38 @@ def delete_project_document(
     db.delete(doc)
     db.commit()
 
-    if doc.original_path and os.path.exists(doc.original_path):
-        try:
-            os.remove(doc.original_path)
-        except Exception:
-            pass
+    try:
+        delete_object(doc.original_path)
+    except Exception:
+        pass
 
     return {"status": "DELETED", "document_id": document_id, "project_id": project_id}
+
+
+@router.get("/projects/{project_id}/pipeline")
+def get_project_pipeline(
+    project_id: str,
+    org_id: str = Depends(get_tenant_context),
+    db: Session = Depends(get_db)
+):
+    return build_project_pipeline(db, org_id, project_id)
+
+
+@router.get("/projects/{project_id}/documents/{document_id}/pipeline")
+def get_document_pipeline(
+    project_id: str,
+    document_id: str,
+    org_id: str = Depends(get_tenant_context),
+    db: Session = Depends(get_db)
+):
+    doc = db.query(Document).filter(
+        Document.organization_id == org_id,
+        Document.project_id == project_id,
+        Document.id == document_id,
+    ).first()
+    if not doc:
+        raise HTTPException(status_code=404, detail="Document not found or unauthorized")
+    return document_pipeline_dict(db, doc)
 
 
 class ProjectRetrieveRequest(BaseModel):
@@ -855,12 +900,14 @@ def get_project_interventions(
     if analysis and analysis.interventions:
         return analysis.interventions
 
-    # Dynamic synthesis fallback
-    sig_packet = get_latest_project_signals(project_id, org_id, db)
-    dna_packet = calculate_failure_dna(sig_packet) if sig_packet else None
-    chain_packet = generate_failure_chain_and_prediction(sig_packet, dna_packet) if sig_packet else None
-    plan = generate_intervention_plan(sig_packet or SignalPacket(project_id=project_id, analysis_id="anl_fallback", organization_id=org_id, signals=[]), dna_packet, chain_packet)
-    return plan.model_dump()
+    from app.schemas.intervention import InterventionPlanPacket
+    return InterventionPlanPacket(
+        project_id=project_id,
+        analysis_id=analysis.id if analysis else "none",
+        organization_id=org_id,
+        interventions=[],
+        recommended_primary_intervention="Insufficient evidence for a recommended action",
+    ).model_dump()
 
 
 @router.get("/projects/{project_id}/experiments", response_model=Dict[str, Any])
@@ -881,13 +928,13 @@ def get_project_experiments(
     if analysis and analysis.experiments:
         return analysis.experiments
 
-    from app.services.intervention_engine import generate_intervention_plan
-    from app.services.experiment_engine import generate_initial_experiments_from_plan
-
-    sig_packet = get_latest_project_signals(project_id, org_id, db)
-    plan = generate_intervention_plan(sig_packet or SignalPacket(project_id=project_id, analysis_id="anl_fallback", organization_id=org_id, signals=[]))
-    exp_list = generate_initial_experiments_from_plan(plan)
-    return exp_list.model_dump()
+    from app.schemas.experiment import ExperimentListPacket
+    return ExperimentListPacket(
+        project_id=project_id,
+        organization_id=org_id,
+        experiments=[],
+        active_experiment_count=0,
+    ).model_dump()
 
 
 @router.post("/projects/{project_id}/experiments/{experiment_id}/start")
@@ -900,14 +947,31 @@ def start_experiment(
     """
     Transitions an experiment status to ACTIVE and timestamps start.
     """
+    analysis = db.query(ProjectAnalysis).filter(
+        ProjectAnalysis.organization_id == org_id,
+        ProjectAnalysis.project_id == project_id,
+        ProjectAnalysis.status == "COMPLETED"
+    ).order_by(ProjectAnalysis.created_at.desc()).first()
+    experiments = (analysis.experiments or {}).get("experiments") if analysis and isinstance(analysis.experiments, dict) else []
+    match = next((e for e in experiments if e.get("experiment_id") == experiment_id), None)
+    if not match:
+        raise HTTPException(status_code=404, detail="Experiment not found on a completed analysis")
     from datetime import datetime, timezone
+    from sqlalchemy.orm.attributes import flag_modified
+    match["status"] = "ACTIVE"
+    match["started_at"] = datetime.now(timezone.utc).isoformat()
+    analysis.experiments["experiments"] = [
+        match if e.get("experiment_id") == experiment_id else e for e in experiments
+    ]
+    flag_modified(analysis, "experiments")
+    db.commit()
     return {
         "experiment_id": experiment_id,
         "project_id": project_id,
         "organization_id": org_id,
         "status": "ACTIVE",
-        "started_at": datetime.now(timezone.utc).isoformat(),
-        "message": "Experiment initiated with immutable baseline."
+        "started_at": match["started_at"],
+        "message": "Experiment marked ACTIVE on the persisted analysis record.",
     }
 
 
@@ -922,26 +986,20 @@ def verify_single_experiment(
     """
     Verifies experiment outcome by comparing current metrics against baseline.
     """
-    dummy_int = InterventionItem(
-
-        intervention_id="int_ci",
-        project_id=project_id,
-        analysis_id="anl_cur",
-        organization_id=org_id,
-        title="Stabilize CI Pipeline",
-        problem_addressed="Build failures",
-        target_dimension="Technical",
-        expected_effect="Reduce build failures",
-        priority_breakdown=PriorityCalculationBreakdown(
-            risk_severity=78, prediction_confidence=0.9, chain_impact=0.9,
-            expected_risk_reduction=22, effort_weight=1.35, calculated_score=91
-        )
-    )
-    exp = create_experiment_from_intervention(dummy_int, project_id, org_id)
-    exp.experiment_id = experiment_id
-
-    metrics = measured_metrics or {"ci_failure_rate": 12.0, "defect_backlog": 18.0}
-    report = verify_experiment_outcome(exp, metrics)
+    analysis = db.query(ProjectAnalysis).filter(
+        ProjectAnalysis.organization_id == org_id,
+        ProjectAnalysis.project_id == project_id,
+        ProjectAnalysis.status == "COMPLETED"
+    ).order_by(ProjectAnalysis.created_at.desc()).first()
+    experiments = (analysis.experiments or {}).get("experiments") if analysis and isinstance(analysis.experiments, dict) else []
+    match = next((e for e in experiments if e.get("experiment_id") == experiment_id), None)
+    if not match:
+        raise HTTPException(status_code=404, detail="Experiment not found on a completed analysis")
+    if not measured_metrics:
+        raise HTTPException(status_code=400, detail="measured_metrics are required to verify an experiment")
+    from app.schemas.experiment import ExperimentItem
+    exp = ExperimentItem.model_validate(match)
+    report = verify_experiment_outcome(exp, measured_metrics)
     return report.model_dump()
 
 
@@ -963,15 +1021,13 @@ def get_project_outcomes(
     if analysis and analysis.outcomes:
         return analysis.outcomes
 
-    from app.services.intervention_engine import generate_intervention_plan
-    from app.services.experiment_engine import generate_initial_experiments_from_plan
-    from app.services.outcome_engine import verify_all_project_experiments
-
-    sig_packet = get_latest_project_signals(project_id, org_id, db)
-    plan = generate_intervention_plan(sig_packet or SignalPacket(project_id=project_id, analysis_id="anl_fallback", organization_id=org_id, signals=[]))
-    exp_list = generate_initial_experiments_from_plan(plan)
-    outcomes = verify_all_project_experiments(exp_list.experiments)
-    return outcomes.model_dump()
+    from app.schemas.outcome import OutcomeVerificationPacket
+    return OutcomeVerificationPacket(
+        project_id=project_id,
+        organization_id=org_id,
+        outcomes=[],
+        overall_success_rate=0.0,
+    ).model_dump()
 
 
 @router.get("/projects/{project_id}/organizational-memory", response_model=Dict[str, Any])
@@ -1012,21 +1068,34 @@ def get_failure_radar_snapshot(
     if analysis and analysis.radar_snapshot:
         return analysis.radar_snapshot
 
-    from app.services.dna_engine import calculate_failure_dna
-    from app.services.failure_chain_engine import generate_failure_chain_and_prediction
-    from app.services.intervention_engine import generate_intervention_plan
-    from app.services.experiment_engine import generate_initial_experiments_from_plan
-    from app.services.memory_engine import search_historical_failure_cases
-    from app.services.radar_engine import synthesize_failure_radar_snapshot
+    if analysis and analysis.signal_packet:
+        from app.services.radar_engine import synthesize_failure_radar_snapshot
+        from app.schemas.intervention import InterventionPlanPacket
+        from app.schemas.experiment import ExperimentListPacket
+        from app.schemas.historical_memory import HistoricalMemoryPacket
+        try:
+            sig = SignalPacket.model_validate(analysis.signal_packet)
+            dna = FailureDNAPacket.model_validate(analysis.failure_dna) if analysis.failure_dna else None
+            chain = FailureChainPacket.model_validate(analysis.failure_chain) if analysis.failure_chain else None
+            plan = InterventionPlanPacket.model_validate(analysis.interventions) if analysis.interventions else None
+            exps = ExperimentListPacket.model_validate(analysis.experiments) if analysis.experiments else None
+            mem = HistoricalMemoryPacket.model_validate(analysis.historical_matches) if analysis.historical_matches else None
+            return synthesize_failure_radar_snapshot(sig, dna, chain, plan, exps, mem).model_dump()
+        except Exception:
+            pass
 
-    sig_packet = get_latest_project_signals(project_id, org_id, db)
-    sig = sig_packet or SignalPacket(project_id=project_id, analysis_id="anl_fallback", organization_id=org_id, signals=[])
-    dna = calculate_failure_dna(sig)
-    chain = generate_failure_chain_and_prediction(sig, dna)
-    plan = generate_intervention_plan(sig, dna, chain)
-    exps = generate_initial_experiments_from_plan(plan)
-    mem = search_historical_failure_cases(project_id, org_id, sig, dna)
-    radar = synthesize_failure_radar_snapshot(sig, dna, chain, plan, exps, mem)
-    return radar.model_dump()
+    from app.schemas.radar import RadarExecutiveSnapshotPacket
+    return RadarExecutiveSnapshotPacket(
+        project_id=project_id,
+        organization_id=org_id,
+        analysis_id=analysis.id if analysis else "none",
+        overall_risk_score=0,
+        overall_health="INSUFFICIENT_EVIDENCE",
+        risk_velocity="UNKNOWN",
+        predicted_next_failure="Insufficient evidence for a reliable failure prediction.",
+        prediction_confidence=0.0,
+        recommended_primary_action="Insufficient evidence for a recommended action",
+        primary_action_priority=0,
+    ).model_dump()
 
 

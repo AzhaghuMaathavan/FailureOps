@@ -1,0 +1,25 @@
+# Full FailureOps stack: UI BFF + RAG + Postgres/pgvector + RustFS
+# RAG compose already defines postgres, rustfs, and rag on the failureops network.
+
+include:
+  - path: agentic-rag-main/docker-compose.yml
+
+services:
+  failureops:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: failureops_ui
+    depends_on:
+      rag:
+        condition: service_started
+    ports:
+      - "3000:3000"
+    environment:
+      RAG_INTERNAL_URL: http://rag:8000
+      BACKEND_INTERNAL_URL: http://rag:8000
+      AUTH_SECRET: ${AUTH_SECRET:-failureops_prod_secret_key_32_characters_minimum}
+      SESSION_COOKIE_NAME: ${SESSION_COOKIE_NAME:-__Host-failureops-session}
+    networks:
+      - failureops
+    restart: unless-stopped

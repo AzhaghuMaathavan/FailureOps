@@ -137,19 +137,9 @@ def verify_all_project_experiments(
     outcomes: List[ExperimentOutcomeReport] = []
 
     for exp in experiments:
-        # For verification simulations / demos, simulate realistic post-intervention deltas
-        measured: Dict[str, float] = {}
-        for tm in exp.target_metrics:
-            if tm.desired_direction == "DECREASE":
-                # Simulated post-intervention improvement (e.g. 55% reduction)
-                measured[tm.metric_name] = round(tm.baseline_value * 0.45, 1)
-            else:
-                # Simulated post-intervention increase (e.g. +65% gain)
-                measured[tm.metric_name] = round(tm.baseline_value * 1.65, 1)
-
         rep = verify_experiment_outcome(
             experiment=exp,
-            measured_metrics=measured,
+            measured_metrics={},
             has_concurrent_unrelated_changes=False
         )
         outcomes.append(rep)

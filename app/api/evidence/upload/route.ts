@@ -37,10 +37,10 @@ export async function POST(req: NextRequest) {
       const filename = filenameOf(incoming);
       const bytes = Buffer.from(await blob.arrayBuffer());
 
-      console.info('[FAILUREOPS] Upload received', {
-        projectId,
+      console.info('[FAILUREOPS_UPLOAD]', {
+        project_id: projectId,
         filename,
-        contentType: blob.type || 'unknown',
+        content_type: blob.type || 'unknown',
         bytes: bytes.length,
       });
 

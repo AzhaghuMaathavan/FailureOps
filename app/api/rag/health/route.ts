@@ -14,8 +14,13 @@ export async function GET(req: NextRequest) {
     const health = await ragFetch<any>('/api/v1/health', session);
     const database = String(health.database || '');
     const databaseConnected = database === 'connected' || database.startsWith('connected');
+    const rustfs = health.rustfs || {};
 
-    console.info('[FAILUREOPS] RAG health', { database: health.database, status: health.status });
+    console.info('[FAILUREOPS] RAG health', {
+      database: health.database,
+      status: health.status,
+      rustfs: rustfs.reachable,
+    });
 
     return apiSuccess({
       reachable: true,
@@ -23,6 +28,12 @@ export async function GET(req: NextRequest) {
       ragStatus: health.status || 'ok',
       database: health.database,
       vectorStore: databaseConnected,
+      rustfsReachable: rustfs.reachable === true,
+      rustfsProvider: rustfs.provider,
+      rustfsBucket: rustfs.bucket,
+      embeddingProviderConfigured: health.embedding_provider_configured === true,
+      llmProviderConfigured: health.llm_provider_configured === true,
+      parseProviderConfigured: health.parse_provider_configured === true,
     });
   } catch (error) {
     if (error instanceof RagUnreachableError) {
@@ -32,6 +43,9 @@ export async function GET(req: NextRequest) {
         ragStatus: 'unreachable',
         database: 'unknown',
         vectorStore: false,
+        rustfsReachable: false,
+        embeddingProviderConfigured: false,
+        llmProviderConfigured: false,
         error: 'RAG unavailable',
       });
     }

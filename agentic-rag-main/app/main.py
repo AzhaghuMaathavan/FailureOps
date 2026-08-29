@@ -13,6 +13,8 @@ logger = logging.getLogger(__name__)
 
 @app.on_event("startup")
 async def startup_event():
+    from app.db.init_db import init_db
+    init_db()
     logger.info(f"[CONFIG] DEMO_MODE={str(settings.DEMO_MODE).lower()}")
     logger.info(f"[CONFIG] CONTEXT_COMPRESSION_ENABLED={str(settings.CONTEXT_COMPRESSION_ENABLED).lower()}")
     logger.info(f"[CONFIG] Multi-Tenant Default Org={settings.DEFAULT_ORGANIZATION_ID}")

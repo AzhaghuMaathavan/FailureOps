@@ -197,7 +197,8 @@ export const CausalNodeGraph: React.FC<CausalNodeGraphProps> = ({ projectId = 'a
           <div className="flex items-center justify-between p-2.5 rounded-lg bg-card/60 border border-border/60">
             <span className="text-muted-foreground">Causal Link Confidence:</span>
             <span className="font-mono font-bold text-emerald-400">
-              {Math.round((selectedNode.confidence || 0.90) * ((selectedNode.confidence || 0.90) <= 1 ? 100 : 1))}% Validated
+              {Math.round((typeof selectedNode.confidence === 'number' ? selectedNode.confidence : 0) * ((typeof selectedNode.confidence === 'number' && selectedNode.confidence <= 1) ? 100 : 1))}%
+              {typeof selectedNode.confidence === 'number' ? '' : ' unverified'}
             </span>
           </div>
 

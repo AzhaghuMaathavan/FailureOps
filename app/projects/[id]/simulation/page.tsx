@@ -217,9 +217,14 @@ export default function WhatIfSimulationPage() {
           </span>
           <div className="mt-2 flex items-baseline gap-2">
             <span className="text-3xl font-extrabold font-mono text-purple-400">
-              {Math.round((activeScenario.confidence || 0.85) * 100)}%
+              {Math.round(
+                (typeof activeScenario.confidence === 'number' ? activeScenario.confidence : 0) *
+                  ((typeof activeScenario.confidence === 'number' && activeScenario.confidence <= 1) ? 100 : 1)
+              )}%
             </span>
-            <span className="text-xs font-mono text-muted-foreground">Validated</span>
+            <span className="text-xs font-mono text-muted-foreground">
+              {typeof activeScenario.confidence === 'number' ? 'From simulation engine' : 'Unverified'}
+            </span>
           </div>
           <p className="text-[11px] text-muted-foreground mt-1">
             Calibrated against historical empirical outcomes.

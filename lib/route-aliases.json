@@ -1,0 +1,16 @@
+[
+  { "alias": "/overview", "projectPath": "overview" },
+  { "alias": "/failure-radar", "projectPath": "radar" },
+  { "alias": "/analysis", "projectPath": "analysis" },
+  { "alias": "/upload", "projectPath": "upload" },
+  { "alias": "/outcomes", "projectPath": "outcomes" },
+  { "alias": "/experiments", "projectPath": "experiment" },
+  { "alias": "/interventions", "projectPath": "interventions" },
+  { "alias": "/what-if", "projectPath": "simulation" },
+  { "alias": "/predicted-failure", "projectPath": "prediction" },
+  { "alias": "/causal", "projectPath": "causal" },
+  { "alias": "/truth-engine", "projectPath": "truth-engine" },
+  { "alias": "/signals", "projectPath": "signals" },
+  { "alias": "/failure-dna", "projectPath": "dna" },
+  { "alias": "/ask", "projectPath": "ask" }
+]

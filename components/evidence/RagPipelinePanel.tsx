@@ -19,6 +19,8 @@ interface RagPipelinePanelProps {
   database?: string;
   projectId: string;
   compact?: boolean;
+  rustfsReachable?: boolean;
+  rustfsProvider?: string;
 }
 
 function StageIcon({ status }: { status: string }) {
@@ -35,6 +37,8 @@ export function RagPipelinePanel({
   database,
   projectId,
   compact = false,
+  rustfsReachable,
+  rustfsProvider,
 }: RagPipelinePanelProps) {
   const completed = stages.filter((s) => s.status === 'COMPLETED').length;
 
@@ -64,6 +68,13 @@ export function RagPipelinePanel({
           </span>
           {database && (
             <span className="text-[10px] font-mono text-muted-foreground">DB: {database}</span>
+          )}
+          {typeof rustfsReachable === 'boolean' && (
+            <span
+              className={`text-[10px] font-mono ${rustfsReachable ? 'text-emerald-400' : 'text-rose-400'}`}
+            >
+              {rustfsProvider || 'storage'}: {rustfsReachable ? 'connected' : 'unreachable'}
+            </span>
           )}
         </div>
       </div>

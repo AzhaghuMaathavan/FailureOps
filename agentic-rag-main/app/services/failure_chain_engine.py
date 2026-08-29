@@ -68,8 +68,8 @@ def generate_failure_chain_and_prediction(
     if not signals:
         empty_pred = FailurePrediction(
             predicted_failure="Insufficient Telemetry for Trajectory Modeling",
-            risk_score=20,
-            confidence=0.50,
+            risk_score=0,
+            confidence=0.0,
             status="UNLIKELY",
             time_horizon="N/A",
             explanation="No active operational signals exist to construct a causal failure chain.",

@@ -185,7 +185,9 @@ def test_failure_chain_healthy(sample_healthy_signal_packet):
 # -------------------------------------------------------------
 # FEATURE 2 TESTS: HISTORICAL FAILURE MEMORY
 # -------------------------------------------------------------
-def test_historical_memory_matching(sample_risky_signal_packet):
+def test_historical_memory_matching(sample_risky_signal_packet, monkeypatch):
+    from app.core.config import settings
+    monkeypatch.setattr(settings, "DEMO_MODE", True)
     dna = calculate_failure_dna(sample_risky_signal_packet)
     memory = search_historical_failure_cases(
         project_id="proj_aurora",

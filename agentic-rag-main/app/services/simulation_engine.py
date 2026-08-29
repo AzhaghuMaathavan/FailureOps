@@ -18,7 +18,7 @@ def run_what_if_simulations(
     Deterministically simulates 'What-if' operational scenarios and dynamically calculates
     risk changes based on the project's actual detected signals and Failure DNA weights.
     """
-    baseline_risk = dna_packet.overall.risk_score if dna_packet else 78
+    baseline_risk = dna_packet.overall.risk_score if dna_packet else 0
     analysis_id = signal_packet.analysis_id
     signals = signal_packet.signals
 

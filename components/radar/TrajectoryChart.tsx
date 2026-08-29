@@ -12,20 +12,36 @@ import {
   ReferenceLine,
 } from 'recharts';
 
-export const TrajectoryChart: React.FC = () => {
-  const data = [
-    { week: 'Week 1', risk: 32, note: 'Initial PRD Scope Baseline' },
-    { week: 'Week 2', risk: 48, note: 'First CI Flakiness & Overtime Spike' },
-    { week: 'Week 3', risk: 64, note: 'Staging DB Deadlock Incident' },
-    { week: 'Week 4', risk: 82, note: 'Activation Drops to 31% (Current)' },
-    { week: 'Week 5 (Est)', risk: 89, note: 'Predicted Testing Bottleneck' },
-    { week: 'Week 6 (Est)', risk: 96, note: 'Projected Missed Release Horizon' },
-  ];
+export type TrajectoryPoint = {
+  week?: string;
+  timestamp?: string;
+  label?: string;
+  risk?: number;
+  risk_score?: number;
+  note?: string;
+};
+
+export const TrajectoryChart: React.FC<{ data?: TrajectoryPoint[] }> = ({ data }) => {
+  const series = (data || [])
+    .map((point) => ({
+      week: point.week || point.label || point.timestamp || 'Point',
+      risk: Number(point.risk ?? point.risk_score ?? 0),
+      note: point.note || '',
+    }))
+    .filter((point) => Number.isFinite(point.risk));
+
+  if (series.length === 0) {
+    return (
+      <div className="w-full h-80 flex items-center justify-center text-sm text-muted-foreground border border-dashed border-border rounded-xl">
+        Insufficient evidence for a reliable failure prediction.
+      </div>
+    );
+  }
 
   return (
     <div className="w-full h-80">
       <ResponsiveContainer width="100%" height="100%">
-        <LineChart data={data} margin={{ top: 20, right: 30, left: 0, bottom: 10 }}>
+        <LineChart data={series} margin={{ top: 20, right: 30, left: 0, bottom: 10 }}>
           <CartesianGrid strokeDasharray="3 3" stroke="#2e3846" />
           <XAxis
             dataKey="week"

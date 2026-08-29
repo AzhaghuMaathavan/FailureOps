@@ -89,14 +89,22 @@ def test_intervention_plan_generation(sample_member_3_context):
 def test_experiment_engine_immutable_baseline(sample_member_3_context):
     sig_packet, dna, chain = sample_member_3_context
     plan = generate_intervention_plan(sig_packet, dna, chain)
-    exp_list = generate_initial_experiments_from_plan(plan)
-
-    assert len(exp_list.experiments) >= 1
-    top_exp = exp_list.experiments[0]
-    assert top_exp.status == "ACTIVE"
-    assert top_exp.baseline_snapshot.is_immutable is True
-    assert len(top_exp.target_metrics) >= 1
-    assert len(top_exp.success_criteria) >= 1
+    top = plan.interventions[0]
+    exp = create_experiment_from_intervention(
+        top, "proj_aurora", "org_aurora",
+        baseline_metrics={
+            "ci_failure_rate": 34.0,
+            "defect_backlog": 42.0,
+            "signup_abandonment": 76.0,
+            "activation_rate": 33.0,
+            "weekly_overtime_hours": 18.0,
+            "pr_review_latency_days": 3.4,
+        },
+    )
+    assert exp.status == "DRAFT"
+    assert exp.baseline_snapshot.is_immutable is True
+    assert len(exp.target_metrics) >= 1
+    assert len(exp.success_criteria) >= 1
 
 def test_outcome_verification_metric_polarity():
     int_item = InterventionItem(
@@ -108,7 +116,15 @@ def test_outcome_verification_metric_polarity():
             expected_risk_reduction=20, effort_weight=1.0, calculated_score=85
         )
     )
-    exp = create_experiment_from_intervention(int_item, "p1", "o1")
+    exp = create_experiment_from_intervention(
+        int_item, "p1", "o1",
+        baseline_metrics={"ci_failure_rate": 34.0, "defect_backlog": 42.0},
+    )
+    for tm in exp.target_metrics:
+        if tm.metric_name == "ci_failure_rate":
+            tm.target_value = 12.0
+        if tm.metric_name == "defect_backlog":
+            tm.target_value = 20.0
 
     report = verify_experiment_outcome(
         experiment=exp,
@@ -131,7 +147,10 @@ def test_outcome_attribution_safety():
             expected_risk_reduction=20, effort_weight=1.0, calculated_score=85
         )
     )
-    exp = create_experiment_from_intervention(int_item, "p1", "o1")
+    exp = create_experiment_from_intervention(
+        int_item, "p1", "o1",
+        baseline_metrics={"ci_failure_rate": 34.0},
+    )
 
     report = verify_experiment_outcome(
         experiment=exp,
@@ -141,10 +160,20 @@ def test_outcome_attribution_safety():
     assert report.attribution_confidence == "LOW"
     assert "concurrent" in report.attribution_reasoning.lower()
 
-def test_organizational_memory_closed_loop():
+def test_organizational_memory_closed_loop(monkeypatch):
+    from app.core.config import settings
+    monkeypatch.setattr(settings, "DEMO_MODE", True)
     memories = query_organizational_memory(organization_id="org_aurora", caller_org_id="org_aurora")
     assert memories.total_memories >= 3
     assert all(m.is_synthetic_demo for m in memories.memories if m.visibility == "GLOBAL_ANONYMIZED")
+
+
+def test_organizational_memory_empty_without_demo(monkeypatch):
+    from app.core.config import settings
+    monkeypatch.setattr(settings, "DEMO_MODE", False)
+    memories = query_organizational_memory(organization_id="org_aurora", caller_org_id="org_aurora")
+    assert memories.total_memories == 0
+    assert memories.memories == []
 
 def test_failure_radar_snapshot_aggregation(sample_member_3_context):
     sig_packet, dna, chain = sample_member_3_context
@@ -156,4 +185,4 @@ def test_failure_radar_snapshot_aggregation(sample_member_3_context):
     assert radar.overall_health == "CRITICAL"
     assert len(radar.top_failure_risks) >= 2
     assert radar.primary_action_priority >= 75
-    assert len(radar.risk_trajectory_history) == 4
+    assert len(radar.risk_trajectory_history) >= 1

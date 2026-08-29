@@ -103,9 +103,10 @@ export default function PredictionPage() {
 
   const predictedFailureTitle = pred.predicted_failure;
   const riskScore = pred.risk_score ?? 0;
-  const confidence = Math.round((pred.confidence || 0.85) * (pred.confidence <= 1 ? 100 : 1));
-  const timeHorizon = pred.time_horizon || '2-4 weeks';
-  const explanation = pred.explanation || 'Compounding build failures and activation drop-offs are accelerating velocity decay.';
+  const confidenceRaw = typeof pred.confidence === 'number' ? pred.confidence : 0;
+  const confidence = Math.round(confidenceRaw * (confidenceRaw <= 1 ? 100 : 1));
+  const timeHorizon = pred.time_horizon || 'Unknown horizon';
+  const explanation = pred.explanation || 'Insufficient evidence for a failure prediction.';
   const supportingEv = pred.supporting_evidence_ids || [];
 
   return (
@@ -118,7 +119,7 @@ export default function PredictionPage() {
               Probabilistic Forecast
             </span>
             <span className="px-2 py-0.5 rounded-full text-[10px] font-mono bg-rose-500/10 text-rose-400 border border-rose-500/30">
-              Status: {pred.status || 'EMERGING'}
+              Status: {pred.status || 'INSUFFICIENT'}
             </span>
           </div>
           <h1 className="text-2xl lg:text-3xl font-extrabold text-foreground tracking-tight mt-1">
