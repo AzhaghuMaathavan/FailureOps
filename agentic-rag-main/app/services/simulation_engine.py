@@ -15,16 +15,26 @@ def run_what_if_simulations(
     dna_packet: Optional[FailureDNAPacket] = None
 ) -> SimulationComparisonPacket:
     """
-    Deterministically simulates 'What-if' operational scenarios and propagates risk changes
-    through the project's Failure DNA and verified failure trajectories.
+    Deterministically simulates 'What-if' operational scenarios and dynamically calculates
+    risk changes based on the project's actual detected signals and Failure DNA weights.
     """
     baseline_risk = dna_packet.overall.risk_score if dna_packet else 78
     analysis_id = signal_packet.analysis_id
+    signals = signal_packet.signals
+
+    # Segment signals by operational domain
+    adoption_signals = [s for s in signals if s.category.upper() in ["ADOPTION", "CUSTOMER"]]
+    technical_signals = [s for s in signals if s.category.upper() in ["TECHNICAL", "QUALITY", "INFRASTRUCTURE"]]
+    operational_signals = [s for s in signals if s.category.upper() in ["OPERATIONAL", "TEAM", "DELIVERY", "PROCESS"]]
+    worsening_signals = [s for s in signals if s.status == "WORSENING" or s.polarity == "NEGATIVE"]
 
     scenarios: List[ScenarioResult] = []
 
-    # Scenario 1: Do Nothing (Compounding Risk Trajectory)
-    do_nothing_sim_risk = min(95, baseline_risk + 12)
+    # Scenario 1: Do Nothing (Dynamic compounding from active worsening signals)
+    compounding_factor = sum((s.signal_strength or 0.80) for s in worsening_signals)
+    dynamic_increase = max(6, min(24, int(compounding_factor * 6.5))) if worsening_signals else 4
+    do_nothing_sim_risk = min(98, baseline_risk + dynamic_increase)
+
     scenarios.append(
         ScenarioResult(
             scenario_id="do_nothing",
@@ -35,19 +45,25 @@ def run_what_if_simulations(
             risk_change=do_nothing_sim_risk - baseline_risk,
             affected_dimensions=["Execution", "Technical", "Adoption"],
             propagation_steps=[
-                "Unresolved onboarding friction & CI failures persist",
-                "Developer cognitive debt compounds (+15% review delay)",
-                "Trial user drop-off accelerates",
+                f"{len(worsening_signals)} active worsening signals continue unmitigated",
+                f"Compounding velocity drag increases overall risk by +{dynamic_increase} points",
+                "Trial user drop-off and defect queues escalate",
                 "Release deadline missed by estimated 3-4 weeks"
             ],
             confidence=0.88,
             type="SIMULATION",
-            explanation=f"Projected failure probability escalates from {baseline_risk}% to {do_nothing_sim_risk}% as active bottlenecks remain unmitigated."
+            explanation=f"Projected failure probability escalates from {baseline_risk}% to {do_nothing_sim_risk}% (+{dynamic_increase} points) as active bottlenecks compound."
         )
     )
 
-    # Scenario 2: Streamline Onboarding Setup
-    onboarding_sim_risk = max(25, baseline_risk - 24)
+    # Scenario 2: Streamline Onboarding Setup (Dynamically relief adoption risk)
+    if adoption_signals:
+        ad_strength = sum((s.signal_strength or 0.80) for s in adoption_signals)
+        dynamic_onb_relief = max(8, min(35, int(ad_strength * 13.5)))
+    else:
+        dynamic_onb_relief = 5 # Baseline general improvement
+
+    onboarding_sim_risk = max(15, baseline_risk - dynamic_onb_relief)
     scenarios.append(
         ScenarioResult(
             scenario_id="simplify_onboarding",
@@ -59,18 +75,24 @@ def run_what_if_simulations(
             affected_dimensions=["Adoption", "Customer"],
             propagation_steps=[
                 "First-run setup barrier reduced from 4 hours to 10 minutes",
-                "Signup abandonment rate drops from 76% to < 30%",
-                "Activation rate lifts from 33% to projected 58%",
-                "Adoption risk drops from Critical to Healthy"
+                "Signup abandonment rate drops from peak to normal baseline",
+                f"Adoption risk mitigated across {len(adoption_signals)} detected signals",
+                f"Overall failure risk drops by {dynamic_onb_relief} points to {onboarding_sim_risk}%"
             ],
             confidence=0.91,
             type="SIMULATION",
-            explanation=f"Matches Project Atlas recovery benchmark (+27% activation), reducing overall failure risk by 24 points to {onboarding_sim_risk}%."
+            explanation=f"Matches Project Atlas recovery benchmark, dynamically reducing project risk by {dynamic_onb_relief} points to {onboarding_sim_risk}% based on adoption signal weights."
         )
     )
 
     # Scenario 3: Stabilize CI Pipeline & Flaky Test Suite
-    ci_sim_risk = max(30, baseline_risk - 19)
+    if technical_signals:
+        tech_strength = sum((s.signal_strength or 0.80) for s in technical_signals)
+        dynamic_ci_relief = max(8, min(32, int(tech_strength * 11.5)))
+    else:
+        dynamic_ci_relief = 4
+
+    ci_sim_risk = max(15, baseline_risk - dynamic_ci_relief)
     scenarios.append(
         ScenarioResult(
             scenario_id="fix_ci_failures",
@@ -81,19 +103,25 @@ def run_what_if_simulations(
             risk_change=ci_sim_risk - baseline_risk,
             affected_dimensions=["Technical", "Execution"],
             propagation_steps=[
-                "CI build failure rate reduced by 50% (34% -> 12%)",
+                "CI build failure rate reduced by 50%",
                 "Staging deployment deadlocks eliminated",
-                "Release queue throughput restored (+35% velocity)",
-                "Technical reliability risk shifts from Critical to Watch"
+                f"Technical reliability risk mitigated across {len(technical_signals)} signals",
+                f"Overall failure risk drops by {dynamic_ci_relief} points to {ci_sim_risk}%"
             ],
             confidence=0.86,
             type="SIMULATION",
-            explanation=f"Mitigating build deadlocks removes the primary blocker for launch release stabilization, reducing overall risk to {ci_sim_risk}%."
+            explanation=f"Mitigating build deadlocks removes primary pipeline blockers, dynamically reducing risk by {dynamic_ci_relief} points to {ci_sim_risk}%."
         )
     )
 
     # Scenario 4: Freeze MVP Scope & Normalize Capacity
-    scope_sim_risk = max(28, baseline_risk - 17)
+    if operational_signals:
+        op_strength = sum((s.signal_strength or 0.80) for s in operational_signals)
+        dynamic_scope_relief = max(7, min(30, int(op_strength * 11.0)))
+    else:
+        dynamic_scope_relief = 4
+
+    scope_sim_risk = max(15, baseline_risk - dynamic_scope_relief)
     scenarios.append(
         ScenarioResult(
             scenario_id="freeze_scope",
@@ -104,14 +132,14 @@ def run_what_if_simulations(
             risk_change=scope_sim_risk - baseline_risk,
             affected_dimensions=["Operational", "Quality"],
             propagation_steps=[
-                "Scope expansion halted against fixed October milestone",
+                "Scope expansion halted against fixed milestone",
                 "Overtime normalized to 40 hours/week (fatigue reduction)",
-                "PR review latency shortens from 3.4 days to 1.2 days",
-                "Cognitive debt wave halted before secondary defect escape"
+                f"Review throughput recovered across {len(operational_signals)} operational signals",
+                f"Overall failure risk drops by {dynamic_scope_relief} points to {scope_sim_risk}%"
             ],
             confidence=0.84,
             type="SIMULATION",
-            explanation=f"Re-aligning capacity with commitments restores review depth and lowers defect injection rates, reducing risk to {scope_sim_risk}%."
+            explanation=f"Re-aligning capacity with commitments restores review depth, dynamically reducing risk by {dynamic_scope_relief} points to {scope_sim_risk}%."
         )
     )
 
@@ -127,3 +155,4 @@ def run_what_if_simulations(
         scenarios=scenarios,
         recommended_scenario=best_scenario.scenario_name
     )
+

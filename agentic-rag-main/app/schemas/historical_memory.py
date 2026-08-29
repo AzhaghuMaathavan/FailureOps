@@ -18,6 +18,7 @@ class HistoricalCase(BaseModel):
     visibility: str = "GLOBAL_ANONYMIZED" # PRIVATE, ORGANIZATION, GLOBAL_ANONYMIZED
     organization_id: Optional[str] = None
     source_project_id: Optional[str] = None
+    is_synthetic_demo: bool = False
     before_metrics: Dict[str, Any] = Field(default_factory=dict)
     after_metrics: Dict[str, Any] = Field(default_factory=dict)
     key_lessons: List[str] = Field(default_factory=list)
