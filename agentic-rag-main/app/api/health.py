@@ -70,6 +70,7 @@ def health_check(db: Session = Depends(get_db)):
             "reachable": rustfs.get("reachable"),
             "bucket": rustfs.get("bucket"),
             "endpoint_configured": rustfs.get("endpoint_configured"),
+            "error": rustfs.get("error"),
         },
         "embedding_provider_configured": embed_configured,
         "llm_provider_configured": llm_configured,

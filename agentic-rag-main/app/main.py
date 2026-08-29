@@ -1,3 +1,7 @@
+from dotenv import load_dotenv
+
+load_dotenv()
+
 from fastapi import FastAPI, Depends
 from fastapi.middleware.cors import CORSMiddleware
 from sqlalchemy.orm import Session
@@ -28,6 +32,16 @@ async def startup_event():
     logger.info("[CONFIG] CONTEXT_COMPRESSION_ENABLED=%s", str(settings.CONTEXT_COMPRESSION_ENABLED).lower())
     logger.info("[CONFIG] Multi-Tenant Default Org=%s", settings.DEFAULT_ORGANIZATION_ID)
     logger.info("[CONFIG] FRONTEND_URL=%s", settings.FRONTEND_URL)
+    from app.core.object_storage import storage_health
+
+    storage = storage_health()
+    logger.info(
+        "[CONFIG] storage provider=%s reachable=%s bucket=%s endpoint_configured=%s",
+        storage.get("provider"),
+        storage.get("reachable"),
+        storage.get("bucket"),
+        storage.get("endpoint_configured"),
+    )
 
 cors_origins = [origin.strip() for origin in (settings.FRONTEND_URL or "").split(",") if origin.strip()]
 for origin in ("http://localhost:3000", "http://127.0.0.1:3000"):

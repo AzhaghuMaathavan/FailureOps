@@ -16,6 +16,10 @@ from dataclasses import dataclass
 from typing import Iterator, Optional
 from urllib.parse import unquote, urlparse
 
+from dotenv import load_dotenv
+
+load_dotenv()
+
 logger = logging.getLogger(__name__)
 
 DEFAULT_BUCKET = "failureops-documents"
