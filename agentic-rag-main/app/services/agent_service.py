@@ -188,6 +188,35 @@ def compress_tabular_evidence(evidence: List[Dict[str, Any]], targets: List[str]
             
     return compressed_evidence
 
+
+_QUERY_STOPWORDS = {
+    "what", "happened", "about", "please", "tell", "give", "show", "does", "did",
+    "have", "been", "this", "that", "with", "from", "were", "there", "their",
+    "which", "when", "where", "whom", "whose", "summarize", "describe", "explain",
+    "related", "using", "into", "onto", "than", "then", "them", "they", "your",
+}
+
+
+def _extractive_answer_if_grounded(query: str, citations_map: Dict[int, Dict[str, Any]]):
+    """If the LLM refuses but a retrieved chunk clearly matches the question, quote it."""
+    import re
+
+    terms = {
+        word
+        for word in re.findall(r"[a-zA-Z]{4,}", (query or "").lower())
+        if word not in _QUERY_STOPWORDS
+    }
+    if not terms:
+        return None, []
+    needed = max(1, (len(terms) + 1) // 2)
+    for evidence_id, citation in citations_map.items():
+        content = (citation.get("content") or "").lower()
+        if sum(1 for term in terms if term in content) >= needed:
+            body = (citation.get("content") or "").strip()
+            return f"{body} [Evidence {evidence_id}]", [citation]
+    return None, []
+
+
 def generate_answer(query: str, evidence: List[Dict[str, Any]], scope: str = "MULTI_FACT", logical_operation: str = "SINGLE_TARGET", targets: List[str] = None) -> Tuple[str, List[Dict[str, Any]], str, Dict[str, Any]]:
 
     sys_prompt = (
@@ -196,7 +225,7 @@ def generate_answer(query: str, evidence: List[Dict[str, Any]], scope: str = "MU
         "CRITICAL RULES:\n"
         "1. DO NOT hallucinate, guess, or use outside knowledge. Never fabricate a person, course, registration, or identifier.\n"
         "2. Never infer a missing identifier from neighboring identifiers. Only use the EXACT identifier provided.\n"
-        "3. If the provided evidence does NOT contain the exact answer, explicitly output ONLY the string: 'INSUFFICIENT_EVIDENCE'.\n"
+        "3. If NONE of the evidence is about the question, output ONLY the string: 'INSUFFICIENT_EVIDENCE'. If the evidence contains the needed information, answer from it even when the wording differs from the question. Do not refuse a grounded paraphrase.\n"
         "4. To cite a piece of evidence, append the Evidence ID in brackets like [Evidence 1].\n"
         "5. Keep the answer concise. If the question asks WHICH students/entities match a condition, return EVERY matching entity supported by the provided evidence. Do not return only the first or most relevant match. Never invent additional matching entities. Only include entities supported by retrieved evidence.\n"
         "6. Provide ONLY the final answer directly. DO NOT output ANY internal reasoning, planning, or phrases like 'We need to answer...' or 'Let's locate...' or 'Evidence X shows...'. Be direct and professional.\n"
@@ -245,9 +274,11 @@ def generate_answer(query: str, evidence: List[Dict[str, Any]], scope: str = "MU
             sourceText = f" (Pages: {', '.join(map(str, lineage['page_numbers']))})"
 
         citations_map[eid] = {
+            "chunk_id": e.get("chunk_id") or e.get("id"),
             "document_id": e.get("document_id"),
+            "filename": doc_name,
             "lineage": lineage,
-            "content": e.get("content")
+            "content": e.get("content"),
         }
 
         content_to_show = e.get("content")
@@ -299,6 +330,10 @@ def generate_answer(query: str, evidence: List[Dict[str, Any]], scope: str = "MU
                 active_citations.append(citations_map[eid])
 
         if answer.strip().startswith("INSUFFICIENT_EVIDENCE"):
+            fallback_answer, fallback_citations = _extractive_answer_if_grounded(query, citations_map)
+            if fallback_answer:
+                logger.info("[LLM] using grounded extractive fallback after INSUFFICIENT_EVIDENCE")
+                return fallback_answer, fallback_citations, "SUPPORTED", metrics
             return NO_EVIDENCE_ANSWER, [], "INSUFFICIENT_EVIDENCE", metrics
 
         return answer, active_citations, "SUPPORTED", metrics
