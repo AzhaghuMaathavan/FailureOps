@@ -142,9 +142,10 @@ def heuristic_extract_evidence(dimension: str, chunks: List[Dict[str, Any]]) -> 
     """
     from app.services.evidence_retriever import EVIDENCE_DIMENSIONS
     GENERIC_TERMS = {"rate", "user", "test", "time", "date", "team", "error", "code", "data", "week", "first"}
+    raw_bm25 = EVIDENCE_DIMENSIONS.get(dimension, {}).get("bm25_terms", "")
     dim_terms = [
-        t.lower() for t in EVIDENCE_DIMENSIONS.get(dimension, {}).get("bm25_terms", "").split()
-        if len(t) > 2 and t.lower() not in GENERIC_TERMS
+        t.lower() for t in re.findall(r'[a-zA-Z0-9]+', raw_bm25)
+        if len(t) > 1 and t.lower() not in GENERIC_TERMS
     ]
 
     items = []

@@ -1,0 +1,46 @@
+name: Deploy FailureOps to Production VPS
+
+on:
+  push:
+    branches:
+      - main
+
+jobs:
+  deploy:
+    name: Continuous Deployment to VPS
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup SSH Key & Deploy to VPS
+        env:
+          SSH_PRIVATE_KEY: ${{ secrets.SSH_PRIVATE_KEY }}
+          VPS_HOST: ${{ secrets.VPS_HOST || '3.110.185.102' }}
+          VPS_USER: ${{ secrets.VPS_USER || 'ubuntu' }}
+        run: |
+          if [ -z "$SSH_PRIVATE_KEY" ]; then
+            echo "❌ ERROR: SSH_PRIVATE_KEY secret is not set in GitHub repository settings!"
+            echo "Please add your missing.pem private key as a GitHub Secret named SSH_PRIVATE_KEY."
+            exit 1
+          fi
+
+          mkdir -p ~/.ssh
+          echo "$SSH_PRIVATE_KEY" > ~/.ssh/id_rsa
+          chmod 600 ~/.ssh/id_rsa
+          ssh-keyscan -H "$VPS_HOST" >> ~/.ssh/known_hosts
+
+          echo "📦 Syncing repository code to VPS ($VPS_HOST)..."
+          rsync -avz \
+            --exclude '.git' \
+            --exclude 'node_modules' \
+            --exclude '.next' \
+            --exclude 'agentic-rag-main/venv' \
+            --exclude 'agentic-rag-main/storage' \
+            --exclude '.env*' \
+            --exclude 'missing.pem' \
+            ./ "$VPS_USER@$VPS_HOST:/home/ubuntu/failureops/"
+
+          echo "🚀 Executing automated build & restart on VPS..."
+          ssh "$VPS_USER@$VPS_HOST" "bash /home/ubuntu/failureops/deploy.sh"
