@@ -6,7 +6,6 @@ import {
   UploadCloud,
   FileText,
   CheckCircle2,
-  AlertTriangle,
   ArrowRight,
   FileSpreadsheet,
   FileCode,
@@ -15,15 +14,15 @@ import {
   Cpu,
   RefreshCw,
   Trash2,
-  Plus,
   FileCheck,
-  Loader2,
-  FolderOpen
+  FolderOpen,
+  X,
 } from 'lucide-react';
 import { EvidenceSourceType } from '@/types';
 import { apiClient, isRagUnavailable } from '@/lib/api/client';
 import { useApp } from '@/context/AppContext';
 import { RagPipelinePanel } from '@/components/evidence/RagPipelinePanel';
+import { KpiStat } from '@/components/evidence/KpiStat';
 
 interface PendingFileItem {
   id: string;
@@ -46,12 +45,12 @@ export default function EvidenceUploadPage() {
   const [uploadError, setUploadError] = useState<string | null>(null);
   const [deletingDocId, setDeletingDocId] = useState<string | null>(null);
   const [replacingPendingId, setReplacingPendingId] = useState<string | null>(null);
+  const [isDragging, setIsDragging] = useState(false);
 
   const fileInputRef = useRef<HTMLInputElement | null>(null);
   const replaceInputRef = useRef<HTMLInputElement | null>(null);
   const [currentCategory, setCurrentCategory] = useState<EvidenceSourceType>('PRODUCT_PLAN');
 
-  // Categories config for file classification
   const categories: { type: EvidenceSourceType; title: string; description: string; formats: string; icon: any }[] = [
     {
       type: 'PRODUCT_PLAN',
@@ -132,18 +131,22 @@ export default function EvidenceUploadPage() {
     return () => clearInterval(id);
   }, [projectId, ragUnavailable, backendDocs.map((d) => `${d.id}:${d.status}:${d.chunk_count}:${d.embedded_count}`).join('|')]);
 
-  const handleSelectFiles = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const selected = e.target.files;
-    if (!selected || selected.length === 0) return;
-
-    const newItems: PendingFileItem[] = Array.from(selected).map(file => ({
+  const stageSelectedFiles = (files: FileList | File[]) => {
+    const list = Array.from(files);
+    if (list.length === 0) return;
+    const newItems: PendingFileItem[] = list.map((file) => ({
       id: `pending_${Math.random().toString(36).substring(2, 9)}`,
       file,
       category: currentCategory,
     }));
-
-    setPendingFiles(prev => [...prev, ...newItems]);
+    setPendingFiles((prev) => [...prev, ...newItems]);
     setUploadError(null);
+  };
+
+  const handleSelectFiles = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const selected = e.target.files;
+    if (!selected || selected.length === 0) return;
+    stageSelectedFiles(selected);
     if (fileInputRef.current) fileInputRef.current.value = '';
   };
 
@@ -151,8 +154,8 @@ export default function EvidenceUploadPage() {
     const selected = e.target.files?.[0];
     if (!selected || !replacingPendingId) return;
 
-    setPendingFiles(prev =>
-      prev.map(item =>
+    setPendingFiles((prev) =>
+      prev.map((item) =>
         item.id === replacingPendingId
           ? { ...item, file: selected }
           : item
@@ -163,7 +166,7 @@ export default function EvidenceUploadPage() {
   };
 
   const removePendingFile = (id: string) => {
-    setPendingFiles(prev => prev.filter(item => item.id !== id));
+    setPendingFiles((prev) => prev.filter((item) => item.id !== id));
   };
 
   const triggerAddForCategory = (cat: EvidenceSourceType) => {
@@ -221,10 +224,17 @@ export default function EvidenceUploadPage() {
   };
 
   const totalUploaded = backendDocs.length;
+  const queuedCount =
+    pendingFiles.length +
+    backendDocs.filter((d) => d.status === 'PENDING' || d.status === 'PROCESSING').length;
+  const readyCount = backendDocs.filter(
+    (d) => d.status === 'COMPLETED' && Number(d.chunk_count || 0) > 0
+  ).length;
+  const rejectedCount = backendDocs.filter((d) => d.status === 'FAILED').length;
+  const quotaBytes = backendDocs.reduce((sum, d) => sum + Number(d.file_size ?? 0), 0);
 
   return (
-    <div className="space-y-8">
-      {/* Hidden file inputs */}
+    <div className="space-y-6">
       <input
         type="file"
         ref={fileInputRef}
@@ -241,48 +251,42 @@ export default function EvidenceUploadPage() {
         accept=".pdf,.docx,.pptx,.xlsx,.csv,.txt,.md,.json"
       />
 
-      {/* Header */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-6 border-b border-border">
-        <div>
-          <div className="flex items-center gap-2">
-            <span className="text-xs font-mono font-bold uppercase tracking-wider text-primary">
-              Step 2 of Intelligence Setup
-            </span>
-            <span className="px-2 py-0.5 rounded-full text-[10px] font-mono bg-surface-feed border border-border text-muted-foreground">
-              {project.company || 'Enterprise'} / {project.name || projectId}
-            </span>
-            <span className="px-2 py-0.5 rounded-full text-[10px] font-mono bg-emerald-500/10 text-emerald-400 border border-emerald-500/30">
-              {totalUploaded} Document{totalUploaded === 1 ? '' : 's'} Stored
-            </span>
-          </div>
-          <h1 className="text-2xl lg:text-3xl font-extrabold text-foreground tracking-tight mt-1">
-            Build the Evidence Base
+      <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
+        <div className="space-y-1.5">
+          <p className="text-[11px] font-mono font-bold uppercase tracking-[0.66px] text-primary">
+            EVIDENCE INTAKE
+          </p>
+          <h1 className="text-2xl font-extrabold tracking-tight text-foreground lg:text-[28px]">
+            Upload Evidence
           </h1>
-          <p className="text-sm text-muted-foreground mt-1">
-            Upload the real fragmented project evidence FailureOps will continuously reason over to discover weak failure seeds.
+          <p className="max-w-xl text-[13px] text-muted-foreground">
+            Drop PRDs, exports, and traces into the enclave. Nothing leaves encrypted storage.
+          </p>
+          <p className="font-mono text-[10px] text-muted-foreground">
+            {project.company || 'Enterprise'} / {project.name || projectId}
           </p>
         </div>
 
-        <div className="flex items-center gap-2.5">
+        <div className="flex flex-wrap items-center gap-2.5">
           <button
-            onClick={() => triggerAddForCategory('PRODUCT_PLAN')}
-            className="inline-flex items-center gap-1.5 px-4 py-2.5 rounded-xl bg-card hover:bg-surface-feed border border-border text-xs font-mono font-bold text-foreground transition-all cursor-pointer shadow-sm"
+            type="button"
+            onClick={() => triggerAddForCategory(currentCategory)}
+            className="inline-flex cursor-pointer items-center rounded-[10px] bg-primary px-4 py-2.5 text-xs font-bold text-primary-foreground shadow-[0_0_18px_-4px_rgba(255,122,0,0.35)] transition-colors hover:bg-primary-hover focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
           >
-            <Plus className="w-4 h-4 text-primary" />
-            <span>Add Files</span>
+            Select files
           </button>
-
           <button
+            type="button"
             onClick={() => router.push(`/projects/${projectId}/analysis`)}
             disabled={totalUploaded < 1 || isUploading}
-            className={`inline-flex items-center gap-2 px-5 py-2.5 rounded-xl text-xs font-bold uppercase tracking-wider transition-all shadow-md cursor-pointer ${
+            className={`inline-flex items-center gap-2 rounded-[10px] px-4 py-2.5 text-xs font-bold uppercase tracking-wider transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring ${
               totalUploaded >= 1 && !isUploading
-                ? 'bg-primary hover:bg-primary-hover text-white shadow-[0_0_20px_-3px_rgba(255,122,0,0.5)]'
-                : 'bg-surface-feed text-muted-foreground/50 border border-border cursor-not-allowed opacity-50'
+                ? 'cursor-pointer bg-primary text-primary-foreground shadow-[0_0_18px_-4px_rgba(255,122,0,0.35)] hover:bg-primary-hover'
+                : 'cursor-not-allowed border border-border bg-surface-feed text-muted-foreground/50 opacity-50'
             }`}
           >
-            <span>ANALYZE PROJECT</span>
-            <ArrowRight className="w-4 h-4" />
+            <span>Run Analysis</span>
+            <ArrowRight className="h-4 w-4" aria-hidden="true" />
           </button>
         </div>
       </div>
@@ -291,7 +295,7 @@ export default function EvidenceUploadPage() {
         <div
           role="alert"
           tabIndex={-1}
-          className="p-4 rounded-xl bg-rose-500/10 border border-rose-500/30 text-rose-300 text-xs font-mono"
+          className="rounded-xl border border-destructive/30 bg-destructive/10 p-4 font-mono text-xs text-destructive"
         >
           RAG unavailable. Document indexing, chunk counts, and embeddings cannot be loaded until the RAG backend is reachable.
         </div>
@@ -300,38 +304,71 @@ export default function EvidenceUploadPage() {
       {uploadError && (
         <div
           role="alert"
-          className="p-4 rounded-xl bg-rose-500/10 border border-rose-500/30 text-rose-300 text-xs font-mono flex items-center justify-between"
+          className="flex items-center justify-between rounded-xl border border-destructive/30 bg-destructive/10 p-4 font-mono text-xs text-destructive"
         >
           <span>{uploadError}</span>
-          <button type="button" onClick={() => setUploadError(null)} className="text-rose-400 hover:text-rose-200 cursor-pointer">
-            ✕
+          <button
+            type="button"
+            onClick={() => setUploadError(null)}
+            aria-label="Dismiss upload error"
+            className="cursor-pointer rounded p-1 text-destructive hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+          >
+            <X className="h-3.5 w-3.5" aria-hidden="true" />
           </button>
         </div>
       )}
 
-      {/* Pending Files Staging Area (Selected but not yet uploaded) */}
+      <button
+        type="button"
+        onClick={() => triggerAddForCategory(currentCategory)}
+        onDragOver={(e) => {
+          e.preventDefault();
+          setIsDragging(true);
+        }}
+        onDragLeave={() => setIsDragging(false)}
+        onDrop={(e) => {
+          e.preventDefault();
+          setIsDragging(false);
+          if (e.dataTransfer.files?.length) stageSelectedFiles(e.dataTransfer.files);
+        }}
+        className={`flex w-full cursor-pointer flex-col items-center gap-2 rounded-2xl border border-solid py-10 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring ${
+          isDragging ? 'border-primary bg-primary/10' : 'border-primary bg-surface-feed'
+        }`}
+      >
+        <p className="text-base font-semibold text-foreground">Drop files or paste a workspace export</p>
+        <p className="text-xs text-muted-foreground">PDF, CSV, JSON, SARIF, Jira export  ·  AES-256 at rest</p>
+      </button>
+
+      <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
+        <KpiStat label="Queued" value={queuedCount} hint="Scanning" valueClassName="text-info" />
+        <KpiStat label="Ready" value={readyCount} hint="Cited" valueClassName="text-success" />
+        <KpiStat label="Rejected" value={rejectedCount} hint="Policy" valueClassName="text-muted-foreground" />
+        <KpiStat label="Quota" value={formatFileSize(quotaBytes)} hint="Enclave" valueClassName="text-primary" />
+      </div>
+
       {pendingFiles.length > 0 && (
-        <div className="p-6 rounded-2xl bg-primary/5 border border-primary/30 shadow-md space-y-4">
+        <div className="space-y-4 rounded-xl border border-primary/30 bg-primary/5 p-6 shadow-[0_1px_0_0_rgba(13,20,36,0.8),0_8px_24px_-8px_rgba(0,0,0,0.35)]">
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-2">
-              <FolderOpen className="w-5 h-5 text-primary" />
+              <FolderOpen className="h-5 w-5 text-primary" aria-hidden="true" />
               <h3 className="text-sm font-bold text-foreground">
                 Selected Evidence Staging ({pendingFiles.length} pending file{pendingFiles.length === 1 ? '' : 's'})
               </h3>
             </div>
             <button
+              type="button"
               onClick={handleUploadAllPending}
               disabled={isUploading}
-              className="inline-flex items-center gap-2 px-4 py-2 rounded-xl bg-primary hover:bg-primary-hover text-white text-xs font-bold font-mono transition-all cursor-pointer disabled:opacity-50"
+              className="inline-flex cursor-pointer items-center gap-2 rounded-[10px] bg-primary px-4 py-2 font-mono text-xs font-bold text-primary-foreground transition-colors hover:bg-primary-hover focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:opacity-50"
             >
               {isUploading ? (
                 <>
-                  <RefreshCw className="w-3.5 h-3.5 animate-spin" />
+                  <RefreshCw className="h-3.5 w-3.5 animate-spin motion-reduce:animate-none" aria-hidden="true" />
                   <span>Uploading to RAG Engine...</span>
                 </>
               ) : (
                 <>
-                  <UploadCloud className="w-3.5 h-3.5" />
+                  <UploadCloud className="h-3.5 w-3.5" aria-hidden="true" />
                   <span>Upload & Ingest All Files</span>
                 </>
               )}
@@ -339,33 +376,35 @@ export default function EvidenceUploadPage() {
           </div>
 
           <div className="space-y-2">
-            {pendingFiles.map(item => (
+            {pendingFiles.map((item) => (
               <div
                 key={item.id}
-                className="flex items-center justify-between p-3 rounded-xl bg-card border border-border/80 text-xs"
+                className="flex items-center justify-between rounded-xl border border-border bg-card p-3 text-xs"
               >
                 <div className="flex items-center gap-3 truncate">
-                  <FileText className="w-4 h-4 text-primary shrink-0" />
+                  <FileText className="h-4 w-4 shrink-0 text-primary" aria-hidden="true" />
                   <div>
-                    <span className="font-bold text-foreground truncate block">{item.file.name}</span>
-                    <span className="text-[10px] font-mono text-muted-foreground">
+                    <span className="block truncate font-bold text-foreground">{item.file.name}</span>
+                    <span className="font-mono text-[10px] text-muted-foreground">
                       {formatFileSize(item.file.size)} • Type: {item.category}
                     </span>
                   </div>
                 </div>
 
-                <div className="flex items-center gap-2 shrink-0">
+                <div className="flex shrink-0 items-center gap-2">
                   <button
+                    type="button"
                     onClick={() => triggerReplacePending(item.id)}
                     disabled={isUploading}
-                    className="px-2.5 py-1 rounded-lg bg-surface-feed hover:bg-card border border-border text-[11px] font-mono text-muted-foreground hover:text-foreground cursor-pointer"
+                    className="cursor-pointer rounded-lg border border-border bg-surface-feed px-2.5 py-1 font-mono text-[11px] text-muted-foreground hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
                   >
                     Replace
                   </button>
                   <button
+                    type="button"
                     onClick={() => removePendingFile(item.id)}
                     disabled={isUploading}
-                    className="px-2.5 py-1 rounded-lg bg-rose-500/10 hover:bg-rose-500/20 border border-rose-500/30 text-[11px] font-mono text-rose-400 cursor-pointer"
+                    className="cursor-pointer rounded-lg border border-destructive/30 bg-destructive/10 px-2.5 py-1 font-mono text-[11px] text-destructive focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
                   >
                     Remove
                   </button>
@@ -389,54 +428,55 @@ export default function EvidenceUploadPage() {
       {backendDocs.length > 0 && (
         <div className="space-y-4">
           <div className="flex items-center justify-between">
-            <h3 className="text-sm font-bold text-foreground uppercase tracking-wider font-mono">
+            <h3 className="font-mono text-sm font-bold uppercase tracking-wider text-foreground">
               Persisted Evidence Documents ({backendDocs.length})
             </h3>
             <button
+              type="button"
               onClick={() => fetchBackendDocuments()}
-              className="text-xs font-mono text-muted-foreground hover:text-foreground flex items-center gap-1 cursor-pointer"
+              className="flex cursor-pointer items-center gap-1 font-mono text-xs text-muted-foreground hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring rounded"
             >
-              <RefreshCw className={`w-3.5 h-3.5 ${isLoadingDocs ? 'animate-spin' : ''}`} />
+              <RefreshCw className={`h-3.5 w-3.5 ${isLoadingDocs ? 'animate-spin motion-reduce:animate-none' : ''}`} aria-hidden="true" />
               <span>Sync</span>
             </button>
           </div>
 
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            {backendDocs.map(doc => (
+          <div className="flex flex-col gap-2">
+            {backendDocs.map((doc) => (
               <div
                 key={doc.id}
-                className="p-4 rounded-2xl bg-card border border-border/80 hover:border-border transition-all flex items-start justify-between gap-3 shadow-sm"
+                className="flex items-start justify-between gap-3 rounded-[10px] border border-border bg-card px-3.5 py-3 shadow-[0_1px_0_0_rgba(13,20,36,0.8),0_8px_24px_-8px_rgba(0,0,0,0.35)]"
               >
-                <div className="flex items-start gap-3 truncate">
-                  <div className="w-8 h-8 rounded-lg bg-surface-feed border border-border flex items-center justify-center text-primary shrink-0 mt-0.5">
-                    <FileCheck className="w-4 h-4 text-emerald-400" />
+                <div className="flex min-w-0 items-start gap-3">
+                  <div className="mt-0.5 flex h-8 w-8 shrink-0 items-center justify-center rounded-lg border border-border bg-surface-feed text-primary">
+                    <FileCheck className="h-4 w-4 text-success" aria-hidden="true" />
                   </div>
-                  <div className="truncate">
-                    <h4 className="text-xs font-bold text-foreground truncate">{doc.filename}</h4>
-                    <p className="text-[10px] font-mono text-muted-foreground mt-0.5">
+                  <div className="min-w-0 truncate">
+                    <h4 className="truncate text-[13px] font-semibold text-foreground">{doc.filename}</h4>
+                    <p className="mt-0.5 font-mono text-[10px] text-muted-foreground">
                       Type: <span className="text-foreground">{doc.document_type || 'PROJECT_DOC'}</span>
-                      {' '}• Size: <span className="text-foreground font-bold">{Number(doc.file_size ?? 0)} B</span>
-                      {' '}• Storage: <span className="text-foreground font-bold">{doc.storage_provider || doc.storage?.provider || 'unknown'}{doc.file_exists || doc.storage?.exists ? ' ✓' : ''}</span>
-                      {' '}• Pages: <span className="text-foreground font-bold">{Number(doc.page_count ?? 0)}</span>
-                      {' '}• Chunks: <span className="text-foreground font-bold">{Number(doc.chunk_count ?? 0)}</span>
-                      {' '}• Embedded: <span className="text-foreground font-bold">{Number(doc.embedded_count ?? 0)}</span>
-                      {' '}• Vectors: <span className="text-foreground font-bold">{Number(doc.embedded_count ?? 0)}</span>
+                      {' '}• Size: <span className="font-bold text-foreground">{Number(doc.file_size ?? 0)} B</span>
+                      {' '}• Storage: <span className="font-bold text-foreground">{doc.storage_provider || doc.storage?.provider || 'unknown'}{doc.file_exists || doc.storage?.exists ? ' ✓' : ''}</span>
+                      {' '}• Pages: <span className="font-bold text-foreground">{Number(doc.page_count ?? 0)}</span>
+                      {' '}• Chunks: <span className="font-bold text-foreground">{Number(doc.chunk_count ?? 0)}</span>
+                      {' '}• Embedded: <span className="font-bold text-foreground">{Number(doc.embedded_count ?? 0)}</span>
+                      {' '}• Vectors: <span className="font-bold text-foreground">{Number(doc.embedded_count ?? 0)}</span>
                     </p>
                     <span
-                      className={`inline-block mt-2 px-2 py-0.5 rounded text-[9px] font-mono font-bold border ${
+                      className={`mt-2 inline-block rounded-full border px-2 py-0.5 font-mono text-[9px] font-bold ${
                         doc.status === 'FAILED'
-                          ? 'bg-rose-500/10 text-rose-400 border-rose-500/30'
+                          ? 'border-destructive/30 bg-surface-feed text-destructive'
                           : doc.status === 'PENDING' || doc.status === 'PROCESSING'
-                            ? 'bg-amber-500/10 text-amber-400 border-amber-500/30'
+                            ? 'border-warning/30 bg-surface-feed text-warning'
                             : doc.status === 'COMPLETED' && Number(doc.chunk_count || 0) === 0
-                              ? 'bg-amber-500/10 text-amber-400 border-amber-500/30'
-                              : 'bg-emerald-500/10 text-emerald-400 border-emerald-500/30'
+                              ? 'border-warning/30 bg-surface-feed text-warning'
+                              : 'border-success/30 bg-surface-feed text-success'
                       }`}
                     >
                       {doc.status || 'UNKNOWN'}
                     </span>
                     {doc.error_message && (
-                      <p role="alert" className="text-[10px] text-rose-400 mt-1 font-mono">
+                      <p role="alert" className="mt-1 font-mono text-[10px] text-destructive">
                         {doc.error_message}
                       </p>
                     )}
@@ -444,15 +484,17 @@ export default function EvidenceUploadPage() {
                 </div>
 
                 <button
+                  type="button"
                   onClick={() => handleDeleteBackendDoc(doc.id)}
                   disabled={deletingDocId === doc.id}
-                  className="p-1.5 rounded-lg bg-rose-500/10 hover:bg-rose-500/20 border border-rose-500/30 text-rose-400 hover:text-rose-300 transition-colors cursor-pointer shrink-0 disabled:opacity-50"
+                  className="shrink-0 cursor-pointer rounded-lg border border-destructive/30 bg-destructive/10 p-1.5 text-destructive transition-colors hover:bg-destructive/20 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:opacity-50"
                   title="Delete document and remove associated chunks"
+                  aria-label={`Delete ${doc.filename}`}
                 >
                   {deletingDocId === doc.id ? (
-                    <RefreshCw className="w-3.5 h-3.5 animate-spin" />
+                    <RefreshCw className="h-3.5 w-3.5 animate-spin motion-reduce:animate-none" aria-hidden="true" />
                   ) : (
-                    <Trash2 className="w-3.5 h-3.5" />
+                    <Trash2 className="h-3.5 w-3.5" aria-hidden="true" />
                   )}
                 </button>
               </div>
@@ -461,57 +503,56 @@ export default function EvidenceUploadPage() {
         </div>
       )}
 
-      {/* Category Upload Cards Grid */}
       <div className="space-y-3">
-        <h3 className="text-xs font-mono font-bold uppercase tracking-wider text-muted-foreground">
+        <h3 className="font-mono text-xs font-bold uppercase tracking-wider text-muted-foreground">
           Evidence Categories & File Classification
         </h3>
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
-          {categories.map(cat => {
+        <div className="grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-3">
+          {categories.map((cat) => {
             const Icon = cat.icon;
-            const categoryDocs = backendDocs.filter(d => d.document_type === cat.type);
+            const categoryDocs = backendDocs.filter((d) => d.document_type === cat.type);
 
             return (
               <div
                 key={cat.type}
-                className={`p-6 rounded-2xl bg-card border transition-all duration-200 flex flex-col justify-between ${
+                className={`flex flex-col justify-between rounded-xl border bg-card p-5 transition-colors duration-200 ${
                   categoryDocs.length > 0
-                    ? 'border-border/90 shadow-sm'
-                    : 'border-dashed border-border/80 hover:border-primary/40'
+                    ? 'border-border shadow-[0_1px_0_0_rgba(13,20,36,0.8),0_8px_24px_-8px_rgba(0,0,0,0.35)]'
+                    : 'border-dashed border-border hover:border-primary/40'
                 }`}
               >
                 <div>
-                  <div className="flex items-center justify-between pb-3 mb-3 border-b border-border/60">
+                  <div className="mb-3 flex items-center justify-between border-b border-border/60 pb-3">
                     <div className="flex items-center gap-2">
-                      <div className="w-8 h-8 rounded-lg bg-surface-feed border border-border flex items-center justify-center text-primary">
-                        <Icon className="w-4 h-4" />
+                      <div className="flex h-8 w-8 items-center justify-center rounded-lg border border-border bg-surface-feed text-primary">
+                        <Icon className="h-4 w-4" aria-hidden="true" />
                       </div>
-                      <h3 className="text-xs font-bold font-mono tracking-wider text-foreground">
+                      <h3 className="font-mono text-xs font-bold tracking-wider text-foreground">
                         {cat.title}
                       </h3>
                     </div>
 
-                    <span className="text-[10px] font-mono text-muted-foreground">
+                    <span className="font-mono text-[10px] text-muted-foreground">
                       {cat.formats}
                     </span>
                   </div>
 
-                  <p className="text-xs text-muted-foreground leading-relaxed">
+                  <p className="text-xs leading-relaxed text-muted-foreground">
                     {cat.description}
                   </p>
 
                   {categoryDocs.length > 0 && (
                     <div className="mt-4 space-y-1.5">
-                      {categoryDocs.map(f => (
+                      {categoryDocs.map((f) => (
                         <div
                           key={f.id}
-                          className="flex items-center justify-between p-2 rounded-lg bg-surface-feed border border-border/70 text-xs font-mono"
+                          className="flex items-center justify-between rounded-lg border border-border bg-surface-feed p-2 font-mono text-xs"
                         >
-                          <span className="text-foreground flex items-center gap-1.5 truncate">
-                            <CheckCircle2 className="w-3.5 h-3.5 text-emerald-400 shrink-0" />
+                          <span className="flex items-center gap-1.5 truncate text-foreground">
+                            <CheckCircle2 className="h-3.5 w-3.5 shrink-0 text-success" aria-hidden="true" />
                             {f.filename}
                           </span>
-                          <span className="text-[10px] text-emerald-400 font-semibold uppercase">
+                          <span className="text-[10px] font-semibold uppercase text-success">
                             {f.status}
                           </span>
                         </div>
@@ -520,13 +561,14 @@ export default function EvidenceUploadPage() {
                   )}
                 </div>
 
-                <div className="mt-5 pt-3 border-t border-border/50">
+                <div className="mt-5 border-t border-border/50 pt-3">
                   <button
+                    type="button"
                     onClick={() => triggerAddForCategory(cat.type)}
                     disabled={isUploading}
-                    className="w-full py-2 px-3 rounded-xl bg-surface-feed hover:bg-card border border-border hover:border-primary/50 text-xs font-semibold text-foreground transition-all flex items-center justify-center gap-2 cursor-pointer disabled:opacity-50"
+                    className="flex w-full cursor-pointer items-center justify-center gap-2 rounded-[10px] border border-border bg-surface-feed px-3 py-2 text-xs font-semibold text-foreground transition-colors hover:border-primary/50 hover:bg-card focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:opacity-50"
                   >
-                    <UploadCloud className="w-3.5 h-3.5 text-primary" />
+                    <UploadCloud className="h-3.5 w-3.5 text-primary" aria-hidden="true" />
                     <span>Upload {cat.title.toLowerCase()}</span>
                   </button>
                 </div>
@@ -535,24 +577,6 @@ export default function EvidenceUploadPage() {
           })}
         </div>
       </div>
-
-      {/* Empty State when no documents are uploaded */}
-      {!isLoadingDocs && !ragUnavailable && backendDocs.length === 0 && pendingFiles.length === 0 && (
-        <div className="p-12 rounded-2xl bg-card border border-border/80 text-center space-y-4">
-          <UploadCloud className="w-12 h-12 text-primary mx-auto opacity-70" />
-          <h3 className="text-base font-bold text-foreground">No Evidence Uploaded Yet</h3>
-          <p className="text-xs text-muted-foreground max-w-md mx-auto leading-relaxed">
-            Upload the documents that describe your product architecture, operational metrics, and team performance to build the empirical evidence base.
-          </p>
-          <button
-            onClick={() => triggerAddForCategory('PRODUCT_PLAN')}
-            className="px-5 py-2.5 rounded-xl bg-primary hover:bg-primary-hover text-white text-xs font-bold font-mono transition-all cursor-pointer shadow-md"
-          >
-            Select Evidence Files
-          </button>
-        </div>
-      )}
     </div>
   );
 }
-

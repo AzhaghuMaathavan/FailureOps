@@ -4,7 +4,8 @@ import { requireAuth } from '@/lib/server/auth';
 import { authorizeProjectAccess } from '@/lib/server/authorization';
 import { checkRateLimit } from '@/lib/server/rate-limit';
 import { apiSuccess, apiError, apiRateLimitExceeded } from '@/lib/server/response';
-import { ragFetch } from '@/lib/server/rag';
+import { ragFetch, RagBackendError, RagUnreachableError } from '@/lib/server/rag';
+import { getDefaultProject } from '@/lib/server/default-projects';
 
 export async function GET(
   req: NextRequest,
@@ -19,11 +20,22 @@ export async function GET(
 
     authorizeProjectAccess(session, id);
 
-    const project = await ragFetch<any>(
-      `/api/v1/projects/${encodeURIComponent(id)}`,
-      session
-    );
-    return apiSuccess(project);
+    try {
+      const project = await ragFetch<any>(
+        `/api/v1/projects/${encodeURIComponent(id)}`,
+        session
+      );
+      return apiSuccess(project);
+    } catch (error) {
+      const canFallback =
+        error instanceof RagUnreachableError ||
+        (error instanceof RagBackendError && error.status === 404);
+      const fallback = canFallback ? getDefaultProject(id) : null;
+      if (fallback) {
+        return apiSuccess(fallback);
+      }
+      throw error;
+    }
   } catch (error) {
     return apiError(error, 'Unable to retrieve project details.');
   }

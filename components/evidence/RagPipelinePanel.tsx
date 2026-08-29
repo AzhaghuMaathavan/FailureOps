@@ -24,11 +24,11 @@ interface RagPipelinePanelProps {
 }
 
 function StageIcon({ status }: { status: string }) {
-  if (status === 'COMPLETED') return <CheckCircle2 className="w-4 h-4 text-emerald-400 shrink-0" aria-hidden="true" />;
-  if (status === 'RUNNING') return <Loader2 className="w-4 h-4 text-primary animate-spin shrink-0" aria-hidden="true" />;
-  if (status === 'FAILED') return <AlertTriangle className="w-4 h-4 text-rose-400 shrink-0" aria-hidden="true" />;
-  if (status === 'BLOCKED') return <Circle className="w-4 h-4 text-muted-foreground/50 shrink-0" aria-hidden="true" />;
-  return <Circle className="w-4 h-4 text-border shrink-0" aria-hidden="true" />;
+  if (status === 'COMPLETED') return <CheckCircle2 className="h-4 w-4 shrink-0 text-success" aria-hidden="true" />;
+  if (status === 'RUNNING') return <Loader2 className="h-4 w-4 shrink-0 animate-spin text-primary motion-reduce:animate-none" aria-hidden="true" />;
+  if (status === 'FAILED') return <AlertTriangle className="h-4 w-4 shrink-0 text-destructive" aria-hidden="true" />;
+  if (status === 'BLOCKED') return <Circle className="h-4 w-4 shrink-0 text-muted-foreground/50" aria-hidden="true" />;
+  return <Circle className="h-4 w-4 shrink-0 text-border" aria-hidden="true" />;
 }
 
 export function RagPipelinePanel({
@@ -43,36 +43,34 @@ export function RagPipelinePanel({
   const completed = stages.filter((s) => s.status === 'COMPLETED').length;
 
   return (
-    <section className="p-6 rounded-2xl bg-card border border-border/80 shadow-md space-y-4">
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-3 border-b border-border">
+    <section className="space-y-4 rounded-xl border border-border bg-card p-6 shadow-[0_1px_0_0_rgba(13,20,36,0.8),0_8px_24px_-8px_rgba(0,0,0,0.35)]">
+      <div className="flex flex-col justify-between gap-3 border-b border-border pb-3 sm:flex-row sm:items-center">
         <div className="flex items-center gap-2.5">
-          <div className="w-8 h-8 rounded-lg bg-primary/10 border border-primary/30 flex items-center justify-center text-primary">
-            <Binary className="w-4 h-4" aria-hidden="true" />
+          <div className="flex h-8 w-8 items-center justify-center rounded-lg border border-primary/30 bg-primary/10 text-primary">
+            <Binary className="h-4 w-4" aria-hidden="true" />
           </div>
           <div>
-            <h2 className="text-sm font-bold text-foreground">RAG Pipeline</h2>
+            <h2 className="text-sm font-bold text-foreground">Pipeline Health</h2>
             <p className="text-xs text-muted-foreground">Live backend ingestion and agent state — not a preview animation</p>
           </div>
         </div>
-        <div className="flex items-center gap-2">
+        <div className="flex flex-wrap items-center gap-2">
           <span
             role="status"
             aria-atomic="true"
-            className={`inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-[10px] font-mono font-bold border ${
+            className={`inline-flex items-center gap-1.5 rounded-full border px-3 py-1 font-mono text-[10px] font-bold ${
               reachable
-                ? 'bg-emerald-500/10 text-emerald-400 border-emerald-500/30'
-                : 'bg-rose-500/10 text-rose-400 border-rose-500/30'
+                ? 'border-success/30 bg-surface-feed text-success'
+                : 'border-destructive/30 bg-destructive/10 text-destructive'
             }`}
           >
             {reachable ? 'RAG reachable' : 'RAG unavailable'}
           </span>
           {database && (
-            <span className="text-[10px] font-mono text-muted-foreground">DB: {database}</span>
+            <span className="font-mono text-[10px] text-muted-foreground">DB: {database}</span>
           )}
           {typeof rustfsReachable === 'boolean' && (
-            <span
-              className={`text-[10px] font-mono ${rustfsReachable ? 'text-emerald-400' : 'text-rose-400'}`}
-            >
+            <span className={`font-mono text-[10px] ${rustfsReachable ? 'text-success' : 'text-destructive'}`}>
               {rustfsProvider || 'storage'}: {rustfsReachable ? 'connected' : 'unreachable'}
             </span>
           )}
@@ -80,40 +78,40 @@ export function RagPipelinePanel({
       </div>
 
       {!reachable ? (
-        <div role="alert" className="p-4 rounded-xl bg-rose-500/10 border border-rose-500/30 text-rose-300 text-xs font-mono">
+        <div role="alert" className="rounded-xl border border-destructive/30 bg-destructive/10 p-4 font-mono text-xs text-destructive">
           RAG unavailable. Start the FastAPI backend on the configured RAG URL before expecting chunks, embeddings, or signals.
         </div>
       ) : (
         <>
-          <p className="text-[11px] font-mono text-muted-foreground" role="status" aria-atomic="true">
+          <p className="font-mono text-[11px] text-muted-foreground" role="status" aria-atomic="true">
             {completed} of {stages.length} pipeline stages complete
           </p>
-          <div className={`grid grid-cols-1 ${compact ? 'md:grid-cols-2' : 'md:grid-cols-2 lg:grid-cols-4'} gap-3`}>
+          <div className={`grid grid-cols-1 gap-3 ${compact ? 'md:grid-cols-2' : 'md:grid-cols-2 lg:grid-cols-4'}`}>
             {stages.map((stage) => (
               <div
                 key={stage.key}
-                className={`p-3 rounded-xl border ${
+                className={`rounded-xl border p-3 ${
                   stage.status === 'COMPLETED'
-                    ? 'bg-surface-feed/70 border-emerald-500/30'
+                    ? 'border-success/30 bg-surface-feed/70'
                     : stage.status === 'RUNNING'
-                      ? 'bg-primary/10 border-primary/50'
-                      :                   stage.status === 'FAILED'
-                        ? 'bg-rose-500/10 border-rose-500/30'
+                      ? 'border-primary/50 bg-primary/10'
+                      : stage.status === 'FAILED'
+                        ? 'border-destructive/30 bg-destructive/10'
                         : stage.status === 'BLOCKED'
-                          ? 'bg-card/40 border-border/40 opacity-70'
-                          : 'bg-card/40 border-border/40'
+                          ? 'border-border/40 bg-card/40 opacity-70'
+                          : 'border-border/40 bg-card/40'
                 }`}
               >
-                <div className="flex items-center gap-2 mb-1">
+                <div className="mb-1 flex items-center gap-2">
                   <StageIcon status={stage.status} />
                   <span className="text-xs font-semibold tracking-tight text-foreground">{stage.label}</span>
                 </div>
-                <p className="text-[11px] text-muted-foreground pl-6">{stage.detail}</p>
+                <p className="pl-6 text-[11px] text-muted-foreground">{stage.detail}</p>
                 {typeof stage.count === 'number' && (
-                  <p className="text-[11px] font-mono text-foreground pl-6 mt-1">{stage.count}</p>
+                  <p className="mt-1 pl-6 font-mono text-[11px] text-foreground">{stage.count}</p>
                 )}
                 {stage.error && (
-                  <p role="alert" className="text-[11px] text-rose-400 pl-6 mt-1">
+                  <p role="alert" className="mt-1 pl-6 text-[11px] text-destructive">
                     {stage.error}
                   </p>
                 )}
@@ -124,13 +122,13 @@ export function RagPipelinePanel({
       )}
 
       {!compact && (
-        <div className="pt-2 flex justify-end">
+        <div className="flex justify-end pt-2">
           <Link
             href={`/projects/${projectId}/pipeline`}
-            className="inline-flex items-center gap-1.5 text-xs font-semibold text-primary hover:underline cursor-pointer"
+            className="inline-flex cursor-pointer items-center gap-1.5 text-xs font-semibold text-primary hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring rounded"
           >
             <span>Open full pipeline</span>
-            <ArrowRight className="w-3 h-3" />
+            <ArrowRight className="h-3 w-3" aria-hidden="true" />
           </Link>
         </div>
       )}

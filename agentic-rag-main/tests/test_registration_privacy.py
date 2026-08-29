@@ -114,6 +114,27 @@ def test_register_public_case_study():
     assert resp_public.json()["id"] == proj_id
 
 
+def test_get_aurora_self_heals_when_missing():
+    headers = {
+        "x-organization-id": "org_aurora_technologies",
+        "x-user-id": "usr_aurora_lead_881",
+    }
+    db = SessionLocal()
+    try:
+        existing = db.query(Project).filter(Project.id == "aurora").first()
+        if existing:
+            db.delete(existing)
+            db.commit()
+    finally:
+        db.close()
+
+    resp = client.get("/api/v1/projects/aurora", headers=headers)
+    assert resp.status_code == 200
+    data = resp.json()
+    assert data["id"] == "aurora"
+    assert data["name"] == "ExpenseTracker"
+
+
 def test_validation_missing_required_fields():
     headers = {
         "x-organization-id": "org_test_tenant_a",

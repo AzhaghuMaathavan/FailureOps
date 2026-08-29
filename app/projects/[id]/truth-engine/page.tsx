@@ -1,11 +1,13 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useRef, useState } from 'react';
 import { useParams } from 'next/navigation';
-import { Scale, Sparkles, Search, ArrowRight, ShieldCheck, HelpCircle, Loader2 } from 'lucide-react';
+import { Search, Loader2 } from 'lucide-react';
 import { apiClient } from '@/lib/api/client';
 import { AssumptionCard } from '@/components/truth/AssumptionCard';
 import { AssumptionInvestigation } from '@/types';
+
+const cardShadow = 'shadow-[0_8px_24px_-8px_rgba(0,0,0,0.35)]';
 
 export default function TruthEnginePage() {
   const params = useParams();
@@ -13,20 +15,22 @@ export default function TruthEnginePage() {
   const [claimInput, setClaimInput] = useState('');
   const [investigation, setInvestigation] = useState<AssumptionInvestigation | null>(null);
   const [isSearching, setIsSearching] = useState(false);
-
+  const inputRef = useRef<HTMLInputElement>(null);
 
   const runInvestigation = async (claimToTest: string) => {
+    const trimmed = claimToTest.trim();
+    if (!trimmed || isSearching) return;
     setIsSearching(true);
     try {
-      const res: any = await apiClient.investigateAssumption(projectId, claimToTest);
+      const res: any = await apiClient.investigateAssumption(projectId, trimmed);
       if (res) {
         const mapped: AssumptionInvestigation = {
           id: res.id || `asm-${Date.now()}`,
           projectId,
-          assumptionText: claimToTest,
+          assumptionText: trimmed,
           status: res.verdict === 'REFUTED' ? 'CHALLENGED' : res.verdict === 'SUPPORTED' ? 'SUPPORTED' : 'INCONCLUSIVE',
           confidence: res.confidence || 90,
-          teamBelief: `Team operating hypothesis: "${claimToTest}"`,
+          teamBelief: `Team operating hypothesis: "${trimmed}"`,
           evidenceMetrics: res.evidenceMetrics || [
             { label: 'Observed Telemetry Signal', value: 'Active', percentage: 76, isContradiction: res.verdict === 'REFUTED' },
             { label: 'Empirical Evidence Weight', value: `${res.confidence || 88}%`, percentage: res.confidence || 88, isContradiction: res.verdict === 'REFUTED' },
@@ -45,10 +49,10 @@ export default function TruthEnginePage() {
       setInvestigation({
         id: `asm-err-${Date.now()}`,
         projectId,
-        assumptionText: claimToTest,
+        assumptionText: trimmed,
         status: 'INCONCLUSIVE',
         confidence: 50,
-        teamBelief: `Investigating: "${claimToTest}"`,
+        teamBelief: `Investigating: "${trimmed}"`,
         evidenceMetrics: [
           { label: 'Telemetry Records', value: '0 Verified', percentage: 10, isContradiction: false },
         ],
@@ -66,109 +70,115 @@ export default function TruthEnginePage() {
     runInvestigation(claimInput);
   };
 
-
+  const rerank = () => {
+    if (claimInput.trim()) {
+      runInvestigation(claimInput);
+    } else {
+      inputRef.current?.focus();
+    }
+  };
 
   return (
-    <div className="space-y-8 max-w-4xl mx-auto">
-      {/* Header */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-6 border-b border-border">
-        <div>
-          <div className="flex items-center gap-2">
-            <span className="text-xs font-mono font-bold uppercase tracking-wider text-primary">
-              Epistemic Verification Engine
-            </span>
-            <span className="px-2 py-0.5 rounded-full text-[10px] font-mono bg-amber-500/10 text-amber-400 border border-amber-500/30">
-              Hero Capability
-            </span>
-          </div>
-          <h1 className="text-2xl lg:text-3xl font-extrabold text-foreground tracking-tight mt-1">
-            Truth Engine: Challenge an Assumption
+    <div className="space-y-5">
+      <div className="flex flex-col sm:flex-row sm:items-start justify-between gap-4">
+        <div className="space-y-1.5 min-w-0">
+          <p className="text-[11px] font-mono font-bold uppercase tracking-[0.66px] text-primary">
+            Dogma vs Evidence
+          </p>
+          <h1 className="text-[28px] font-extrabold text-foreground tracking-tight">
+            Truth Engine
           </h1>
-          <p className="text-sm text-muted-foreground mt-0.5">
-            Test internal team dogma, executive assumptions, or consensus beliefs against cross-source empirical citations.
+          <p className="text-[13px] text-muted-foreground max-w-xl">
+            Empirically challenge team stories against cross-source reality.
           </p>
         </div>
-
-        <div className="flex items-center gap-2 text-xs font-mono text-muted-foreground">
-          <Scale className="w-4 h-4 text-primary" />
-          <span>Bayesian Contradiction Detector</span>
-        </div>
+        <button
+          type="button"
+          onClick={rerank}
+          disabled={isSearching}
+          className="inline-flex items-center justify-center min-h-[44px] px-4 py-2.5 rounded-[10px] bg-primary hover:bg-primary-hover text-primary-foreground text-xs font-bold transition-all duration-200 shadow-[0_0_18px_-4px_rgba(255,122,0,0.35)] cursor-pointer disabled:opacity-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary shrink-0"
+        >
+          Re-rank claims
+        </button>
       </div>
 
-      {/* Interactive Input Form */}
-      <div className="p-6 rounded-2xl bg-card border border-border/80 shadow-lg space-y-4">
-        <label className="text-xs font-bold uppercase tracking-wider text-muted-foreground block">
-          What does your team currently believe is causing the problem?
+      <div className={`p-[18px] rounded-[14px] bg-card border border-border ${cardShadow} space-y-3`}>
+        <label htmlFor="truth-claim" className="text-xs font-semibold text-foreground block">
+          Claim in the room
         </label>
-
-        <form onSubmit={handleInvestigate} className="flex flex-col sm:flex-row items-center gap-3">
+        <form onSubmit={handleInvestigate} className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3">
           <div className="relative flex-1 w-full">
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground pointer-events-none" aria-hidden="true" />
             <input
+              id="truth-claim"
+              ref={inputRef}
               type="text"
               value={claimInput}
               onChange={e => setClaimInput(e.target.value)}
-              placeholder="e.g. Our adoption problem is mainly caused by pricing."
-              className="w-full px-4 py-3 rounded-xl bg-surface-feed border border-border text-foreground text-sm focus:outline-none focus:border-primary font-medium"
+              placeholder="e.g. We are losing deals because enterprise list price is too high."
+              className="w-full min-h-[44px] pl-9 pr-4 py-2.5 rounded-[10px] bg-surface-feed border border-border text-foreground text-sm focus:outline-none focus-visible:ring-2 focus-visible:ring-primary focus:border-primary font-medium"
             />
           </div>
-
           <button
             type="submit"
-            disabled={isSearching}
-            className="w-full sm:w-auto px-6 py-3 rounded-xl bg-primary hover:bg-primary-hover text-white text-xs font-bold tracking-wider uppercase transition-all shadow-[0_0_20px_-4px_rgba(255,122,0,0.5)] flex items-center justify-center gap-2 shrink-0"
+            disabled={isSearching || !claimInput.trim()}
+            className="inline-flex items-center justify-center gap-2 min-h-[44px] px-4 py-2.5 rounded-[10px] bg-primary hover:bg-primary-hover text-primary-foreground text-xs font-bold tracking-wider uppercase transition-all duration-200 shadow-[0_0_18px_-4px_rgba(255,122,0,0.35)] cursor-pointer disabled:opacity-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary shrink-0"
           >
             {isSearching ? (
-              <span>Corroborating Telemetry...</span>
-            ) : (
               <>
-                <Sparkles className="w-4 h-4" />
-                <span>Investigate Claim</span>
+                <Loader2 className="w-4 h-4 animate-spin motion-reduce:animate-none" aria-hidden="true" />
+                <span>Corroborating…</span>
               </>
+            ) : (
+              <span>Investigate</span>
             )}
           </button>
         </form>
-
-        {/* Quick Suggestion Chips */}
-        <div className="flex flex-wrap items-center gap-2 pt-1 text-xs">
-          <span className="text-muted-foreground text-[11px] font-mono">Suggested Claims:</span>
+        <div className="flex flex-wrap items-center gap-2 text-xs">
+          <span className="text-muted-foreground text-[11px] font-mono">Suggested:</span>
           <button
+            type="button"
             onClick={() => {
-              const text = 'Our adoption problem is mainly caused by pricing.';
+              const text = 'We are losing deals because enterprise list price is too high.';
               setClaimInput(text);
               runInvestigation(text);
             }}
-            className="px-2.5 py-1 rounded-lg bg-surface-feed hover:bg-card border border-border/70 text-muted-foreground hover:text-foreground text-[11px] font-mono transition-colors cursor-pointer"
+            className="min-h-[44px] sm:min-h-0 px-2.5 py-1 rounded-lg bg-surface-feed hover:bg-card border border-border text-muted-foreground hover:text-foreground text-[11px] font-mono transition-colors duration-200 cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary"
           >
             Pricing is the main problem
           </button>
-
           <button
+            type="button"
             onClick={() => {
               const text = 'We need to hire 3 more developers to increase feature velocity.';
               setClaimInput(text);
               runInvestigation(text);
             }}
-            className="px-2.5 py-1 rounded-lg bg-surface-feed hover:bg-card border border-border/70 text-muted-foreground hover:text-foreground text-[11px] font-mono transition-colors cursor-pointer"
+            className="min-h-[44px] sm:min-h-0 px-2.5 py-1 rounded-lg bg-surface-feed hover:bg-card border border-border text-muted-foreground hover:text-foreground text-[11px] font-mono transition-colors duration-200 cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary"
           >
             Velocity is bottlenecked by headcount
           </button>
-
         </div>
       </div>
 
-      {/* Investigation Results Card */}
       {investigation ? (
         <AssumptionCard investigation={investigation} />
       ) : (
-        <div className="p-12 rounded-2xl bg-card border border-border/80 text-center space-y-3">
-          <Scale className="w-10 h-10 text-primary/60 mx-auto" />
-          <h3 className="text-sm font-bold text-foreground">Awaiting Assumption Query</h3>
-          <p className="text-xs text-muted-foreground max-w-md mx-auto leading-relaxed">
-            Enter a team assumption or select a suggested claim above to cross-reference with all indexed telemetry and PRDs.
-          </p>
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+          <div className={`flex flex-col gap-2 p-[18px] rounded-[14px] bg-card border border-border ${cardShadow}`}>
+            <h3 className="text-sm font-semibold text-foreground">Claim in the room</h3>
+            <p className="text-xs text-muted-foreground leading-relaxed">
+              Enter a team assumption or pick a suggested claim to test it against indexed evidence.
+            </p>
+          </div>
+          <div className={`flex flex-col gap-2 p-[18px] rounded-[14px] bg-card border border-border ${cardShadow}`}>
+            <h3 className="text-sm font-semibold text-foreground">What the evidence says</h3>
+            <p className="text-xs text-muted-foreground leading-relaxed">
+              Cross-source citations appear here after you investigate.
+            </p>
+          </div>
         </div>
       )}
     </div>
   );
 }
-

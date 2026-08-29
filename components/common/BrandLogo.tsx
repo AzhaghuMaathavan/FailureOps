@@ -1,7 +1,6 @@
 'use client';
 
 import React from 'react';
-import Image from 'next/image';
 import Link from 'next/link';
 
 interface BrandLogoProps {
@@ -20,51 +19,44 @@ export const BrandLogo: React.FC<BrandLogoProps> = ({
   glow = true,
 }) => {
   const dimensions = {
-    xs: { icon: 20, text: 'text-xs', subtext: 'text-[8px]', box: 'w-5 h-5' },
-    sm: { icon: 28, text: 'text-sm', subtext: 'text-[9px]', box: 'w-7 h-7' },
-    md: { icon: 34, text: 'text-base', subtext: 'text-[10px]', box: 'w-8.5 h-8.5' },
-    lg: { icon: 44, text: 'text-xl', subtext: 'text-xs', box: 'w-11 h-11' },
-    xl: { icon: 64, text: 'text-3xl', subtext: 'text-sm', box: 'w-16 h-16' },
+    xs: { mark: 20, type: 'text-[9px]', markType: 'text-[7px]', subtext: 'text-[8px]', radius: 'rounded-md' },
+    sm: { mark: 24, type: 'text-[10px]', markType: 'text-[8px]', subtext: 'text-[8px]', radius: 'rounded-md' },
+    md: { mark: 28, type: 'text-[11px]', markType: 'text-[10px]', subtext: 'text-[9px]', radius: 'rounded-lg' },
+    lg: { mark: 32, type: 'text-[13px]', markType: 'text-[12px]', subtext: 'text-[9px]', radius: 'rounded-[10px]' },
+    xl: { mark: 40, type: 'text-lg', markType: 'text-sm', subtext: 'text-xs', radius: 'rounded-xl' },
   }[size];
+
+  const mark = (
+    <div
+      className={`relative shrink-0 flex items-center justify-center bg-primary text-primary-foreground font-mono font-bold leading-none ${dimensions.radius} ${dimensions.markType} ${
+        glow ? 'shadow-primary-glow' : ''
+      }`}
+      style={{ width: dimensions.mark, height: dimensions.mark }}
+      aria-hidden="true"
+    >
+      FX
+    </div>
+  );
 
   const content = (
     <div className={`inline-flex items-center gap-2.5 group select-none ${className}`}>
-      {/* Icon Image with Dynamic Amber/Gold Glow */}
-      <div
-        className={`relative shrink-0 flex items-center justify-center transition-transform duration-200 group-hover:scale-105 ${
-          glow ? 'drop-shadow-[0_0_12px_rgba(255,122,0,0.45)]' : ''
-        }`}
-        style={{ width: dimensions.icon, height: dimensions.icon }}
-      >
-        <img
-          src="/logo.png"
-          alt="FailureOps X Logo"
-          width={dimensions.icon}
-          height={dimensions.icon}
-          className="w-full h-full object-contain"
-        />
-      </div>
+      {mark}
 
       {variant === 'full' && (
-        <div className="flex flex-col text-left">
-          <div className="flex items-center gap-1 leading-none">
-            <span className={`font-mono font-extrabold tracking-wider text-foreground ${dimensions.text}`}>
-              FAILUREOPS
-            </span>
-            <span className={`font-mono font-black text-primary ${dimensions.text}`}>
-              X
-            </span>
-          </div>
-          <span className={`uppercase tracking-widest text-muted-foreground font-semibold font-mono mt-0.5 ${dimensions.subtext}`}>
-            Early-Warning Intel
+        <div className="flex flex-col text-left min-w-0">
+          <span className={`font-mono font-bold tracking-wide text-foreground leading-none whitespace-nowrap ${dimensions.type}`}>
+            FAILUREOPS X
+          </span>
+          <span className={`font-medium text-muted-foreground leading-tight mt-px whitespace-nowrap ${dimensions.subtext}`}>
+            Early-warning intel
           </span>
         </div>
       )}
 
       {variant === 'badge' && (
-        <div className="flex items-center gap-1.5 px-2 py-0.5 rounded-full bg-primary/10 border border-primary/30">
-          <span className="font-mono font-bold text-foreground text-xs">
-            FAILUREOPS <span className="text-primary font-black">X</span>
+        <div className="flex items-center gap-1.5 px-2 py-0.5 rounded-full bg-primary-muted border border-primary/40">
+          <span className="font-mono font-bold text-foreground text-xs whitespace-nowrap">
+            FAILUREOPS <span className="text-primary">X</span>
           </span>
         </div>
       )}
@@ -73,9 +65,21 @@ export const BrandLogo: React.FC<BrandLogoProps> = ({
 
   if (href) {
     return (
-      <Link href={href} className="focus:outline-none focus-visible:ring-2 focus-visible:ring-primary rounded-lg">
+      <Link
+        href={href}
+        aria-label="FailureOps X home"
+        className="inline-flex cursor-pointer rounded-lg focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-sidebar"
+      >
         {content}
       </Link>
+    );
+  }
+
+  if (variant === 'icon') {
+    return (
+      <div className={className} role="img" aria-label="FailureOps X">
+        {mark}
+      </div>
     );
   }
 

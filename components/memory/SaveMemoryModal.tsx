@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useEffect, useId, useRef, useState } from 'react';
 import { X, Database, CheckCircle2, ShieldCheck, AlertCircle } from 'lucide-react';
 import { useApp } from '@/context/AppContext';
 import { apiClient } from '@/lib/api/client';
@@ -30,6 +30,27 @@ export const SaveMemoryModal: React.FC<SaveMemoryModalProps> = ({ isOpen, onClos
   const { addMemoryEntry } = useApp();
   const [isSaved, setIsSaved] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const titleId = useId();
+  const dialogRef = useRef<HTMLDivElement>(null);
+  const onCloseRef = useRef(onClose);
+  onCloseRef.current = onClose;
+
+  useEffect(() => {
+    if (!isOpen) return;
+    const previouslyFocused = document.activeElement as HTMLElement | null;
+    dialogRef.current?.focus();
+    const onKeyDown = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') {
+        event.preventDefault();
+        onCloseRef.current();
+      }
+    };
+    window.addEventListener('keydown', onKeyDown);
+    return () => {
+      window.removeEventListener('keydown', onKeyDown);
+      previouslyFocused?.focus();
+    };
+  }, [isOpen]);
 
   if (!isOpen) return null;
 
@@ -71,27 +92,41 @@ export const SaveMemoryModal: React.FC<SaveMemoryModalProps> = ({ isOpen, onClos
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/70 backdrop-blur-xs animate-in fade-in duration-200">
-      <div className="w-full max-w-lg bg-background border border-border rounded-2xl p-6 shadow-2xl space-y-5">
-        <div className="flex items-center justify-between pb-3 border-b border-border">
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 p-4 motion-safe:animate-in motion-safe:fade-in motion-safe:duration-200">
+      <div
+        ref={dialogRef}
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby={titleId}
+        tabIndex={-1}
+        className="w-full max-w-lg space-y-5 rounded-[14px] border border-border bg-background p-6 shadow-[0_1px_0_0_rgba(13,20,36,0.45),0_8px_24px_-8px_rgba(0,0,0,0.35)] focus:outline-none"
+      >
+        <div className="flex items-center justify-between border-b border-border pb-3">
           <div className="flex items-center gap-2">
-            <div className="w-8 h-8 rounded-lg bg-primary/10 border border-primary/30 flex items-center justify-center text-primary">
-              <Database className="w-4 h-4" />
+            <div className="flex h-8 w-8 items-center justify-center rounded-lg border border-primary/30 bg-primary/10 text-primary">
+              <Database className="h-4 w-4" aria-hidden="true" />
             </div>
-            <h3 className="text-sm font-bold text-foreground">Save to Organizational Memory</h3>
+            <h3 id={titleId} className="text-sm font-bold text-foreground">
+              Save to Organizational Memory
+            </h3>
           </div>
-          <button onClick={onClose} className="p-1 rounded-lg text-muted-foreground hover:text-foreground cursor-pointer">
-            <X className="w-4 h-4" />
+          <button
+            type="button"
+            onClick={onClose}
+            aria-label="Close save memory dialog"
+            className="inline-flex h-11 w-11 cursor-pointer items-center justify-center rounded-lg text-muted-foreground transition-colors hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+          >
+            <X className="h-4 w-4" aria-hidden="true" />
           </button>
         </div>
 
         {canCommit ? (
           <>
-            <p className="text-xs text-muted-foreground leading-relaxed">
+            <p className="text-xs leading-relaxed text-muted-foreground">
               This commits the verified experiment result currently loaded for the project. Confidence is taken from the outcome attribution field, not a default score.
             </p>
-            <div className="p-4 rounded-xl bg-card border border-border/80 text-xs space-y-2">
-              <span className="font-mono text-primary uppercase text-[10px] font-bold block">
+            <div className="space-y-2 rounded-xl border border-border bg-card p-4 text-xs">
+              <span className="block font-mono text-[10px] font-bold uppercase text-primary">
                 Artifact to be committed
               </span>
               <p className="font-semibold text-foreground">{outcome?.intervention_title}</p>
@@ -99,8 +134,8 @@ export const SaveMemoryModal: React.FC<SaveMemoryModalProps> = ({ isOpen, onClos
             </div>
           </>
         ) : (
-          <div className="p-4 rounded-xl bg-card border border-border/80 flex items-start gap-2 text-xs text-muted-foreground">
-            <AlertCircle className="w-4 h-4 text-amber-400 shrink-0 mt-0.5" />
+          <div className="flex items-start gap-2 rounded-xl border border-border bg-card p-4 text-xs text-muted-foreground">
+            <AlertCircle className="mt-0.5 h-4 w-4 shrink-0 text-warning" aria-hidden="true" />
             <p>
               No verified experiment outcome is available. Run analysis and record measured post-intervention metrics before committing memory.
             </p>
@@ -108,31 +143,35 @@ export const SaveMemoryModal: React.FC<SaveMemoryModalProps> = ({ isOpen, onClos
         )}
 
         {error && (
-          <p className="text-xs text-rose-400">{error}</p>
+          <p role="alert" className="text-xs text-destructive">
+            {error}
+          </p>
         )}
 
-        <div className="p-3 rounded-xl bg-surface-feed/70 border border-border/70 flex items-center gap-2 text-xs text-muted-foreground">
-          <ShieldCheck className="w-4 h-4 text-emerald-400 shrink-0" />
+        <div className="flex items-center gap-2 rounded-xl border border-border/70 bg-surface-feed/70 p-3 text-xs text-muted-foreground">
+          <ShieldCheck className="h-4 w-4 shrink-0 text-success" aria-hidden="true" />
           <span className="text-[11px]">
             Zero customer identity or private company credentials will be published.
           </span>
         </div>
 
-        <div className="flex items-center justify-end gap-2 pt-3 border-t border-border">
+        <div className="flex items-center justify-end gap-2 border-t border-border pt-3">
           <button
+            type="button"
             onClick={onClose}
-            className="px-4 py-2 rounded-lg text-xs font-semibold text-muted-foreground hover:text-foreground cursor-pointer"
+            className="min-h-11 cursor-pointer rounded-[10px] px-4 py-2 text-xs font-semibold text-muted-foreground transition-colors hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
           >
             Cancel
           </button>
           <button
+            type="button"
             onClick={handleSave}
             disabled={isSaved || !canCommit}
-            className="px-4 py-2 rounded-lg bg-primary hover:bg-primary-hover text-white text-xs font-bold transition-colors shadow-sm flex items-center gap-1.5 cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
+            className="inline-flex min-h-11 cursor-pointer items-center gap-1.5 rounded-[10px] bg-primary px-4 py-2 text-xs font-bold text-primary-foreground shadow-[0_0_18px_-4px_rgba(255,122,0,0.35)] transition-colors hover:bg-primary-hover focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:cursor-not-allowed disabled:opacity-50"
           >
             {isSaved ? (
               <>
-                <CheckCircle2 className="w-4 h-4 text-white" />
+                <CheckCircle2 className="h-4 w-4" aria-hidden="true" />
                 <span>Committed to Memory!</span>
               </>
             ) : (

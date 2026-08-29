@@ -14,6 +14,9 @@ import {
 } from 'lucide-react';
 import { useApp } from '@/context/AppContext';
 
+const iconBtn =
+  'inline-flex items-center justify-center size-8 rounded-lg bg-surface-feed border border-border text-muted-foreground hover:text-foreground hover:border-primary/40 transition-colors duration-150 cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring';
+
 export const TopHeader: React.FC = () => {
   const router = useRouter();
   const pathname = usePathname();
@@ -39,28 +42,33 @@ export const TopHeader: React.FC = () => {
   }, [onSearchPage, router]);
 
   return (
-    <header className={`sticky top-0 z-30 h-14 w-full min-w-0 bg-background/70 backdrop-blur-xl border-b border-border/60 px-4 lg:px-6 grid items-center gap-3 ${
-      onSearchPage
-        ? 'grid-cols-[minmax(0,1fr)_auto]'
-        : 'grid-cols-[minmax(0,1fr)_auto] lg:grid-cols-[minmax(0,1fr)_minmax(0,20rem)_auto]'
-    }`}>
-      <div className="flex items-center gap-3 min-w-0">
+    <header
+      className={`sticky top-0 z-30 h-14 w-full min-w-0 bg-background border-b border-border px-4 lg:px-6 grid items-center gap-3 ${
+        onSearchPage
+          ? 'grid-cols-[minmax(0,1fr)_auto]'
+          : 'grid-cols-[minmax(0,1fr)_auto] lg:grid-cols-[minmax(0,1fr)_minmax(0,20rem)_auto]'
+      }`}
+    >
+      <div className="flex items-center gap-2.5 min-w-0">
         <Link
           href="/dashboard"
-          className="flex items-center gap-2 min-w-0 max-w-full px-2.5 py-1.5 rounded-lg bg-surface-feed hover:bg-card border border-border/70 transition-colors text-xs font-medium cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary"
+          className="flex items-center gap-2 min-w-0 max-w-full px-2.5 py-1.5 rounded-lg bg-surface-feed hover:bg-card border border-border transition-colors duration-150 text-[11px] font-medium cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
         >
-          <Building2 className="w-3.5 h-3.5 text-primary shrink-0" />
+          <Building2 className="w-3.5 h-3.5 text-primary shrink-0" aria-hidden="true" />
           <span className="text-foreground font-semibold truncate">{project.company}</span>
-          <span className="text-muted-foreground/60 shrink-0">/</span>
+          <span className="text-subtle shrink-0">/</span>
           <span className="text-muted-foreground truncate">{project.name}</span>
-          <span className="ml-1 px-1.5 py-0.5 rounded bg-amber-500/10 text-amber-400 text-[10px] font-mono border border-amber-500/30 shrink-0">
+          <span className="ml-1 px-1.5 py-0.5 rounded-md bg-surface-feed text-muted-foreground text-[10px] font-mono border border-border shrink-0 whitespace-nowrap">
             {project.stage}
           </span>
         </Link>
 
-        <div className="hidden xl:flex items-center gap-1.5 text-xs text-muted-foreground/80 px-2 py-1 rounded-md bg-card/50 border border-border/40 shrink-0">
-          <ShieldCheck className="w-3.5 h-3.5 text-emerald-400" />
-          <span className="text-[11px] font-mono whitespace-nowrap">Zero-Knowledge Reasoning Enclave</span>
+        <div
+          className="hidden xl:inline-flex items-center gap-1.5 px-2 py-1 rounded-full bg-surface-feed border border-success text-success shrink-0"
+          title="Zero-knowledge reasoning enclave"
+        >
+          <ShieldCheck className="w-3 h-3" aria-hidden="true" />
+          <span className="text-[10px] font-mono font-medium whitespace-nowrap">Enclave OK</span>
         </div>
       </div>
 
@@ -69,11 +77,11 @@ export const TopHeader: React.FC = () => {
           type="button"
           onClick={() => router.push('/search')}
           aria-label="Open global search"
-          className="hidden lg:flex min-w-0 w-full items-center justify-between gap-2 px-3 py-1.5 rounded-lg bg-surface-feed border border-border/80 text-xs text-muted-foreground hover:border-primary/50 hover:text-foreground transition-all cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary"
+          className="hidden lg:flex min-w-0 w-full items-center justify-between gap-2 px-3 py-2 rounded-lg bg-surface-feed border border-border text-xs text-subtle hover:border-primary/50 hover:text-foreground transition-colors duration-150 cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
         >
           <span className="flex items-center gap-2 min-w-0">
-            <Search className="w-3.5 h-3.5 text-muted-foreground shrink-0" />
-            <span className="truncate">Search patterns, evidence, historical failures...</span>
+            <Search className="w-3.5 h-3.5 text-muted-foreground shrink-0" aria-hidden="true" />
+            <span className="truncate">Search patterns, evidence, cases…</span>
           </span>
           <kbd className="px-1.5 py-0.5 rounded bg-card border border-border text-[10px] font-mono text-muted-foreground shrink-0">
             ⌘K
@@ -84,36 +92,40 @@ export const TopHeader: React.FC = () => {
       <div className="flex items-center gap-2 shrink-0">
         <Link
           href={`/projects/${project.id}/analysis`}
-          className="hidden sm:inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-primary/10 hover:bg-primary/20 text-primary border border-primary/30 text-xs font-semibold tracking-tight transition-colors shadow-sm cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary"
+          className="hidden sm:inline-flex items-center gap-1.5 px-4 py-2 rounded-[10px] bg-primary hover:bg-primary-hover text-primary-foreground text-xs font-bold tracking-tight transition-colors duration-150 shadow-primary-glow cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background"
         >
-          <Sparkles className="w-3.5 h-3.5" />
+          <Sparkles className="w-3.5 h-3.5" aria-hidden="true" />
           <span>Run Analysis</span>
         </Link>
 
-        <button
-          type="button"
-          className="relative p-2 rounded-lg text-muted-foreground hover:text-foreground hover:bg-surface-feed transition-colors cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary"
-          title="Notifications"
-        >
-          <Bell className="w-4 h-4" />
-          <span className="absolute top-1.5 right-1.5 w-2 h-2 rounded-full bg-primary" />
+        <button type="button" className={`relative ${iconBtn}`} aria-label="Notifications" title="Notifications">
+          <Bell className="w-4 h-4" aria-hidden="true" />
+          <span className="absolute top-1.5 right-1.5 w-1.5 h-1.5 rounded-full bg-primary" aria-hidden="true" />
         </button>
 
         <button
           type="button"
           onClick={toggleTheme}
-          className="p-2 rounded-lg text-muted-foreground hover:text-foreground hover:bg-surface-feed transition-colors cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary"
+          className={iconBtn}
+          aria-label={`Switch to ${theme === 'dark' ? 'light' : 'dark'} mode`}
           title={`Switch to ${theme === 'dark' ? 'Light' : 'Dark'} mode`}
         >
-          {theme === 'dark' ? <Sun className="w-4 h-4" /> : <Moon className="w-4 h-4" />}
+          {theme === 'dark' ? (
+            <Sun className="w-4 h-4" aria-hidden="true" />
+          ) : (
+            <Moon className="w-4 h-4" aria-hidden="true" />
+          )}
         </button>
 
-        <div className="flex items-center gap-2 pl-2 border-l border-border/70">
-          <div className="w-7 h-7 rounded-lg bg-card border border-border/80 p-0.5 flex items-center justify-center shadow-sm">
-            <img src="/logo.png" alt="FailureOps X" className="w-full h-full object-contain" />
+        <div className="flex items-center gap-2 pl-2 border-l border-border">
+          <div
+            className="size-8 rounded-lg bg-primary text-primary-foreground font-mono text-[10px] font-bold flex items-center justify-center shadow-primary-glow"
+            aria-hidden="true"
+          >
+            FX
           </div>
           <div className="hidden xl:flex flex-col text-left">
-            <span className="text-xs font-semibold leading-none text-foreground">Staff Intelligence</span>
+            <span className="text-[11px] font-semibold leading-none text-foreground">Staff Intelligence</span>
             <span className="text-[10px] text-muted-foreground leading-tight mt-0.5 font-mono">Enclave Online</span>
           </div>
         </div>

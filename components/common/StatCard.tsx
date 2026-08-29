@@ -29,53 +29,67 @@ export const StatCard: React.FC<StatCardProps> = ({
   className = '',
 }) => {
   const getTrendColor = () => {
-    if (!trend) return 'text-muted-foreground';
+    if (!trend) return 'text-subtle';
     if (isRiskTrend) {
-      // For risk: UP is dangerous (red), DOWN is good (green)
-      if (trendDirection === 'up') return 'text-rose-400';
-      if (trendDirection === 'down') return 'text-emerald-400';
+      if (trendDirection === 'up') return 'text-destructive';
+      if (trendDirection === 'down') return 'text-success';
     } else {
-      // Normal metric: UP is good (green), DOWN is bad (red)
-      if (trendDirection === 'up') return 'text-emerald-400';
-      if (trendDirection === 'down') return 'text-rose-400';
+      if (trendDirection === 'up') return 'text-success';
+      if (trendDirection === 'down') return 'text-destructive';
     }
-    return 'text-muted-foreground';
+    return 'text-subtle';
+  };
+
+  const handleKeyDown = (event: React.KeyboardEvent<HTMLDivElement>) => {
+    if (!onClick) return;
+    if (event.key === 'Enter' || event.key === ' ') {
+      event.preventDefault();
+      onClick();
+    }
   };
 
   return (
     <div
       onClick={onClick}
-      className={`relative overflow-hidden p-5 rounded-xl bg-card border border-border/70 shadow-[0_8px_24px_-12px_rgba(0,0,0,0.45)] transition-all duration-200 ${
-        onClick ? 'cursor-pointer hover:border-primary/40 hover:bg-card-hover hover:-translate-y-0.5' : ''
+      onKeyDown={handleKeyDown}
+      role={onClick ? 'button' : undefined}
+      tabIndex={onClick ? 0 : undefined}
+      className={`relative p-4 rounded-xl bg-card border border-border shadow-card transition-colors duration-150 ${
+        onClick
+          ? 'cursor-pointer hover:border-primary/50 hover:bg-card-hover focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring'
+          : ''
       } ${className}`}
     >
-      <div className="absolute left-0 top-0 bottom-0 w-0.5 bg-gradient-to-b from-primary/80 to-primary/10" />
-      <div className="flex items-start justify-between">
-        <span className="text-xs font-medium uppercase tracking-wider text-muted-foreground">
+      <div className="flex items-start justify-between gap-2">
+        <span className="text-[10px] font-mono font-medium text-muted-foreground whitespace-nowrap">
           {label}
         </span>
         {Icon && (
-          <div className={`p-2 rounded-lg bg-surface-feed border border-border/60 ${accentColor || 'text-primary'}`}>
-            <Icon className="w-4 h-4" />
+          <div
+            className={`p-1.5 rounded-lg bg-surface-feed border border-border shrink-0 ${accentColor || 'text-primary'}`}
+          >
+            <Icon className="w-3.5 h-3.5" aria-hidden="true" />
           </div>
         )}
       </div>
 
-      <div className="mt-3 flex items-baseline gap-2">
-        <span className="text-2xl lg:text-3xl font-bold tracking-tight text-foreground font-mono">
+      <div className="mt-1.5 flex items-baseline gap-2 min-w-0">
+        <span
+          className={`text-[26px] leading-none font-bold tracking-tight font-mono ${accentColor || 'text-foreground'}`}
+        >
           {value}
         </span>
         {badge}
       </div>
 
       {(trend || subtext) && (
-        <div className="mt-2 flex items-center gap-2 text-xs">
+        <div className="mt-1.5 flex items-center gap-2 text-[11px] min-w-0">
           {trend && (
-            <span className={`font-semibold flex items-center gap-0.5 ${getTrendColor()}`}>
+            <span className={`font-medium flex items-center gap-0.5 whitespace-nowrap ${getTrendColor()}`}>
               {trend}
             </span>
           )}
-          {subtext && <span className="text-muted-foreground truncate">{subtext}</span>}
+          {subtext && <span className="text-subtle truncate">{subtext}</span>}
         </div>
       )}
     </div>

@@ -1,11 +1,20 @@
 'use client';
 
-import React, { useState, useEffect } from 'react';
-import Link from 'next/link';
+import React, { useEffect, useState } from 'react';
 import { useParams } from 'next/navigation';
-import { CheckCircle2, TrendingUp, Sparkles, Database, ArrowRight, ShieldCheck, FileCheck, AlertCircle } from 'lucide-react';
+import { Database, FileCheck } from 'lucide-react';
 import { apiClient } from '@/lib/api/client';
 import { SaveMemoryModal } from '@/components/memory/SaveMemoryModal';
+import {
+  ActionEmpty,
+  ActionPageHeader,
+  InsightCard,
+  KpiTile,
+  cardShadow,
+  insightGridClass,
+  kpiGridClass,
+} from '@/components/causal/ActionChrome';
+import { cn } from '@/lib/utils';
 
 export default function OutcomeVerificationPage() {
   const params = useParams();
@@ -33,142 +42,139 @@ export default function OutcomeVerificationPage() {
 
   const outcomes = outcomeData?.outcomes || [];
   const primaryOutcome = outcomes[0];
+  const improved = primaryOutcome?.metric_deltas?.find((d: any) => d.is_improved) || primaryOutcome?.metric_deltas?.[0];
+  const lift = improved?.percent_improvement;
+  const dnaShift = primaryOutcome?.metric_deltas?.[0];
 
   return (
-    <div className="space-y-8 max-w-4xl mx-auto">
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-6 border-b border-border">
-        <div>
-          <div className="flex items-center gap-2">
-            <span className="text-xs font-mono font-bold uppercase tracking-wider text-primary">
-              Empirical Verification
-            </span>
-            <span className="px-2 py-0.5 rounded-full text-[10px] font-mono bg-emerald-500/10 text-emerald-400 border border-emerald-500/30">
-              Deterministic Polarity Checked
-            </span>
-          </div>
-          <h1 className="text-2xl lg:text-3xl font-extrabold text-foreground tracking-tight mt-1">
-            Outcome Verification & Metric Lift
-          </h1>
-          <p className="text-sm text-muted-foreground mt-0.5">
-            Compare pre-intervention baseline telemetry against post-intervention experiment results with epistemic attribution safety.
-          </p>
+    <div className="space-y-5">
+      <ActionPageHeader
+        eyebrow="VERIFIED LIFT"
+        title="Outcome Verification"
+        description="Did the intervention actually move the failure trajectory — not just a dashboard green?"
+        action={{
+          label: 'Write to memory',
+          icon: <Database className="h-3.5 w-3.5" aria-hidden="true" />,
+          disabled: !primaryOutcome,
+          onClick: () => setIsModalOpen(true),
+        }}
+      />
+
+      {loading ? (
+        <div className={kpiGridClass} aria-busy="true" aria-live="polite">
+          {[0, 1, 2, 3].map((i) => (
+            <div key={i} className="h-24 animate-pulse rounded-xl border border-border bg-card motion-reduce:animate-none" />
+          ))}
         </div>
-
-        <button
-          onClick={() => setIsModalOpen(true)}
-          disabled={!primaryOutcome}
-          className="inline-flex items-center gap-2 px-4 py-2 rounded-xl bg-primary hover:bg-primary-hover text-white text-xs font-bold transition-all shadow-[0_0_15px_-3px_rgba(255,122,0,0.4)] cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
-        >
-          <Database className="w-3.5 h-3.5" />
-          <span>Save to Org Memory</span>
-        </button>
-      </div>
-
-      {/* Dynamic Metric Comparison Cards */}
-      {primaryOutcome?.metric_deltas ? (
-        <div className="space-y-4">
-          <div className="p-4 rounded-xl bg-card border border-border flex items-center justify-between">
-            <div>
-              <span className="text-xs font-mono text-primary uppercase font-bold">Experiment Focus:</span>
-              <h3 className="text-sm font-bold text-foreground mt-0.5">{primaryOutcome.intervention_title}</h3>
-            </div>
-            <div className="text-right">
-              <span className="px-2.5 py-0.5 rounded-full text-xs font-mono font-bold bg-emerald-500/10 text-emerald-400 border border-emerald-500/30">
-                Status: {primaryOutcome.status}
-              </span>
-              <span className="block text-[11px] font-mono text-muted-foreground mt-1">
-                Attribution: {primaryOutcome.attribution_confidence} Confidence
-              </span>
-            </div>
+      ) : !primaryOutcome ? (
+        <ActionEmpty
+          icon={FileCheck}
+          title="No Verified Outcomes Recorded Yet"
+          description="Run an intervention experiment to verify post-mitigation telemetry against baseline metrics with attribution confidence."
+          actionLabel="Open Experiments"
+          actionHref={`/projects/${projectId}/experiment`}
+        />
+      ) : (
+        <>
+          <div className={kpiGridClass}>
+            <KpiTile
+              label="Lift"
+              value={typeof lift === 'number' ? `${lift > 0 ? '+' : ''}${Math.round(lift)}pp` : '—'}
+              caption={
+                improved
+                  ? `${improved.metric_name?.replace(/_/g, ' ')} ${improved.baseline_value}→${improved.measured_after_value}`
+                  : 'Risk delta'
+              }
+              tone="success"
+            />
+            <KpiTile
+              label="Powered"
+              value={primaryOutcome.attribution_confidence === 'HIGH' ? 'Yes' : primaryOutcome.attribution_confidence || '—'}
+              caption={`N metrics ${primaryOutcome.metric_deltas?.length || 0}`}
+              tone="info"
+            />
+            <KpiTile
+              label="DNA shift"
+              value={dnaShift ? dnaShift.metric_name?.replace(/_/g, ' ') : '—'}
+              caption={dnaShift?.is_improved ? 'Dominant eased' : 'Unchanged'}
+              tone="magic"
+              wrap
+            />
+            <KpiTile
+              label="Ready"
+              value={primaryOutcome.status === 'SUCCESS' ? 'Commit' : primaryOutcome.status || '—'}
+              caption="Institutional"
+              tone="primary"
+            />
           </div>
 
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            {primaryOutcome.metric_deltas.map((delta: any) => (
-              <div key={delta.metric_name} className="p-6 rounded-2xl bg-card border border-border/80 shadow-sm flex flex-col justify-between">
-                <div>
-                  <div className="flex items-center justify-between pb-2 border-b border-border">
-                    <span className="text-xs font-mono uppercase text-muted-foreground font-bold">{delta.metric_name.replace(/_/g, ' ')}</span>
-                    <span className={`px-2 py-0.5 rounded text-[10px] font-mono font-bold ${delta.is_improved ? 'bg-emerald-500/10 text-emerald-400' : 'bg-rose-500/10 text-rose-400'}`}>
+          <div className={insightGridClass}>
+            <InsightCard title="What worked">
+              {primaryOutcome.summary || 'No empirical outcome recorded yet for this project.'}
+            </InsightCard>
+            <InsightCard title="What did not">
+              {primaryOutcome.epistemic_safety_note || primaryOutcome.attribution_reasoning ||
+                'Pricing or ungrounded levers with no causal effect should not be stored as recovery memory.'}
+            </InsightCard>
+          </div>
+
+          {primaryOutcome.metric_deltas?.length > 0 && (
+            <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
+              {primaryOutcome.metric_deltas.map((delta: any) => (
+                <div
+                  key={delta.metric_name}
+                  className={cn('flex flex-col justify-between rounded-[14px] border border-border bg-card p-4 sm:p-[18px]', cardShadow)}
+                >
+                  <div className="flex items-center justify-between border-b border-border pb-2">
+                    <span className="font-mono text-xs font-bold uppercase text-muted-foreground">
+                      {delta.metric_name.replace(/_/g, ' ')}
+                    </span>
+                    <span
+                      className={cn(
+                        'rounded px-2 py-0.5 font-mono text-[10px] font-bold',
+                        delta.is_improved ? 'bg-success/10 text-success' : 'bg-destructive/10 text-destructive',
+                      )}
+                    >
                       {delta.is_improved ? 'IMPROVED' : 'REGRESSED'}
                     </span>
                   </div>
-                  <div className="grid grid-cols-3 gap-2 my-4 text-center">
+                  <div className="my-4 grid grid-cols-3 gap-2 text-center">
                     <div>
-                      <span className="text-[10px] font-mono text-muted-foreground block">BASELINE</span>
-                      <span className="text-2xl font-bold font-mono text-rose-400">{delta.baseline_value}{delta.unit === 'percent' ? '%' : ''}</span>
+                      <span className="block font-mono text-[10px] text-muted-foreground">BASELINE</span>
+                      <span className="font-mono text-2xl font-bold text-destructive">
+                        {delta.baseline_value}
+                        {delta.unit === 'percent' ? '%' : ''}
+                      </span>
                     </div>
                     <div>
-                      <span className="text-[10px] font-mono text-muted-foreground block">MEASURED</span>
-                      <span className="text-2xl font-bold font-mono text-emerald-400">{delta.measured_after_value}{delta.unit === 'percent' ? '%' : ''}</span>
+                      <span className="block font-mono text-[10px] text-muted-foreground">MEASURED</span>
+                      <span className="font-mono text-2xl font-bold text-success">
+                        {delta.measured_after_value}
+                        {delta.unit === 'percent' ? '%' : ''}
+                      </span>
                     </div>
                     <div>
-                      <span className="text-[10px] font-mono text-primary block font-bold">DELTA</span>
-                      <span className="text-2xl font-bold font-mono text-primary">{delta.percent_improvement > 0 ? '+' : ''}{delta.percent_improvement}%</span>
+                      <span className="block font-mono text-[10px] font-bold text-primary">DELTA</span>
+                      <span className="font-mono text-2xl font-bold text-primary">
+                        {delta.percent_improvement > 0 ? '+' : ''}
+                        {delta.percent_improvement}%
+                      </span>
                     </div>
                   </div>
+                  <div className="font-mono text-[11px] text-muted-foreground">
+                    Polarity:{' '}
+                    {delta.polarity === 'POSITIVE_WHEN_DECREASING'
+                      ? 'Lower is Better (Mitigated)'
+                      : 'Higher is Better (Growth)'}
+                  </div>
                 </div>
-                <div className="text-[11px] font-mono text-muted-foreground">
-                  Polarity: {delta.polarity === 'POSITIVE_WHEN_DECREASING' ? 'Lower is Better (Mitigated)' : 'Higher is Better (Growth)'}
-                </div>
-              </div>
-            ))}
-          </div>
-        </div>
-      ) : (
-        <div className="p-12 rounded-2xl bg-card border border-border text-center space-y-2">
-          <FileCheck className="w-8 h-8 text-muted-foreground mx-auto opacity-60" />
-          <h3 className="text-base font-bold text-foreground">No Verified Outcomes Recorded Yet</h3>
-          <p className="text-xs text-muted-foreground max-w-md mx-auto leading-relaxed">
-            Run an intervention experiment to verify post-mitigation telemetry against baseline metrics with attribution confidence.
-          </p>
-        </div>
+              ))}
+            </div>
+          )}
+        </>
       )}
-
-
-      {/* Distinction: Observed Outcome vs AI Interpretation */}
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-        <div className="p-6 rounded-2xl bg-card border border-border/80 shadow-md space-y-2">
-          <div className="flex items-center gap-2 text-xs font-bold uppercase tracking-wider text-foreground">
-            <FileCheck className="w-4 h-4 text-emerald-400" />
-            <span>Observed Empirical Delta</span>
-          </div>
-          <p className="text-xs text-foreground/90 leading-relaxed font-medium">
-            {primaryOutcome?.summary || 'No empirical outcome recorded yet for this project.'}
-          </p>
-
-        </div>
-
-        <div className="p-6 rounded-2xl bg-primary/5 border border-primary/30 shadow-md space-y-2">
-          <div className="flex items-center gap-2 text-xs font-bold uppercase tracking-wider text-primary">
-            <Sparkles className="w-4 h-4" />
-            <span>Epistemic Attribution Safety</span>
-          </div>
-          <p className="text-xs text-foreground/90 leading-relaxed font-medium">
-            {primaryOutcome?.epistemic_safety_note || 'No attribution note is available until a verified outcome is recorded.'} {primaryOutcome?.attribution_reasoning}
-          </p>
-        </div>
-      </div>
-
-      {/* Memory Commit Banner */}
-      <div className="p-6 rounded-2xl bg-surface-feed border border-border flex flex-col sm:flex-row items-center justify-between gap-4">
-        <div>
-          <h4 className="text-sm font-bold text-foreground">Commit Validated Knowledge to Institutional Memory</h4>
-          <p className="text-xs text-muted-foreground mt-0.5">
-            Store this verified pattern and recovery outcome into organizational memory for future team discovery.
-          </p>
-        </div>
-
-        <button
-          onClick={() => setIsModalOpen(true)}
-          disabled={!primaryOutcome}
-          className="px-5 py-2.5 rounded-xl bg-primary hover:bg-primary-hover text-white text-xs font-bold uppercase tracking-wide transition-all shadow-sm shrink-0 cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
-        >
-          Commit Learning Now
-        </button>
-      </div>
 
       <SaveMemoryModal isOpen={isModalOpen} onClose={() => setIsModalOpen(false)} outcome={primaryOutcome} />
     </div>
   );
 }
-

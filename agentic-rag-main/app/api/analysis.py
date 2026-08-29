@@ -22,6 +22,7 @@ from app.schemas.simulation import SimulationComparisonPacket
 
 from app.models.signal import SignalItem
 from app.models.project import Project
+from app.db.baseline_projects import ensure_baseline_project
 from app.services.document_service import process_document
 from app.services.analysis_orchestrator import run_project_analysis_pipeline
 from app.services.outcome_engine import verify_experiment_outcome
@@ -194,9 +195,7 @@ def get_project_details(
     """
     Retrieves project details with tenant authorization checks.
     """
-    p = db.query(Project).filter(
-        Project.id == project_id
-    ).first()
+    p = ensure_baseline_project(db, project_id)
 
     if not p:
         raise HTTPException(status_code=404, detail="Project not found")

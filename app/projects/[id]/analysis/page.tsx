@@ -7,7 +7,6 @@ import {
   CheckCircle2,
   Loader2,
   Circle,
-  Cpu,
   ArrowRight,
   Terminal,
   AlertTriangle,
@@ -16,6 +15,7 @@ import { RAG_ANALYSIS_STAGES } from '@/services/analysisService';
 import { AnalysisStage } from '@/types';
 import { useApp } from '@/context/AppContext';
 import { apiClient, isRagUnavailable } from '@/lib/api/client';
+import { KpiStat } from '@/components/evidence/KpiStat';
 
 export default function AnalysisProcessingPage() {
   const router = useRouter();
@@ -119,41 +119,122 @@ export default function AnalysisProcessingPage() {
   }, [projectId, setAnalysisCompleted]);
 
   const runningCount = stages.filter((s) => s.status === 'COMPLETED').length;
+  const failedCount = stages.filter((s) => s.status === 'FAILED').length;
+  const currentStage = stages[currentStageIdx];
+  const stageLabel = isFinished
+    ? 'Complete'
+    : analysisError
+      ? 'Blocked'
+      : currentStage?.name || 'Starting';
+  const etaLabel = isFinished
+    ? 'Done'
+    : analysisError
+      ? '—'
+      : progressPercent > 0
+        ? `${Math.max(0, 100 - progressPercent)}% left`
+        : 'Enclave';
 
   return (
-    <div className="min-h-[85vh] flex flex-col justify-between py-6 space-y-8 max-w-5xl mx-auto">
-      <div className="text-center space-y-3">
-        <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-primary/10 border border-primary/30 text-primary text-xs font-mono font-bold">
-          <Cpu className="w-3.5 h-3.5" aria-hidden="true" />
-          <span>RAG analysis pipeline</span>
+    <div className="mx-auto max-w-5xl space-y-6">
+      <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
+        <div className="space-y-1.5">
+          <p className="text-[11px] font-mono font-bold uppercase tracking-[0.66px] text-primary">
+            CONTINUOUS REASONING
+          </p>
+          <h1 className="text-2xl font-extrabold tracking-tight text-foreground lg:text-[28px]">
+            Run Analysis
+          </h1>
+          <p className="max-w-xl text-[13px] text-muted-foreground">
+            Execute the full pipeline: evidence → DNA → truth → radar → prediction. Analyzing {project.name || projectId}.
+          </p>
         </div>
-        <h1 className="text-3xl sm:text-4xl font-extrabold text-foreground tracking-tight">
-          Analyzing {project.name || projectId}
-        </h1>
-        <p className="text-sm text-muted-foreground max-w-lg mx-auto leading-relaxed">
-          Evidence Agent and Signal Agent run only after the canonical RAG parser, chunker, embedder, and retriever finish.
-        </p>
+
+        {isFinished ? (
+          <button
+            type="button"
+            onClick={() => router.push(`/projects/${projectId}/overview`)}
+            className="inline-flex cursor-pointer items-center gap-2 rounded-[10px] bg-primary px-4 py-2.5 text-xs font-bold text-primary-foreground shadow-[0_0_18px_-4px_rgba(255,122,0,0.35)] transition-colors hover:bg-primary-hover focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+          >
+            <Sparkles className="h-4 w-4" aria-hidden="true" />
+            Open briefing
+            <ArrowRight className="h-4 w-4" aria-hidden="true" />
+          </button>
+        ) : analysisError ? (
+          <button
+            type="button"
+            onClick={() => router.push(`/projects/${projectId}/pipeline`)}
+            className="inline-flex cursor-pointer items-center gap-2 rounded-[10px] border border-border bg-card px-4 py-2.5 text-xs font-bold text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+          >
+            Inspect RAG Pipeline
+          </button>
+        ) : (
+          <button
+            type="button"
+            disabled
+            className="inline-flex cursor-not-allowed items-center gap-2 rounded-[10px] bg-primary px-4 py-2.5 text-xs font-bold text-primary-foreground opacity-80 shadow-[0_0_18px_-4px_rgba(255,122,0,0.35)]"
+          >
+            <Loader2 className="h-4 w-4 animate-spin motion-reduce:animate-none" aria-hidden="true" />
+            Pipeline running
+          </button>
+        )}
       </div>
 
       {analysisError && (
         <div
           role="alert"
           tabIndex={-1}
-          className="p-4 rounded-xl bg-rose-500/10 border border-rose-500/30 text-rose-300 text-sm flex items-start gap-2"
+          className="flex items-start gap-2 rounded-xl border border-destructive/30 bg-destructive/10 p-4 text-sm text-destructive"
         >
-          <AlertTriangle className="w-4 h-4 shrink-0 mt-0.5" aria-hidden="true" />
+          <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0" aria-hidden="true" />
           <div>
             <p className="font-bold">Analysis did not complete</p>
-            <p className="text-xs font-mono mt-1">{analysisError}</p>
+            <p className="mt-1 font-mono text-xs">{analysisError}</p>
           </div>
         </div>
       )}
 
-      <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
-        <div className="lg:col-span-6 p-6 rounded-2xl bg-card border border-border/80 shadow-lg space-y-3">
-          <div className="flex items-center justify-between pb-3 border-b border-border text-xs font-mono">
-            <span className="text-muted-foreground uppercase font-bold">Backend stages</span>
-            <span className="text-primary font-bold" role="status" aria-atomic="true">
+      <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
+        <KpiStat
+          label="Stage"
+          value={stageLabel}
+          hint={`${runningCount} of ${stages.length}`}
+          valueClassName="text-primary"
+        />
+        <KpiStat label="ETA" value={etaLabel} hint="Enclave" valueClassName="text-info" />
+        <KpiStat
+          label="Blockers"
+          value={failedCount}
+          hint={failedCount === 0 ? 'Ready' : 'Failed stages'}
+          valueClassName={failedCount === 0 ? 'text-success' : 'text-destructive'}
+        />
+        <KpiStat
+          label="Last run"
+          value={isFinished ? 'Just now' : analysisError ? 'Failed' : `${progressPercent}%`}
+          hint={isFinished ? 'Complete' : 'Live poll'}
+          valueClassName="text-muted-foreground"
+        />
+      </div>
+
+      <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
+        <div className="rounded-[14px] border border-border bg-card p-[18px] shadow-[0_1px_0_0_rgba(13,20,36,0.8),0_8px_24px_-8px_rgba(0,0,0,0.35)]">
+          <p className="text-sm font-semibold text-foreground">Now computing</p>
+          <p className="mt-2 text-xs leading-relaxed text-muted-foreground">
+            {currentStage?.description || 'Evidence Agent and Signal Agent run after parser, chunker, embedder, and retriever finish.'}
+          </p>
+        </div>
+        <div className="rounded-[14px] border border-border bg-card p-[18px] shadow-[0_1px_0_0_rgba(13,20,36,0.8),0_8px_24px_-8px_rgba(0,0,0,0.35)]">
+          <p className="text-sm font-semibold text-foreground">When done</p>
+          <p className="mt-2 text-xs leading-relaxed text-muted-foreground">
+            Radar, prediction, and intervention ranking update together.
+          </p>
+        </div>
+      </div>
+
+      <div className="grid grid-cols-1 items-start gap-6 lg:grid-cols-12">
+        <div className="space-y-3 rounded-xl border border-border bg-card p-6 shadow-[0_1px_0_0_rgba(13,20,36,0.8),0_8px_24px_-8px_rgba(0,0,0,0.35)] lg:col-span-6">
+          <div className="flex items-center justify-between border-b border-border pb-3 font-mono text-xs">
+            <span className="font-bold uppercase text-muted-foreground">Backend stages</span>
+            <span className="font-bold text-primary" role="status" aria-atomic="true">
               {isFinished ? `${stages.length}/${stages.length} COMPLETE` : `${runningCount}/${stages.length} · ${progressPercent}%`}
             </span>
           </div>
@@ -167,41 +248,41 @@ export default function AnalysisProcessingPage() {
               return (
                 <div
                   key={stg.id}
-                  className={`flex items-center justify-between p-2.5 rounded-xl border transition-all ${
+                  className={`flex items-center justify-between rounded-xl border p-2.5 transition-colors ${
                     isFailed
-                      ? 'bg-rose-500/10 border-rose-500/50 text-foreground'
+                      ? 'border-destructive/50 bg-destructive/10 text-foreground'
                       : isRunning
-                        ? 'bg-primary/10 border-primary/60 text-foreground ring-1 ring-primary/40 shadow-sm'
+                        ? 'border-primary/60 bg-primary/10 text-foreground ring-1 ring-primary/40'
                         : isCompleted
-                          ? 'bg-surface-feed/70 border-emerald-500/20 text-foreground/90'
-                          : 'bg-card/30 border-border/40 text-muted-foreground/60'
+                          ? 'border-success/20 bg-surface-feed/70 text-foreground/90'
+                          : 'border-border/40 bg-card/30 text-muted-foreground/60'
                   }`}
                 >
                   <div className="flex items-center gap-3">
                     {isCompleted ? (
-                      <CheckCircle2 className="w-4 h-4 text-emerald-400 shrink-0" aria-hidden="true" />
+                      <CheckCircle2 className="h-4 w-4 shrink-0 text-success" aria-hidden="true" />
                     ) : isRunning ? (
-                      <Loader2 className="w-4 h-4 text-primary animate-spin shrink-0" aria-hidden="true" />
+                      <Loader2 className="h-4 w-4 shrink-0 animate-spin text-primary motion-reduce:animate-none" aria-hidden="true" />
                     ) : isFailed ? (
-                      <AlertTriangle className="w-4 h-4 text-rose-400 shrink-0" aria-hidden="true" />
+                      <AlertTriangle className="h-4 w-4 shrink-0 text-destructive" aria-hidden="true" />
                     ) : (
-                      <Circle className="w-4 h-4 text-border shrink-0" aria-hidden="true" />
+                      <Circle className="h-4 w-4 shrink-0 text-border" aria-hidden="true" />
                     )}
                     <div>
-                      <span className="text-xs font-bold tracking-tight block">{stg.name}</span>
-                      <span className="text-[10px] text-muted-foreground block truncate max-w-[240px]">
+                      <span className="block text-xs font-bold tracking-tight">{stg.name}</span>
+                      <span className="block max-w-[240px] truncate text-[10px] text-muted-foreground">
                         {stg.description}
                       </span>
                     </div>
                   </div>
                   <span
-                    className={`text-[9px] font-mono font-bold uppercase px-2 py-0.5 rounded ${
+                    className={`rounded px-2 py-0.5 font-mono text-[9px] font-bold uppercase ${
                       isCompleted
-                        ? 'bg-emerald-500/10 text-emerald-400'
+                        ? 'bg-surface-feed text-success'
                         : isRunning
-                          ? 'bg-primary text-white'
+                          ? 'bg-primary text-primary-foreground'
                           : isFailed
-                            ? 'bg-rose-500/20 text-rose-300'
+                            ? 'bg-destructive/20 text-destructive'
                             : 'text-muted-foreground/50'
                     }`}
                   >
@@ -213,53 +294,26 @@ export default function AnalysisProcessingPage() {
           </div>
         </div>
 
-        <div className="lg:col-span-6 p-6 rounded-2xl bg-[#05070a] border border-border/90 shadow-xl flex flex-col justify-between h-[520px]">
+        <div className="flex h-[520px] flex-col justify-between rounded-xl border border-border bg-surface-feed p-6 shadow-[0_1px_0_0_rgba(13,20,36,0.8),0_8px_24px_-8px_rgba(0,0,0,0.35)] lg:col-span-6">
           <div>
-            <div className="flex items-center justify-between pb-3 border-b border-border/50 text-xs font-mono">
-              <div className="flex items-center gap-2 text-primary font-bold">
-                <Terminal className="w-4 h-4" aria-hidden="true" />
+            <div className="flex items-center justify-between border-b border-border/50 pb-3 font-mono text-xs">
+              <div className="flex items-center gap-2 font-bold text-primary">
+                <Terminal className="h-4 w-4" aria-hidden="true" />
                 <span>Backend status stream</span>
               </div>
             </div>
-            <div className="mt-4 space-y-1.5 font-mono text-xs text-muted-foreground overflow-y-auto max-h-[400px] pr-2">
+            <div className="mt-4 max-h-[400px] space-y-1.5 overflow-y-auto pr-2 font-mono text-xs text-muted-foreground">
               {logs.map((log, i) => (
                 <p key={i} className="leading-relaxed text-foreground/80">
                   {log}
                 </p>
               ))}
               {!isFinished && !analysisError && (
-                <p className="text-primary font-bold animate-pulse">_ waiting for RAG worker...</p>
+                <p className="font-bold text-primary motion-safe:animate-pulse">_ waiting for RAG worker...</p>
               )}
             </div>
           </div>
         </div>
-      </div>
-
-      <div className="flex items-center justify-center pt-4">
-        {isFinished ? (
-          <button
-            type="button"
-            onClick={() => router.push(`/projects/${projectId}/overview`)}
-            className="inline-flex items-center gap-3 px-8 py-4 rounded-2xl bg-primary hover:bg-primary-hover text-white text-sm font-extrabold tracking-wider uppercase transition-all cursor-pointer"
-          >
-            <Sparkles className="w-5 h-5" />
-            <span>Open Executive Intelligence Briefing</span>
-            <ArrowRight className="w-5 h-5" />
-          </button>
-        ) : analysisError ? (
-          <button
-            type="button"
-            onClick={() => router.push(`/projects/${projectId}/pipeline`)}
-            className="inline-flex items-center gap-2 px-6 py-3 rounded-xl border border-border text-xs font-bold cursor-pointer"
-          >
-            Inspect RAG Pipeline
-          </button>
-        ) : (
-          <div className="flex items-center gap-2 text-xs font-mono text-muted-foreground">
-            <Loader2 className="w-4 h-4 text-primary animate-spin" />
-            <span>Polling real analysis status from the RAG backend...</span>
-          </div>
-        )}
       </div>
     </div>
   );

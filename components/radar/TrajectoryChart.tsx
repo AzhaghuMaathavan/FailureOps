@@ -3,13 +3,12 @@
 import React from 'react';
 import {
   ResponsiveContainer,
-  LineChart,
-  Line,
+  BarChart,
+  Bar,
   XAxis,
   YAxis,
   Tooltip,
   CartesianGrid,
-  ReferenceLine,
 } from 'recharts';
 
 export type TrajectoryPoint = {
@@ -32,52 +31,56 @@ export const TrajectoryChart: React.FC<{ data?: TrajectoryPoint[] }> = ({ data }
 
   if (series.length === 0) {
     return (
-      <div className="w-full h-80 flex items-center justify-center text-sm text-muted-foreground border border-dashed border-border rounded-xl">
+      <div className="w-full h-48 flex items-center justify-center text-sm text-muted-foreground border border-dashed border-border rounded-xl">
         Insufficient evidence for a reliable failure prediction.
       </div>
     );
   }
 
   return (
-    <div className="w-full h-80">
+    <div className="w-full h-48 sm:h-52">
       <ResponsiveContainer width="100%" height="100%">
-        <LineChart data={series} margin={{ top: 20, right: 30, left: 0, bottom: 10 }}>
-          <CartesianGrid strokeDasharray="3 3" stroke="#2e3846" />
+        <BarChart data={series} margin={{ top: 8, right: 8, left: -18, bottom: 0 }}>
+          <CartesianGrid strokeDasharray="3 3" stroke="var(--border)" vertical={false} />
           <XAxis
             dataKey="week"
-            stroke="#64748b"
-            tick={{ fill: '#94a3b8', fontSize: 11, fontWeight: 500 }}
+            stroke="var(--border)"
+            tick={{ fill: 'var(--muted-foreground)', fontSize: 11, fontWeight: 500 }}
+            axisLine={false}
+            tickLine={false}
           />
           <YAxis
-            stroke="#64748b"
+            stroke="var(--border)"
             domain={[0, 100]}
             unit="%"
-            tick={{ fill: '#94a3b8', fontSize: 11, fontWeight: 500 }}
+            tick={{ fill: 'var(--muted-foreground)', fontSize: 11, fontWeight: 500 }}
+            axisLine={false}
+            tickLine={false}
+            width={42}
           />
           <Tooltip
+            cursor={{ fill: 'var(--surface-feed)', opacity: 0.6 }}
             contentStyle={{
-              backgroundColor: '#161b22',
-              borderColor: '#2e3846',
+              backgroundColor: 'var(--card)',
+              borderColor: 'var(--border)',
               borderRadius: '12px',
               fontSize: '12px',
-              color: '#f8fafc',
+              color: 'var(--foreground)',
             }}
             formatter={(value: number) => [`${value}% Failure Risk`, 'Calculated Risk']}
             labelFormatter={(label, payload) => {
               const item = payload?.[0]?.payload;
-              return `${label}: ${item?.note || ''}`;
+              return `${label}${item?.note ? `: ${item.note}` : ''}`;
             }}
           />
-          <ReferenceLine y={80} stroke="#fb7185" strokeDasharray="4 4" label={{ value: 'Critical Threshold (80%)', fill: '#fb7185', fontSize: 10 }} />
-          <Line
-            type="monotone"
+          <Bar
             dataKey="risk"
-            stroke="#ff7a00"
-            strokeWidth={3}
-            dot={{ r: 5, fill: '#ff7a00', stroke: '#090b0e', strokeWidth: 2 }}
-            activeDot={{ r: 7, fill: '#fb7185' }}
+            fill="var(--destructive)"
+            radius={[4, 4, 0, 0]}
+            maxBarSize={36}
+            name="Risk"
           />
-        </LineChart>
+        </BarChart>
       </ResponsiveContainer>
     </div>
   );

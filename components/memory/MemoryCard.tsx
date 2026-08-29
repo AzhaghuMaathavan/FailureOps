@@ -2,7 +2,7 @@
 
 import React from 'react';
 import { OrganizationalMemoryEntry } from '@/types';
-import { Database, Tag, CheckCircle2, ArrowUpRight, Sparkles, Building2 } from 'lucide-react';
+import { Database, Tag, Building2 } from 'lucide-react';
 
 interface MemoryCardProps {
   entry: OrganizationalMemoryEntry;
@@ -10,26 +10,27 @@ interface MemoryCardProps {
 
 export const MemoryCard: React.FC<MemoryCardProps> = ({ entry }) => {
   return (
-    <div className="p-6 rounded-2xl bg-card border border-border/80 shadow-md hover:border-primary/40 transition-all duration-200 space-y-4">
-      <div className="flex flex-wrap items-center justify-between gap-2 pb-3 border-b border-border">
+    <article className="space-y-4 rounded-[14px] border border-border bg-card p-[18px] shadow-[0_1px_0_0_rgba(13,20,36,0.45),0_8px_24px_-8px_rgba(0,0,0,0.35)]">
+      <div className="flex flex-wrap items-center justify-between gap-2 border-b border-border pb-3">
         <div className="flex items-center gap-2">
-          <div className="w-8 h-8 rounded-lg bg-primary/10 border border-primary/30 flex items-center justify-center text-primary">
-            <Database className="w-4 h-4" />
+          <div className="flex h-8 w-8 items-center justify-center rounded-lg border border-primary/30 bg-primary/10 text-primary">
+            <Database className="h-4 w-4" aria-hidden="true" />
           </div>
           <div>
-            <h4 className="text-sm font-bold text-foreground">{entry.pattern}</h4>
-            <span className="text-[10px] font-mono text-muted-foreground">ID: {entry.id} • Verified on {entry.verifiedAt}</span>
+            <h3 className="text-sm font-semibold text-foreground">{entry.pattern}</h3>
+            <span className="font-mono text-[10px] text-muted-foreground">
+              ID: {entry.id} • Verified on {entry.verifiedAt}
+            </span>
           </div>
         </div>
 
-        <span className="px-2.5 py-0.5 rounded-full text-xs font-mono font-semibold bg-emerald-500/10 text-emerald-400 border border-emerald-500/30">
+        <span className="rounded-full border border-success/30 bg-success/10 px-2.5 py-0.5 font-mono text-xs font-semibold text-success">
           {entry.confidence}% Confidence
         </span>
       </div>
 
-      {/* Context info */}
-      <div className="flex items-center gap-2 text-xs text-muted-foreground font-mono">
-        <Building2 className="w-3.5 h-3.5 text-primary" />
+      <div className="flex items-center gap-2 font-mono text-xs text-muted-foreground">
+        <Building2 className="h-3.5 w-3.5 text-primary" aria-hidden="true" />
         <span>{entry.context?.industry || 'Cross-Industry'}</span>
         <span>•</span>
         <span>{entry.context?.stage || 'Validated'}</span>
@@ -37,35 +38,33 @@ export const MemoryCard: React.FC<MemoryCardProps> = ({ entry }) => {
         <span>{entry.context?.targetMarket || 'Organization'}</span>
       </div>
 
-      {/* Intervention & Outcome grid */}
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-3 text-xs">
-        <div className="p-3 rounded-xl bg-surface-feed/70 border border-border/60">
-          <span className="text-[10px] font-mono uppercase text-muted-foreground block mb-1">
-            Verified Intervention
+      <div className="grid grid-cols-1 gap-3 text-xs md:grid-cols-2">
+        <div className="rounded-xl border border-border/60 bg-surface-feed/70 p-3">
+          <span className="mb-1 block font-mono text-[10px] uppercase text-muted-foreground">
+            Verified intervention
           </span>
-          <p className="text-foreground font-medium leading-relaxed">{entry.intervention}</p>
+          <p className="font-medium leading-relaxed text-foreground">{entry.intervention}</p>
         </div>
 
-        <div className="p-3 rounded-xl bg-emerald-500/5 border border-emerald-500/30">
-          <span className="text-[10px] font-mono uppercase text-emerald-400 font-semibold block mb-1">
-            Empirical Outcome Lift
+        <div className="rounded-xl border border-success/30 bg-success/5 p-3">
+          <span className="mb-1 block font-mono text-[10px] font-semibold uppercase text-success">
+            Empirical outcome lift
           </span>
-          <p className="text-foreground font-semibold leading-relaxed">{entry.outcome}</p>
+          <p className="font-semibold leading-relaxed text-foreground">{entry.outcome}</p>
         </div>
       </div>
 
-      {/* Tags */}
-      <div className="flex flex-wrap items-center gap-1.5 pt-2 border-t border-border/50">
-        <Tag className="w-3 h-3 text-muted-foreground mr-1" />
-        {(entry.tags || []).map(tag => (
+      <div className="flex flex-wrap items-center gap-1.5 border-t border-border/50 pt-2">
+        <Tag className="mr-1 h-3 w-3 text-muted-foreground" aria-hidden="true" />
+        {(entry.tags || []).map((tag) => (
           <span
             key={tag}
-            className="px-2 py-0.5 rounded-md bg-surface-feed border border-border/70 text-[10px] font-mono text-muted-foreground"
+            className="rounded-md border border-border/70 bg-surface-feed px-2 py-0.5 font-mono text-[10px] text-muted-foreground"
           >
             #{tag}
           </span>
         ))}
       </div>
-    </div>
+    </article>
   );
 };

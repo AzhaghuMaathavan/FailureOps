@@ -1,31 +1,125 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { useRouter } from 'next/navigation';
-import Link from 'next/link';
-import {
-  Building2,
-  Layers,
-  Shield,
-  ArrowRight,
-  ArrowLeft,
-  CheckCircle2,
-  Lock,
-  Users,
-  Sparkles,
-  HelpCircle,
-  FolderPlus,
-} from 'lucide-react';
 import { PrivacyLevel, EvidenceSourceType } from '@/types';
 import { useApp } from '@/context/AppContext';
-import { BrandLogo } from '@/components/common/BrandLogo';
+import { cn } from '@/lib/utils';
+import {
+  RegisterHeader,
+  btnPrimary,
+  btnGhost,
+  cardElevation,
+  focusRing,
+} from '@/components/landing/chrome';
+
+const STEP_LABELS = ['Product details', 'Evidence sources', 'Privacy'] as const;
+
+const STEP_COPY = [
+  {
+    kicker: 'REGISTER PRODUCT',
+    title: 'Name the product the enclave will watch.',
+    titleMobile: 'Name the product the enclave will watch.',
+    body: 'These details stay on the project. You can change them later in settings.',
+    bodyOnMobile: true,
+  },
+  {
+    kicker: 'REGISTER PRODUCT',
+    title: 'What evidence can the enclave use?',
+    titleMobile: 'Which evidence can the enclave use?',
+    body: 'Select sources now. You can upload files after the project exists. Privacy stays PRIVATE by default.',
+    bodyOnMobile: false,
+  },
+  {
+    kicker: 'REGISTER PRODUCT',
+    title: 'Who can access this evidence?',
+    titleMobile: 'Who can access this evidence?',
+    body: 'Configure data isolation for this project. FailureOps guarantees cryptographic privacy by default.',
+    bodyOnMobile: true,
+  },
+] as const;
+
+const evidenceOptions = [
+  {
+    type: 'PRODUCT_PLAN' as EvidenceSourceType,
+    title: 'Product plans / PRDs',
+    shortTitle: 'PRDs',
+    description: 'Roadmaps, PRDs, project milestones, spec sheets and requirements.',
+  },
+  {
+    type: 'CUSTOMER_FEEDBACK' as EvidenceSourceType,
+    title: 'Customer feedback',
+    shortTitle: 'Feedback',
+    description: 'Surveys, churn interviews, reviews, and support ticket clusters.',
+  },
+  {
+    type: 'PRODUCT_METRICS' as EvidenceSourceType,
+    title: 'Product metrics',
+    shortTitle: 'Metrics',
+    description: 'User activation, retention, trial abandonment, engagement telemetry.',
+  },
+  {
+    type: 'ENGINEERING_METRICS' as EvidenceSourceType,
+    title: 'CI/CD telemetry',
+    shortTitle: 'CI/CD',
+    description: 'Bugs, CI/CD build failures, deployment breakages, MTTR metrics.',
+  },
+  {
+    type: 'TEAM_OPERATIONS' as EvidenceSourceType,
+    title: 'Issue tracker',
+    shortTitle: 'Jira',
+    description: 'PR review latencies, sprint workload, engineer overtime, context switching.',
+  },
+  {
+    type: 'INCIDENT_REPORTS' as EvidenceSourceType,
+    title: 'Incident & postmortem reports',
+    shortTitle: 'Incidents',
+    description: 'Production downtime, staging deadlocks, migration rollbacks.',
+  },
+];
+
+const privacyOptions: {
+  id: PrivacyLevel;
+  title: string;
+  description: string;
+}[] = [
+  {
+    id: 'PRIVATE',
+    title: 'Private enclave',
+    description:
+      'Only authorized members of this project can access raw source evidence. No raw documents leave the isolated enclave.',
+  },
+  {
+    id: 'ORGANIZATION',
+    title: 'Organization scope',
+    description: 'Available to all authorized employees and teams across the verified organization account.',
+  },
+  {
+    id: 'ANONYMOUS_LEARNING',
+    title: 'Anonymous learning',
+    description:
+      'FailureOps may extract generalized, zero-knowledge failure vectors to strengthen institutional memory without revealing company identity or raw files.',
+  },
+  {
+    id: 'PUBLIC',
+    title: 'Public case study',
+    description: 'Designated as a public learning artifact for open industry postmortems and research.',
+  },
+];
+
+const fieldClass = cn(
+  'w-full min-h-11 rounded-xl border border-border bg-surface-feed px-3.5 py-2.5 text-sm font-medium text-foreground',
+  'placeholder:text-muted-foreground',
+  focusRing,
+  'focus-visible:border-ring'
+);
 
 export default function RegisterProductPage() {
   const router = useRouter();
   const { setProject } = useApp();
-  const [step, setStep] = useState<number>(1);
+  const [step, setStep] = useState<1 | 2 | 3>(1);
+  const errorRef = useRef<HTMLDivElement>(null);
 
-  // Form State with sensible default date (90 days out)
   const defaultDate = new Date(Date.now() + 90 * 24 * 60 * 60 * 1000).toISOString().split('T')[0];
   const [productName, setProductName] = useState('');
   const [companyName, setCompanyName] = useState('');
@@ -43,6 +137,15 @@ export default function RegisterProductPage() {
 
   const [privacyLevel, setPrivacyLevel] = useState<PrivacyLevel>('PRIVATE');
 
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [submitError, setSubmitError] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (submitError) {
+      errorRef.current?.focus();
+    }
+  }, [submitError]);
+
   const toggleSource = (source: EvidenceSourceType) => {
     if (selectedSources.includes(source)) {
       setSelectedSources(selectedSources.filter(s => s !== source));
@@ -50,9 +153,6 @@ export default function RegisterProductPage() {
       setSelectedSources([...selectedSources, source]);
     }
   };
-
-  const [isSubmitting, setIsSubmitting] = useState(false);
-  const [submitError, setSubmitError] = useState<string | null>(null);
 
   const handleNextStep = () => {
     setSubmitError(null);
@@ -71,7 +171,7 @@ export default function RegisterProductPage() {
         return;
       }
     }
-    setStep(step + 1);
+    if (step < 3) setStep((step + 1) as 1 | 2 | 3);
   };
 
   const handleFinish = async () => {
@@ -115,365 +215,301 @@ export default function RegisterProductPage() {
     }
   };
 
-
-
-  const evidenceOptions = [
-    {
-      type: 'PRODUCT_PLAN' as EvidenceSourceType,
-      title: 'Product / Project Plan',
-      description: 'Roadmaps, PRDs, project milestones, spec sheets and requirements.',
-      recommended: true,
-    },
-    {
-      type: 'CUSTOMER_FEEDBACK' as EvidenceSourceType,
-      title: 'Customer Feedback',
-      description: 'Surveys, churn interviews, reviews, and support ticket clusters.',
-      recommended: true,
-    },
-    {
-      type: 'PRODUCT_METRICS' as EvidenceSourceType,
-      title: 'Product Metrics',
-      description: 'User activation, retention, trial abandonment, engagement telemetry.',
-      recommended: true,
-    },
-    {
-      type: 'ENGINEERING_METRICS' as EvidenceSourceType,
-      title: 'Engineering Metrics',
-      description: 'Bugs, CI/CD build failures, deployment breakages, MTTR metrics.',
-      recommended: true,
-    },
-    {
-      type: 'TEAM_OPERATIONS' as EvidenceSourceType,
-      title: 'Team Operations',
-      description: 'PR review latencies, sprint workload, engineer overtime, context switching.',
-      recommended: true,
-    },
-    {
-      type: 'INCIDENT_REPORTS' as EvidenceSourceType,
-      title: 'Incident & Postmortem Reports',
-      description: 'Production downtime, staging deadlocks, migration rollbacks.',
-      recommended: false,
-    },
-  ];
+  const copy = STEP_COPY[step - 1];
 
   return (
-    <div className="min-h-screen bg-background text-foreground flex flex-col justify-between selection:bg-primary/30">
-      {/* Top Bar */}
-      <header className="h-16 w-full border-b border-border/80 px-6 lg:px-12 flex items-center justify-between backdrop-blur-md sticky top-0 z-50 bg-background/80">
-        <BrandLogo size="md" href="/" />
-
-        <div className="flex items-center gap-4 text-xs">
-          <Link href="/dashboard" className="text-muted-foreground hover:text-foreground">
-            Cancel
-          </Link>
-        </div>
-      </header>
-
-
-      {/* Main Registration Content */}
-      <main className="flex-1 max-w-3xl mx-auto w-full px-6 py-12 space-y-8">
-        {/* Step Indicator */}
-        <div className="flex items-center justify-between border-b border-border/80 pb-4">
-          <div>
-            <span className="text-xs font-mono font-bold uppercase tracking-wider text-primary">
-              Step {step} of 3
-            </span>
-            <h1 className="text-2xl font-extrabold text-foreground tracking-tight mt-0.5">
-              {step === 1 && 'Product Information'}
-              {step === 2 && 'Connect Evidence Sources'}
-              {step === 3 && 'Privacy & Governance Enclave'}
-            </h1>
-          </div>
-
-          <div className="flex items-center gap-2">
-            {[1, 2, 3].map(num => (
-              <div
-                key={num}
-                className={`w-8 h-8 rounded-lg flex items-center justify-center text-xs font-mono font-bold transition-all ${
-                  num === step
-                    ? 'bg-primary text-white shadow-sm'
-                    : num < step
-                    ? 'bg-emerald-500/20 text-emerald-400 border border-emerald-500/40'
-                    : 'bg-surface-feed text-muted-foreground border border-border'
-                }`}
-              >
-                {num < step ? '✓' : num}
-              </div>
-            ))}
-          </div>
-        </div>
-
-        {/* STEP 1: Product Information */}
-        {step === 1 && (
-          <div className="space-y-5 p-6 rounded-2xl bg-card border border-border/80 shadow-md">
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-              <div>
-                <label className="text-xs font-semibold uppercase tracking-wider text-muted-foreground block mb-1.5">
-                  Product Name
-                </label>
-                <input
-                  type="text"
-                  value={productName}
-                  onChange={e => setProductName(e.target.value)}
-                  className="w-full px-3.5 py-2.5 rounded-xl bg-surface-feed border border-border text-foreground text-sm focus:outline-none focus:border-primary font-medium"
-                  placeholder="e.g. ExpenseTracker"
-                />
-              </div>
-
-              <div>
-                <label className="text-xs font-semibold uppercase tracking-wider text-muted-foreground block mb-1.5">
-                  Company Name
-                </label>
-                <input
-                  type="text"
-                  value={companyName}
-                  onChange={e => setCompanyName(e.target.value)}
-                  className="w-full px-3.5 py-2.5 rounded-xl bg-surface-feed border border-border text-foreground text-sm focus:outline-none focus:border-primary font-medium"
-                  placeholder="e.g. Aurora Technologies"
-                />
-              </div>
-            </div>
-
-            <div>
-              <label className="text-xs font-semibold uppercase tracking-wider text-muted-foreground block mb-1.5">
-                Product Description
-              </label>
-              <textarea
-                rows={3}
-                value={description}
-                onChange={e => setDescription(e.target.value)}
-                className="w-full px-3.5 py-2.5 rounded-xl bg-surface-feed border border-border text-foreground text-sm focus:outline-none focus:border-primary font-medium leading-relaxed"
-                placeholder="Describe product capabilities, value proposition, and current operational focus..."
-              />
-            </div>
-
-            <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-              <div>
-                <label className="text-xs font-semibold uppercase tracking-wider text-muted-foreground block mb-1.5">
-                  Industry
-                </label>
-                <select
-                  value={industry}
-                  onChange={e => setIndustry(e.target.value)}
-                  className="w-full px-3.5 py-2.5 rounded-xl bg-surface-feed border border-border text-foreground text-sm focus:outline-none focus:border-primary font-medium"
-                >
-                  <option value="FinTech">FinTech</option>
-                  <option value="Enterprise SaaS">Enterprise SaaS</option>
-                  <option value="DevTools">Developer Tools / IDE</option>
-                  <option value="HealthTech">Healthcare / HealthTech</option>
-                  <option value="E-Commerce">E-Commerce</option>
-                  <option value="AI / ML">AI Platform</option>
-                </select>
-              </div>
-
-              <div>
-                <label className="text-xs font-semibold uppercase tracking-wider text-muted-foreground block mb-1.5">
-                  Current Stage
-                </label>
-                <select
-                  value={stage}
-                  onChange={e => setStage(e.target.value)}
-                  className="w-full px-3.5 py-2.5 rounded-xl bg-surface-feed border border-border text-foreground text-sm focus:outline-none focus:border-primary font-medium"
-                >
-                  <option value="Alpha">Alpha</option>
-                  <option value="Beta">Beta</option>
-                  <option value="Pre-Launch">Pre-Launch</option>
-                  <option value="General Availability">General Availability</option>
-                  <option value="Scaling">Growth / Scaling</option>
-                </select>
-              </div>
-
-              <div>
-                <label className="text-xs font-semibold uppercase tracking-wider text-muted-foreground block mb-1.5">
-                  Launch Target
-                </label>
-                <input
-                  type="date"
-                  value={expectedLaunchDate}
-                  onChange={e => setExpectedLaunchDate(e.target.value)}
-                  className="w-full px-3.5 py-2.5 rounded-xl bg-surface-feed border border-border text-foreground text-sm focus:outline-none focus:border-primary font-medium font-mono"
-                />
-              </div>
-            </div>
-
-            <div>
-              <label className="text-xs font-semibold uppercase tracking-wider text-muted-foreground block mb-1.5">
-                Target User Personas
-              </label>
-              <input
-                type="text"
-                value={targetUsers}
-                onChange={e => setTargetUsers(e.target.value)}
-                className="w-full px-3.5 py-2.5 rounded-xl bg-surface-feed border border-border text-foreground text-sm focus:outline-none focus:border-primary font-medium"
-                placeholder="e.g. SMB Finance Managers & Operations Leads"
-              />
-            </div>
-          </div>
+    <div className="flex min-h-screen flex-col bg-background text-foreground">
+      <a
+        href="#register-main"
+        className={cn(
+          'sr-only z-50 bg-primary px-4 py-2 text-sm font-bold text-primary-foreground focus:not-sr-only focus:absolute focus:left-4 focus:top-4 focus:rounded-lg',
+          focusRing
         )}
+      >
+        Skip to form
+      </a>
 
-        {/* STEP 2: Evidence Sources Selection */}
-        {step === 2 && (
-          <div className="space-y-4">
-            <div className="p-4 rounded-xl bg-primary/10 border border-primary/30 text-xs text-primary leading-relaxed">
-              <span className="font-bold">Cross-Source Intelligence Rule: </span>
-              FailureOps works best when it can connect signals from multiple sources (e.g. cross-referencing PR review latency against bug backlogs and trial activation drop-offs).
-            </div>
+      <RegisterHeader step={step} stepLabel={STEP_LABELS[step - 1]} />
 
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-              {evidenceOptions.map(opt => {
-                const isChecked = selectedSources.includes(opt.type);
-
-                return (
-                  <div
-                    key={opt.type}
-                    onClick={() => toggleSource(opt.type)}
-                    className={`p-4 rounded-xl border transition-all cursor-pointer flex flex-col justify-between ${
-                      isChecked
-                        ? 'bg-card border-primary ring-1 ring-primary/40'
-                        : 'bg-surface-feed/60 border-border/70 hover:border-border'
-                    }`}
-                  >
-                    <div>
-                      <div className="flex items-center justify-between gap-2 mb-2">
-                        <span className="text-xs font-bold text-foreground">{opt.title}</span>
-                        {opt.recommended && (
-                          <span className="px-2 py-0.5 rounded text-[9px] font-mono font-bold bg-emerald-500/10 text-emerald-400 border border-emerald-500/30">
-                            RECOMMENDED CORE
-                          </span>
-                        )}
-                      </div>
-                      <p className="text-xs text-muted-foreground leading-relaxed">{opt.description}</p>
-                    </div>
-
-                    <div className="mt-3 pt-2 border-t border-border/40 flex items-center justify-between text-xs">
-                      <span className="font-mono text-[10px] text-muted-foreground">{opt.type}</span>
-                      <div
-                        className={`w-5 h-5 rounded-md flex items-center justify-center text-xs font-bold ${
-                          isChecked ? 'bg-primary text-white' : 'border border-border bg-card'
-                        }`}
-                      >
-                        {isChecked && '✓'}
-                      </div>
-                    </div>
-                  </div>
-                );
-              })}
-            </div>
+      <main id="register-main" className="flex flex-1 flex-col">
+        <form
+          className="mx-auto flex w-full max-w-[720px] flex-1 flex-col gap-3 px-4 pb-8 pt-2 sm:gap-4 sm:pt-6 md:gap-4 md:pb-16 md:pt-12"
+          onSubmit={e => {
+            e.preventDefault();
+            if (step < 3) handleNextStep();
+            else void handleFinish();
+          }}
+          noValidate
+        >
+          <div className="hidden md:block">
+            <p className="font-mono text-[11px] font-bold text-primary">{copy.kicker}</p>
           </div>
-        )}
 
-        {/* STEP 3: Privacy & Governance */}
-        {step === 3 && (
-          <div className="space-y-4">
-            <p className="text-xs text-muted-foreground leading-relaxed">
-              Configure data isolation policies for this project. FailureOps guarantees cryptographic privacy by default.
-            </p>
+          <h1 className="text-[22px] font-extrabold leading-tight text-foreground md:text-[28px]">
+            <span className="md:hidden">{copy.titleMobile}</span>
+            <span className="hidden md:inline">{copy.title}</span>
+          </h1>
 
-            <div className="space-y-3">
-              {[
-                {
-                  id: 'PRIVATE' as PrivacyLevel,
-                  title: 'PRIVATE ENCLAVE (Default)',
-                  description: 'Only authorized members of this project can access raw source evidence. No raw documents leave the isolated enclave.',
-                  badge: 'Highest Security',
-                },
-                {
-                  id: 'ORGANIZATION' as PrivacyLevel,
-                  title: 'ORGANIZATION SCOPE',
-                  description: 'Available to all authorized employees and teams across the verified organization account.',
-                  badge: 'Team Access',
-                },
-                {
-                  id: 'ANONYMOUS_LEARNING' as PrivacyLevel,
-                  title: 'ANONYMOUS LEARNING',
-                  description: 'FailureOps may extract generalized, zero-knowledge failure vectors to strengthen institutional memory without revealing company identity or raw files.',
-                  badge: 'Collective Intel',
-                },
-                {
-                  id: 'PUBLIC' as PrivacyLevel,
-                  title: 'PUBLIC CASE STUDY',
-                  description: 'Designated as a public learning artifact for open industry postmortems and research.',
-                  badge: 'Open Access',
-                },
-              ].map(opt => {
-                const isSelected = privacyLevel === opt.id;
-
-                return (
-                  <div
-                    key={opt.id}
-                    onClick={() => setPrivacyLevel(opt.id)}
-                    className={`p-4 rounded-xl border transition-all cursor-pointer flex items-start justify-between ${
-                      isSelected
-                        ? 'bg-card border-primary ring-1 ring-primary/40 shadow-sm'
-                        : 'bg-surface-feed/60 border-border/70 hover:border-border'
-                    }`}
-                  >
-                    <div className="space-y-1">
-                      <div className="flex items-center gap-2">
-                        <span className="text-xs font-bold text-foreground">{opt.title}</span>
-                        <span className="px-2 py-0.5 rounded text-[9px] font-mono font-bold bg-surface-feed border border-border text-muted-foreground">
-                          {opt.badge}
-                        </span>
-                      </div>
-                      <p className="text-xs text-muted-foreground leading-relaxed max-w-lg">
-                        {opt.description}
-                      </p>
-                    </div>
-
-                    <div
-                      className={`w-5 h-5 rounded-full flex items-center justify-center text-xs font-bold shrink-0 mt-1 ${
-                        isSelected ? 'bg-primary text-white' : 'border border-border bg-card'
-                      }`}
-                    >
-                      {isSelected && '✓'}
-                    </div>
-                  </div>
-                );
-              })}
-            </div>
-          </div>
-        )}
-
-        {/* Wizard Controls */}
-        <div className="flex items-center justify-between pt-4 border-t border-border/80">
-          {step > 1 ? (
-            <button
-              onClick={() => setStep(step - 1)}
-              className="inline-flex items-center gap-1.5 px-4 py-2 rounded-xl text-xs font-semibold text-muted-foreground hover:text-foreground transition-colors"
-            >
-              <ArrowLeft className="w-4 h-4" />
-              <span>Back</span>
-            </button>
-          ) : (
-            <div />
-          )}
+          <p
+            className={cn(
+              'text-sm text-muted-foreground',
+              !copy.bodyOnMobile && 'hidden md:block'
+            )}
+          >
+            {copy.body}
+          </p>
 
           {submitError && (
-            <div className="p-3.5 rounded-xl bg-rose-500/10 border border-rose-500/30 text-rose-300 text-xs font-mono">
+            <div
+              ref={errorRef}
+              tabIndex={-1}
+              role="alert"
+              className="rounded-xl border border-destructive/40 bg-destructive/10 px-3.5 py-3 text-xs text-destructive"
+            >
               {submitError}
             </div>
           )}
 
-          {step < 3 ? (
-            <button
-              onClick={handleNextStep}
-              className="inline-flex items-center gap-2 px-6 py-2.5 rounded-xl bg-primary hover:bg-primary-hover text-white text-xs font-bold tracking-wide transition-all shadow-sm"
-            >
-              <span>Continue</span>
-              <ArrowRight className="w-4 h-4" />
-            </button>
-          ) : (
+          {step === 1 && (
+            <div className="space-y-4">
+              <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+                <div>
+                  <label htmlFor="product-name" className="mb-1.5 block text-sm font-semibold text-foreground">
+                    Product name
+                  </label>
+                  <input
+                    id="product-name"
+                    name="productName"
+                    type="text"
+                    autoComplete="organization"
+                    value={productName}
+                    onChange={e => setProductName(e.target.value)}
+                    className={fieldClass}
+                    placeholder="e.g. ExpenseTracker"
+                    aria-invalid={Boolean(submitError && productName.trim().length < 2)}
+                    required
+                    minLength={2}
+                  />
+                </div>
+                <div>
+                  <label htmlFor="company-name" className="mb-1.5 block text-sm font-semibold text-foreground">
+                    Company name
+                  </label>
+                  <input
+                    id="company-name"
+                    name="companyName"
+                    type="text"
+                    autoComplete="organization"
+                    value={companyName}
+                    onChange={e => setCompanyName(e.target.value)}
+                    className={fieldClass}
+                    placeholder="e.g. Aurora Technologies"
+                    required
+                    minLength={2}
+                  />
+                </div>
+              </div>
 
-            <button
-              onClick={handleFinish}
-              disabled={isSubmitting}
-              className="inline-flex items-center gap-2 px-6 py-2.5 rounded-xl bg-primary hover:bg-primary-hover disabled:opacity-50 text-white text-xs font-bold tracking-wide transition-all shadow-[0_0_20px_-5px_rgba(255,122,0,0.4)]"
-            >
-              <FolderPlus className="w-4 h-4" />
-              <span>{isSubmitting ? 'Registering in Database...' : 'Register & Build Evidence Base'}</span>
-            </button>
+              <div>
+                <label htmlFor="product-description" className="mb-1.5 block text-sm font-semibold text-foreground">
+                  Product description
+                </label>
+                <textarea
+                  id="product-description"
+                  name="description"
+                  rows={3}
+                  value={description}
+                  onChange={e => setDescription(e.target.value)}
+                  className={cn(fieldClass, 'leading-relaxed')}
+                  placeholder="Describe product capabilities, value proposition, and current operational focus..."
+                />
+              </div>
+
+              <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
+                <div>
+                  <label htmlFor="industry" className="mb-1.5 block text-sm font-semibold text-foreground">
+                    Industry
+                  </label>
+                  <select
+                    id="industry"
+                    name="industry"
+                    value={industry}
+                    onChange={e => setIndustry(e.target.value)}
+                    className={fieldClass}
+                  >
+                    <option value="FinTech">FinTech</option>
+                    <option value="Enterprise SaaS">Enterprise SaaS</option>
+                    <option value="DevTools">Developer Tools / IDE</option>
+                    <option value="HealthTech">Healthcare / HealthTech</option>
+                    <option value="E-Commerce">E-Commerce</option>
+                    <option value="AI / ML">AI Platform</option>
+                  </select>
+                </div>
+                <div>
+                  <label htmlFor="stage" className="mb-1.5 block text-sm font-semibold text-foreground">
+                    Current stage
+                  </label>
+                  <select
+                    id="stage"
+                    name="stage"
+                    value={stage}
+                    onChange={e => setStage(e.target.value)}
+                    className={fieldClass}
+                  >
+                    <option value="Alpha">Alpha</option>
+                    <option value="Beta">Beta</option>
+                    <option value="Pre-Launch">Pre-Launch</option>
+                    <option value="General Availability">General Availability</option>
+                    <option value="Scaling">Growth / Scaling</option>
+                  </select>
+                </div>
+                <div>
+                  <label htmlFor="launch-date" className="mb-1.5 block text-sm font-semibold text-foreground">
+                    Launch target
+                  </label>
+                  <input
+                    id="launch-date"
+                    name="expectedLaunchDate"
+                    type="date"
+                    value={expectedLaunchDate}
+                    onChange={e => setExpectedLaunchDate(e.target.value)}
+                    className={cn(fieldClass, 'font-mono')}
+                  />
+                </div>
+              </div>
+
+              <div>
+                <label htmlFor="target-users" className="mb-1.5 block text-sm font-semibold text-foreground">
+                  Target user personas
+                </label>
+                <input
+                  id="target-users"
+                  name="targetUsers"
+                  type="text"
+                  value={targetUsers}
+                  onChange={e => setTargetUsers(e.target.value)}
+                  className={fieldClass}
+                  placeholder="e.g. SMB Finance Managers & Operations Leads"
+                />
+              </div>
+            </div>
           )}
-        </div>
+
+          {step === 2 && (
+            <fieldset className="flex flex-col gap-3">
+              <legend className="sr-only">Evidence sources the enclave can use</legend>
+              {evidenceOptions.map(opt => {
+                const isOn = selectedSources.includes(opt.type);
+                return (
+                  <button
+                    key={opt.type}
+                    type="button"
+                    aria-pressed={isOn}
+                    aria-describedby={`${opt.type}-desc`}
+                    onClick={() => toggleSource(opt.type)}
+                    className={cn(
+                      'flex min-h-11 w-full cursor-pointer items-center justify-between gap-3 rounded-xl border border-border bg-card px-3.5 py-3.5 text-left md:px-4',
+                      cardElevation,
+                      focusRing
+                    )}
+                  >
+                    <span>
+                      <span className="block text-sm font-semibold text-foreground">
+                        <span className="md:hidden">{opt.shortTitle}</span>
+                        <span className="hidden md:inline">{opt.title}</span>
+                      </span>
+                      <span id={`${opt.type}-desc`} className="sr-only">
+                        {opt.description}
+                      </span>
+                    </span>
+                    <span
+                      className={cn(
+                        'shrink-0 font-mono text-[11px] font-bold md:text-[10px] md:font-medium',
+                        isOn
+                          ? 'text-success md:rounded-full md:border md:border-success md:bg-surface-feed md:px-2 md:py-1'
+                          : 'text-muted-foreground'
+                      )}
+                    >
+                      {isOn ? 'ON' : 'OFF'}
+                    </span>
+                  </button>
+                );
+              })}
+            </fieldset>
+          )}
+
+          {step === 3 && (
+            <fieldset className="flex flex-col gap-3">
+              <legend className="sr-only">Privacy and governance</legend>
+              {privacyOptions.map(opt => {
+                const isOn = privacyLevel === opt.id;
+                return (
+                  <label
+                    key={opt.id}
+                    className={cn(
+                      'flex min-h-11 cursor-pointer items-center justify-between gap-3 rounded-xl border border-border bg-card px-3.5 py-3.5 md:px-4',
+                      cardElevation,
+                      'has-[:focus-visible]:ring-2 has-[:focus-visible]:ring-ring has-[:focus-visible]:ring-offset-2 has-[:focus-visible]:ring-offset-background'
+                    )}
+                  >
+                    <span className="min-w-0">
+                      <span className="block text-sm font-semibold text-foreground">{opt.title}</span>
+                      <span className="mt-1 hidden text-xs leading-relaxed text-muted-foreground md:block">
+                        {opt.description}
+                      </span>
+                    </span>
+                    <input
+                      type="radio"
+                      name="privacyLevel"
+                      value={opt.id}
+                      checked={isOn}
+                      onChange={() => setPrivacyLevel(opt.id)}
+                      className="sr-only"
+                    />
+                    <span
+                      className={cn(
+                        'shrink-0 font-mono text-[11px] font-bold md:text-[10px] md:font-medium',
+                        isOn
+                          ? 'text-success md:rounded-full md:border md:border-success md:bg-surface-feed md:px-2 md:py-1'
+                          : 'text-muted-foreground'
+                      )}
+                      aria-hidden="true"
+                    >
+                      {isOn ? 'ON' : 'OFF'}
+                    </span>
+                  </label>
+                );
+              })}
+            </fieldset>
+          )}
+
+          <div className="flex flex-col-reverse gap-3 pt-2 sm:flex-row sm:items-center sm:justify-between">
+            {step > 1 ? (
+              <button
+                type="button"
+                onClick={() => {
+                  setSubmitError(null);
+                  if (step > 1) setStep((step - 1) as 1 | 2 | 3);
+                }}
+                className={btnGhost('w-full sm:w-auto')}
+              >
+                Back
+              </button>
+            ) : (
+              <span className="hidden sm:block" />
+            )}
+
+            {step < 3 ? (
+              <button type="submit" className={btnPrimary('w-full sm:w-auto')}>
+                {step === 2 ? 'Continue to privacy' : 'Continue'}
+              </button>
+            ) : (
+              <button type="submit" disabled={isSubmitting} className={btnPrimary('w-full sm:w-auto')}>
+                {isSubmitting ? 'Registering in Database...' : 'Register & Build Evidence Base'}
+              </button>
+            )}
+          </div>
+        </form>
       </main>
     </div>
   );

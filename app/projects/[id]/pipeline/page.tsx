@@ -6,6 +6,7 @@ import { useParams } from 'next/navigation';
 import { Binary, Loader2, ArrowRight } from 'lucide-react';
 import { apiClient, isRagUnavailable } from '@/lib/api/client';
 import { RagPipelinePanel } from '@/components/evidence/RagPipelinePanel';
+import { KpiStat } from '@/components/evidence/KpiStat';
 
 export default function RagPipelinePage() {
   const params = useParams();
@@ -42,50 +43,62 @@ export default function RagPipelinePage() {
   const totals = pipeline?.totals || {};
 
   return (
-    <div className="space-y-8 max-w-5xl mx-auto">
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-6 border-b border-border">
-        <div>
+    <div className="mx-auto max-w-5xl space-y-6">
+      <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
+        <div className="space-y-1.5">
           <div className="flex items-center gap-2">
-            <Binary className="w-4 h-4 text-primary" aria-hidden="true" />
-            <span className="text-xs font-mono font-bold uppercase tracking-wider text-primary">
-              Observability
-            </span>
+            <Binary className="h-4 w-4 text-primary" aria-hidden="true" />
+            <p className="text-[11px] font-mono font-bold uppercase tracking-[0.66px] text-primary">
+              OBSERVABILITY
+            </p>
           </div>
-          <h1 className="text-2xl lg:text-3xl font-extrabold text-foreground tracking-tight mt-1">
-            RAG Pipeline
+          <h1 className="text-2xl font-extrabold tracking-tight text-foreground lg:text-[28px]">
+            Pipeline Health
           </h1>
-          <p className="text-sm text-muted-foreground mt-0.5">
+          <p className="max-w-xl text-[13px] text-muted-foreground">
             Actual parser, chunk, embedding, retrieval, Evidence Agent, and Signal Agent counts from the RAG backend.
           </p>
         </div>
         <Link
           href={`/projects/${projectId}/upload`}
-          className="inline-flex items-center gap-1.5 px-4 py-2 rounded-xl bg-primary hover:bg-primary-hover text-white text-xs font-bold cursor-pointer"
+          className="inline-flex cursor-pointer items-center gap-1.5 rounded-[10px] bg-primary px-4 py-2.5 text-xs font-bold text-primary-foreground shadow-[0_0_18px_-4px_rgba(255,122,0,0.35)] transition-colors hover:bg-primary-hover focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
         >
           <span>Upload evidence</span>
-          <ArrowRight className="w-3.5 h-3.5" />
+          <ArrowRight className="h-3.5 w-3.5" aria-hidden="true" />
         </Link>
       </div>
 
       {isLoading && !pipeline ? (
-        <div className="p-12 rounded-2xl bg-card border border-border flex items-center justify-center gap-2 text-sm text-muted-foreground">
-          <Loader2 className="w-4 h-4 animate-spin text-primary" />
+        <div className="flex items-center justify-center gap-2 rounded-xl border border-border bg-card p-12 text-sm text-muted-foreground">
+          <Loader2 className="h-4 w-4 animate-spin text-primary motion-reduce:animate-none" aria-hidden="true" />
           Loading live RAG state...
         </div>
       ) : error && !pipeline ? (
-        <div role="alert" tabIndex={-1} className="p-6 rounded-2xl bg-rose-500/10 border border-rose-500/30 text-rose-300 text-sm space-y-3">
+        <div role="alert" tabIndex={-1} className="space-y-3 rounded-xl border border-destructive/30 bg-destructive/10 p-6 text-sm text-destructive">
           <h2 id="pipeline-error-title" className="font-bold">RAG unavailable</h2>
-          <p className="text-xs font-mono">{error}</p>
+          <p className="font-mono text-xs">{error}</p>
           <button
             type="button"
             onClick={load}
-            className="px-4 py-2 rounded-xl bg-rose-500/20 border border-rose-500/40 text-xs font-bold cursor-pointer"
+            className="cursor-pointer rounded-[10px] border border-destructive/40 bg-destructive/20 px-4 py-2 text-xs font-bold focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
           >
             Retry
           </button>
         </div>
       ) : pipeline ? (
         <div className="space-y-6">
+          <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
+            <KpiStat label="Documents" value={totals.documents ?? 0} hint="Stored" valueClassName="text-info" />
+            <KpiStat label="Chunks" value={totals.chunks ?? 0} hint="Parsed" valueClassName="text-foreground" />
+            <KpiStat label="Embeddings" value={totals.embedded ?? 0} hint="Indexed" valueClassName="text-success" />
+            <KpiStat
+              label="Evidence"
+              value={totals.evidence ?? 0}
+              hint={`${totals.signals ?? 0} signals`}
+              valueClassName="text-primary"
+            />
+          </div>
+
           <RagPipelinePanel
             projectId={projectId}
             stages={pipeline.stages}
@@ -96,7 +109,7 @@ export default function RagPipelinePage() {
             compact={false}
           />
 
-          <section className="p-6 rounded-2xl bg-card border border-border/80 space-y-3">
+          <section className="space-y-3 rounded-xl border border-border bg-card p-6 shadow-[0_1px_0_0_rgba(13,20,36,0.8),0_8px_24px_-8px_rgba(0,0,0,0.35)]">
             <h2 className="text-sm font-bold text-foreground">Service status</h2>
             <p className="text-xs text-muted-foreground" role="status" aria-atomic="true">
               RAG {health?.reachable ? 'reachable' : 'unreachable'}
@@ -105,7 +118,7 @@ export default function RagPipelinePage() {
               {' · '}Embeddings {health?.embeddingProviderConfigured ? 'configured' : 'missing'}
               {' · '}LLM {health?.llmProviderConfigured ? 'configured' : 'missing'}
             </p>
-            <dl className="grid grid-cols-1 sm:grid-cols-2 gap-2 text-[11px] font-mono text-muted-foreground">
+            <dl className="grid grid-cols-1 gap-2 font-mono text-[11px] text-muted-foreground sm:grid-cols-2">
               <div>Latest analysis: {pipeline.analysisStatus || 'none'}</div>
               <div>Analysis ID: {pipeline.evidenceAnalysisId || 'none'}</div>
               <div>Storage bucket: {health?.rustfsBucket || pipeline.storageHealth?.bucket || 'n/a'}</div>
@@ -114,32 +127,30 @@ export default function RagPipelinePage() {
             </dl>
           </section>
 
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+          <div className="grid grid-cols-2 gap-3 md:grid-cols-4">
             {[
-              ['Documents', totals.documents],
               ['Bytes stored', totals.bytes ?? 0],
               ['Pages', totals.pages ?? 0],
-              ['Chunks', totals.chunks],
-              ['Embeddings', totals.embedded],
               ['Vectors', totals.vectors ?? totals.embedded],
               ['Retrieved', totals.retrieved ?? totals.chunksSearched],
-              ['Evidence', totals.evidence],
-              ['Signals', totals.signals],
             ].map(([label, value]) => (
-              <div key={String(label)} className="p-4 rounded-xl bg-card border border-border">
-                <p className="text-[10px] font-mono uppercase text-muted-foreground">{label}</p>
-                <p className="text-xl font-extrabold font-mono text-foreground mt-1">{value}</p>
+              <div key={String(label)} className="rounded-xl border border-border bg-card p-4 shadow-[0_1px_0_0_rgba(13,20,36,0.8),0_8px_24px_-8px_rgba(0,0,0,0.35)]">
+                <p className="font-mono text-[10px] uppercase text-muted-foreground">{label}</p>
+                <p className="mt-1 font-mono text-xl font-extrabold text-foreground">{value}</p>
               </div>
             ))}
           </div>
 
           {Array.isArray(pipeline.documents) && pipeline.documents.length > 0 && (
-            <section className="p-6 rounded-2xl bg-card border border-border/80 space-y-3">
+            <section className="space-y-3 rounded-xl border border-border bg-card p-6 shadow-[0_1px_0_0_rgba(13,20,36,0.8),0_8px_24px_-8px_rgba(0,0,0,0.35)]">
               <h2 className="text-sm font-bold text-foreground">Documents</h2>
-              <ul className="space-y-3">
+              <ul className="space-y-2">
                 {pipeline.documents.map((doc: any) => (
-                  <li key={doc.document_id} className="text-xs font-mono text-muted-foreground border border-border rounded-xl p-3">
-                    <p className="text-foreground font-bold">{doc.filename}</p>
+                  <li
+                    key={doc.document_id}
+                    className="rounded-[10px] border border-border bg-surface-feed px-3.5 py-3 font-mono text-xs text-muted-foreground"
+                  >
+                    <p className="text-[13px] font-semibold text-foreground">{doc.filename}</p>
                     <p>
                       Type: {doc.document_type || 'PROJECT_DOC'} · Size: {doc.file_size} B · Storage: {doc.storage?.provider}
                       {doc.storage?.exists ? ' ✓' : ' missing'}
@@ -149,7 +160,7 @@ export default function RagPipelinePage() {
                     </p>
                     <p>Status: {doc.status}</p>
                     {doc.error_message && (
-                      <p role="alert" className="text-rose-400">Reason: {doc.error_message}</p>
+                      <p role="alert" className="text-destructive">Reason: {doc.error_message}</p>
                     )}
                   </li>
                 ))}

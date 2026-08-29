@@ -69,24 +69,22 @@ export default function EvidenceAskPage() {
   };
 
   return (
-    <div className="space-y-8 max-w-4xl mx-auto">
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-6 border-b border-border">
-        <div>
-          <div className="flex items-center gap-2">
-            <span className="text-xs font-mono font-bold uppercase tracking-wider text-primary">
-              Grounded Project RAG
-            </span>
-            <span className="px-2 py-0.5 rounded-full text-[10px] font-mono bg-cyan-500/10 text-cyan-400 border border-cyan-500/30">
-              Citation-Backed
-            </span>
-          </div>
-          <h1 className="text-2xl lg:text-3xl font-extrabold text-foreground tracking-tight mt-1">
+    <div className="mx-auto max-w-4xl space-y-6">
+      <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
+        <div className="space-y-1.5">
+          <p className="text-[11px] font-mono font-bold uppercase tracking-[0.66px] text-primary">
+            GROUNDED PROJECT RAG
+          </p>
+          <h1 className="text-2xl font-extrabold tracking-tight text-foreground lg:text-[28px]">
             Ask the Evidence Base
           </h1>
-          <p className="text-sm text-muted-foreground mt-0.5">
+          <p className="max-w-xl text-[13px] text-muted-foreground">
             Question uploaded project documents with hybrid retrieval. Answers stay grounded in citations or refuse when evidence is missing.
           </p>
         </div>
+        <span className="inline-flex h-fit rounded-full border border-info/30 bg-surface-feed px-2 py-0.5 font-mono text-[10px] text-info">
+          Citation-Backed
+        </span>
       </div>
 
       <form
@@ -94,12 +92,12 @@ export default function EvidenceAskPage() {
           e.preventDefault();
           ask(query);
         }}
-        className="p-6 rounded-2xl bg-card border border-border/80 shadow-lg space-y-3"
+        className="space-y-3 rounded-xl border border-border bg-card p-6 shadow-[0_1px_0_0_rgba(13,20,36,0.8),0_8px_24px_-8px_rgba(0,0,0,0.35)]"
       >
-        <label htmlFor="ask-query" className="text-xs font-bold uppercase tracking-wider text-muted-foreground block">
+        <label htmlFor="ask-query" className="block text-xs font-bold uppercase tracking-wider text-muted-foreground">
           Question against indexed project documents
         </label>
-        <div className="flex flex-col sm:flex-row items-center gap-3">
+        <div className="flex flex-col items-center gap-3 sm:flex-row">
           <input
             ref={inputRef}
             id="ask-query"
@@ -109,21 +107,21 @@ export default function EvidenceAskPage() {
             placeholder="e.g. What onboarding step causes the largest drop-off?"
             aria-invalid={Boolean(error)}
             aria-describedby={error ? 'ask-error' : undefined}
-            className="w-full px-4 py-3 rounded-xl bg-surface-feed border border-border text-foreground text-sm focus:outline-none focus-visible:ring-2 focus-visible:ring-primary focus:border-primary font-medium"
+            className="w-full rounded-[10px] border border-border bg-surface-feed px-4 py-3 text-sm font-medium text-foreground focus:border-primary focus:outline-none focus-visible:ring-2 focus-visible:ring-ring"
           />
           <button
             type="submit"
             disabled={isAsking || !query.trim()}
-            className="w-full sm:w-auto px-6 py-3 rounded-xl bg-primary hover:bg-primary-hover text-white text-xs font-bold tracking-wider uppercase transition-all cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2 shrink-0"
+            className="flex w-full shrink-0 cursor-pointer items-center justify-center gap-2 rounded-[10px] bg-primary px-6 py-3 text-xs font-bold uppercase tracking-wider text-primary-foreground shadow-[0_0_18px_-4px_rgba(255,122,0,0.35)] transition-colors hover:bg-primary-hover focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:cursor-not-allowed disabled:opacity-50 sm:w-auto"
           >
             {isAsking ? (
               <>
-                <Loader2 className="w-4 h-4 animate-spin" />
+                <Loader2 className="h-4 w-4 animate-spin motion-reduce:animate-none" aria-hidden="true" />
                 <span>Retrieving...</span>
               </>
             ) : (
               <>
-                <Sparkles className="w-4 h-4" />
+                <Sparkles className="h-4 w-4" aria-hidden="true" />
                 <span>Ask</span>
               </>
             )}
@@ -135,13 +133,13 @@ export default function EvidenceAskPage() {
             id="ask-error"
             role="alert"
             tabIndex={-1}
-            className="text-xs text-rose-400 font-medium focus:outline-none focus-visible:ring-2 focus-visible:ring-rose-400 rounded"
+            className="rounded text-xs font-medium text-destructive focus:outline-none focus-visible:ring-2 focus-visible:ring-destructive"
           >
             {error}
           </p>
         )}
         <div className="flex flex-wrap items-center gap-2 pt-1 text-xs">
-          <span className="text-muted-foreground text-[11px] font-mono">Suggested:</span>
+          <span className="font-mono text-[11px] text-muted-foreground">Suggested:</span>
           {SUGGESTED_QUESTIONS.map((text) => (
             <button
               key={text}
@@ -150,7 +148,7 @@ export default function EvidenceAskPage() {
                 setQuery(text);
                 ask(text);
               }}
-              className="px-2.5 py-1 rounded-lg bg-surface-feed hover:bg-card border border-border/70 text-muted-foreground hover:text-foreground text-[11px] font-mono transition-colors cursor-pointer"
+              className="cursor-pointer rounded-lg border border-border bg-surface-feed px-2.5 py-1 font-mono text-[11px] text-muted-foreground transition-colors hover:bg-card hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
             >
               {text}
             </button>
@@ -159,40 +157,43 @@ export default function EvidenceAskPage() {
       </form>
 
       {turns.length === 0 && !isAsking ? (
-        <div className="p-12 rounded-2xl bg-card border border-border text-center space-y-3">
-          <MessageSquare className="w-8 h-8 text-muted-foreground mx-auto opacity-60" aria-hidden="true" />
+        <div className="space-y-3 rounded-xl border border-border bg-card p-12 text-center shadow-[0_1px_0_0_rgba(13,20,36,0.8),0_8px_24px_-8px_rgba(0,0,0,0.35)]">
+          <MessageSquare className="mx-auto h-8 w-8 text-muted-foreground opacity-60" aria-hidden="true" />
           <h3 className="text-base font-bold text-foreground">No grounded answers yet</h3>
-          <p className="text-xs text-muted-foreground max-w-md mx-auto leading-relaxed">
+          <p className="mx-auto max-w-md text-xs leading-relaxed text-muted-foreground">
             Upload project documents, then ask a specific operational question. The engine will cite retrieved chunks or report that no evidence was found.
           </p>
           <Link
             href={`/projects/${projectId}/upload`}
-            className="inline-flex items-center gap-1.5 px-4 py-2 rounded-xl bg-primary hover:bg-primary-hover text-white text-xs font-bold cursor-pointer"
+            className="inline-flex cursor-pointer items-center gap-1.5 rounded-[10px] bg-primary px-4 py-2 text-xs font-bold text-primary-foreground shadow-[0_0_18px_-4px_rgba(255,122,0,0.35)] hover:bg-primary-hover focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
           >
             <span>Upload Evidence</span>
-            <ArrowRight className="w-3.5 h-3.5" />
+            <ArrowRight className="h-3.5 w-3.5" aria-hidden="true" />
           </Link>
         </div>
       ) : (
         <div className="space-y-4" aria-live="polite">
           {isAsking && turns.length === 0 && (
-            <div className="p-6 rounded-2xl bg-card border border-border/80 text-sm text-muted-foreground flex items-center gap-2">
-              <Loader2 className="w-4 h-4 animate-spin" />
+            <div className="flex items-center gap-2 rounded-xl border border-border bg-card p-6 text-sm text-muted-foreground">
+              <Loader2 className="h-4 w-4 animate-spin motion-reduce:animate-none" aria-hidden="true" />
               Retrieving grounded evidence...
             </div>
           )}
           {turns.map((turn) => (
-            <article key={turn.id} className="p-6 rounded-2xl bg-card border border-border/80 space-y-4">
-              <p className="text-xs font-mono font-bold uppercase tracking-wider text-primary">{turn.query}</p>
-              <p className="text-sm text-foreground leading-relaxed whitespace-pre-wrap">{turn.answer}</p>
-              <div className="flex flex-wrap items-center gap-2 pt-3 border-t border-border/50">
+            <article
+              key={turn.id}
+              className="space-y-4 rounded-xl border border-border bg-card p-6 shadow-[0_1px_0_0_rgba(13,20,36,0.8),0_8px_24px_-8px_rgba(0,0,0,0.35)]"
+            >
+              <p className="font-mono text-xs font-bold uppercase tracking-wider text-primary">{turn.query}</p>
+              <p className="whitespace-pre-wrap text-sm leading-relaxed text-foreground">{turn.answer}</p>
+              <div className="flex flex-wrap items-center gap-2 border-t border-border/50 pt-3">
                 {turn.evidenceState && (
-                  <span className="px-2 py-0.5 rounded text-[10px] font-mono bg-surface-feed border border-border text-muted-foreground">
+                  <span className="rounded border border-border bg-surface-feed px-2 py-0.5 font-mono text-[10px] text-muted-foreground">
                     {turn.evidenceState}
                   </span>
                 )}
                 {turn.domainState && (
-                  <span className="px-2 py-0.5 rounded text-[10px] font-mono bg-surface-feed border border-border text-muted-foreground">
+                  <span className="rounded border border-border bg-surface-feed px-2 py-0.5 font-mono text-[10px] text-muted-foreground">
                     {turn.domainState}
                   </span>
                 )}
@@ -203,9 +204,9 @@ export default function EvidenceAskPage() {
                     <Link
                       key={`${c.documentId || c.filename || idx}`}
                       href={`/projects/${projectId}/evidence`}
-                      className="inline-flex items-center gap-1 px-2 py-0.5 rounded text-[11px] font-mono bg-surface-feed border border-border text-primary hover:border-primary/50 cursor-pointer"
+                      className="inline-flex cursor-pointer items-center gap-1 rounded border border-border bg-surface-feed px-2 py-0.5 font-mono text-[11px] text-primary hover:border-primary/50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
                     >
-                      <FileText className="w-3 h-3" aria-hidden="true" />
+                      <FileText className="h-3 w-3" aria-hidden="true" />
                       {c.filename || 'Source document'}
                     </Link>
                   ))
@@ -214,7 +215,7 @@ export default function EvidenceAskPage() {
               {turn.hits.length > 0 && (
                 <ul className="space-y-2">
                   {turn.hits.slice(0, 4).map((hit) => (
-                    <li key={hit.id} className="text-xs text-muted-foreground leading-relaxed border-l-2 border-primary/30 pl-3">
+                    <li key={hit.id} className="border-l-2 border-primary/30 pl-3 text-xs leading-relaxed text-muted-foreground">
                       <span className="font-mono text-[10px] text-foreground">{hit.filename}</span>
                       {hit.location ? <span className="ml-2">{hit.location}</span> : null}
                       {hit.snippet ? <p className="mt-1 text-muted-foreground">{hit.snippet}</p> : null}

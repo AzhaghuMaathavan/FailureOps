@@ -1,11 +1,16 @@
 'use client';
 
-import React, { useState, useEffect } from 'react';
+import React, { useEffect, useState } from 'react';
 import Link from 'next/link';
-import { Search, Database, FileSearch, FolderKanban, ArrowRight, Filter, Loader2 } from 'lucide-react';
+import { Search, FileSearch, FolderKanban, ArrowRight, Filter, Loader2, Database } from 'lucide-react';
 import { PrivacyBadge } from '@/components/common/PrivacyBadge';
-import { AppSidebar } from '@/components/layout/AppSidebar';
-import { TopHeader } from '@/components/layout/TopHeader';
+import {
+  OrgInsightCard,
+  OrgMetricCard,
+  OrgPageHeader,
+  OrgShell,
+  orgSecondaryBtnClass,
+} from '@/components/layout/OrgShell';
 import { apiClient, isRagUnavailable } from '@/lib/api/client';
 import { useApp } from '@/context/AppContext';
 
@@ -13,6 +18,7 @@ export default function GlobalSearchPage() {
   const { project } = useApp();
   const [query, setQuery] = useState('');
   const [selectedFilter, setSelectedFilter] = useState('ALL');
+  const [filtersOpen, setFiltersOpen] = useState(false);
   const [cases, setCases] = useState<any[]>([]);
   const [memoryMatches, setMemoryMatches] = useState<any[]>([]);
   const [evidenceHits, setEvidenceHits] = useState<any[]>([]);
@@ -33,8 +39,9 @@ export default function GlobalSearchPage() {
     setIsLoading(true);
     setSearchError(null);
     const timeout = setTimeout(() => {
-      apiClient.search(query, selectedFilter, project.id)
-        .then(res => {
+      apiClient
+        .search(query, selectedFilter, project.id)
+        .then((res) => {
           if (mounted) {
             setCases(res?.historicalMatches || []);
             setMemoryMatches(res?.organizationalMemoryMatches || []);
@@ -61,218 +68,196 @@ export default function GlobalSearchPage() {
     };
   }, [query, selectedFilter, project.id]);
 
+  const totalHits = cases.length + evidenceHits.length + memoryMatches.length + projectMatches.length;
+  const hasResults = totalHits > 0;
 
   return (
-    <div className="min-h-screen flex w-full bg-background text-foreground">
-      <AppSidebar />
-      <div className="flex-1 flex flex-col min-w-0 overflow-hidden">
-        <TopHeader />
-        <main className="flex-1 overflow-y-auto p-4 sm:p-6 lg:p-8 space-y-8 max-w-6xl mx-auto w-full">
-          {/* Header */}
-          <div className="pb-6 border-b border-border">
-            <div className="flex items-center gap-2">
-              <span className="text-xs font-mono font-bold uppercase tracking-wider text-primary">
-                Enterprise Vector Search
-              </span>
-              <span className="px-2.5 py-0.5 rounded-full text-xs font-mono bg-purple-500/10 text-purple-400 border border-purple-500/30">
-                Cross-Case Intelligence
-              </span>
-            </div>
-            <h1 className="text-2xl lg:text-3xl font-extrabold text-foreground tracking-tight mt-1">
-              Global Failure & Pattern Search
-            </h1>
-            <p className="text-sm text-muted-foreground mt-0.5">
-              Search across products, failure patterns, empirical evidence citations, experiments, and organizational memory.
+    <OrgShell>
+      <OrgPageHeader
+        eyebrow="Global index"
+        title="Search"
+        description="Jump to patterns, evidence, DNA archetypes, and historical twins."
+        action={
+          <button
+            type="button"
+            className={orgSecondaryBtnClass}
+            aria-expanded={filtersOpen}
+            onClick={() => setFiltersOpen((open) => !open)}
+          >
+            <Filter className="h-3.5 w-3.5" aria-hidden="true" />
+            {filtersOpen ? 'Hide filters' : 'Open filters'}
+          </button>
+        }
+      />
+
+      <div className="grid grid-cols-2 gap-2 md:hidden">
+        <OrgMetricCard label="Hits" value={isLoading ? '…' : String(totalHits)} hint="All matches" valueClassName="text-info" />
+        <OrgMetricCard label="Twins" value={isLoading ? '…' : String(cases.length)} hint="Historical" valueClassName="text-success" />
+        <OrgMetricCard label="PRD" value={isLoading ? '…' : String(evidenceHits.length)} hint="Evidence" valueClassName="text-primary" />
+        <OrgMetricCard label="DNA" value={isLoading ? '…' : String(memoryMatches.length)} hint="Learnings" valueClassName="text-magic" />
+      </div>
+
+      <div className="space-y-3">
+        <div className="relative w-full">
+          <Search className="pointer-events-none absolute left-4 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" aria-hidden="true" />
+          <label htmlFor="global-search-input" className="sr-only">
+            Search patterns, evidence, and cases
+          </label>
+          <input
+            id="global-search-input"
+            type="search"
+            value={query}
+            onChange={(e) => setQuery(e.target.value)}
+            placeholder="activation collapse  ·  checkout  ·  onboarding"
+            className="w-full rounded-xl border border-primary bg-surface-feed py-3.5 pl-11 pr-16 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+          />
+          <kbd className="pointer-events-none absolute right-3 top-1/2 hidden -translate-y-1/2 rounded bg-card px-1.5 py-0.5 font-mono text-[10px] text-muted-foreground sm:inline-flex">
+            ⌘K
+          </kbd>
+        </div>
+
+        {filtersOpen && (
+          <div className="flex items-center gap-2 overflow-x-auto text-xs font-mono text-muted-foreground">
+            {FILTERS.map((f) => (
+              <button
+                key={f.value}
+                type="button"
+                aria-pressed={selectedFilter === f.value}
+                onClick={() => setSelectedFilter(f.value)}
+                className={`cursor-pointer rounded-lg px-3 py-2 transition-colors duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring motion-reduce:transition-none ${
+                  selectedFilter === f.value
+                    ? 'bg-primary font-bold text-primary-foreground'
+                    : 'border border-border bg-surface-feed hover:bg-card-hover'
+                }`}
+              >
+                {f.label}
+              </button>
+            ))}
+          </div>
+        )}
+      </div>
+
+      {searchError && (
+        <div role="alert" className="rounded-xl border border-destructive/30 bg-destructive/10 p-4 font-mono text-xs text-destructive">
+          {searchError}
+        </div>
+      )}
+
+      <div className="space-y-4">
+        <h2 className="text-xs font-bold uppercase tracking-wider text-muted-foreground">
+          {query ? `Top vector matches for “${query}”` : 'Indexed historical cases & learnings'}
+        </h2>
+
+        {isLoading ? (
+          <div className="flex items-center justify-center gap-3 rounded-[14px] border border-border bg-card p-16 font-mono text-sm text-muted-foreground">
+            <Loader2 className="h-5 w-5 animate-spin text-primary motion-reduce:animate-none" aria-hidden="true" />
+            <span>Searching vector knowledge base...</span>
+          </div>
+        ) : !hasResults ? (
+          <div className="space-y-2 rounded-[14px] border border-border bg-card p-12 text-center">
+            <Database className="mx-auto h-8 w-8 text-muted-foreground opacity-60" aria-hidden="true" />
+            <h3 className="text-base font-bold text-foreground">No matching records found</h3>
+            <p className="mx-auto max-w-md text-xs leading-relaxed text-muted-foreground">
+              Upload project documents and run analysis, then search again. Try “onboarding friction”, “checkout drop”, or “CI failure”.
             </p>
           </div>
-
-          {/* Search Input */}
-          <div className="p-4 rounded-2xl bg-card border border-border shadow-md space-y-3">
-            <div className="relative w-full">
-              <Search className="pointer-events-none absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
-              <input
-                id="global-search-input"
-                type="search"
-                value={query}
-                onChange={e => setQuery(e.target.value)}
-                placeholder="Search products, failure patterns, interventions (e.g., 'onboarding friction', 'CI failure')..."
-                className="w-full pl-11 pr-16 py-3 rounded-xl bg-surface-feed border border-border text-foreground text-sm focus:outline-none focus-visible:ring-2 focus-visible:ring-primary focus:border-primary font-medium"
-              />
-              <kbd className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 hidden sm:inline-flex px-1.5 py-0.5 rounded bg-card border border-border text-[10px] font-mono text-muted-foreground">
-                ⌘K
-              </kbd>
-            </div>
-
-            <div className="flex items-center gap-2 overflow-x-auto text-xs font-mono text-muted-foreground">
-              <Filter className="w-3.5 h-3.5 mr-1" />
-              {FILTERS.map(f => (
-                <button
-                  key={f.value}
-                  onClick={() => setSelectedFilter(f.value)}
-                  className={`px-3 py-1 rounded-lg transition-all cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary ${
-                    selectedFilter === f.value
-                      ? 'bg-primary text-white font-bold'
-                      : 'bg-surface-feed border border-border hover:bg-card-hover'
-                  }`}
-                >
-                  {f.label}
-                </button>
-              ))}
-            </div>
-          </div>
-
-          {searchError && (
-            <div role="alert" className="p-4 rounded-xl bg-rose-500/10 border border-rose-500/30 text-rose-300 text-xs font-mono">
-              {searchError}
-            </div>
-          )}
-
-          {/* Search Results */}
-          <div className="space-y-4">
-            <h3 className="text-xs font-bold uppercase tracking-wider text-muted-foreground">
-              {query ? `Top Vector Matches for "${query}"` : 'Indexed Historical Cases & Learnings'}
-            </h3>
-
-            {isLoading ? (
-              <div className="p-16 rounded-2xl bg-card border border-border flex items-center justify-center">
-                <div className="flex items-center gap-3 text-muted-foreground font-mono text-sm">
-                  <Loader2 className="w-5 h-5 text-primary animate-spin" />
-                  <span>Searching vector knowledge base...</span>
+        ) : (
+          <div className="space-y-8">
+            {evidenceHits.length > 0 && (
+              <section className="space-y-3">
+                <h3 className="flex items-center gap-2 font-mono text-xs font-bold uppercase tracking-wider text-info">
+                  <FileSearch className="h-3.5 w-3.5" aria-hidden="true" />
+                  Evidence hit ({evidenceHits.length})
+                </h3>
+                <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
+                  {evidenceHits.map((hit) => (
+                    <OrgInsightCard
+                      key={hit.id}
+                      href={`/projects/${hit.projectId || project.id}/evidence${hit.id ? `#${hit.id}` : ''}`}
+                      title={hit.filename || 'Evidence hit'}
+                      body={hit.snippet || hit.location || 'Cited in live signals.'}
+                    />
+                  ))}
                 </div>
-              </div>
-            ) : cases.length === 0 && evidenceHits.length === 0 && memoryMatches.length === 0 && projectMatches.length === 0 ? (
-              <div className="p-12 rounded-2xl bg-card border border-border text-center space-y-2">
-                <Database className="w-8 h-8 text-muted-foreground mx-auto opacity-60" />
-                <h3 className="text-base font-bold text-foreground">No Matching Records Found</h3>
-                <p className="text-xs text-muted-foreground max-w-md mx-auto leading-relaxed">
-                  Upload project documents and run analysis, then search again for grounded evidence citations.
-                </p>
-              </div>
-            ) : (
-              <div className="space-y-8">
-                {evidenceHits.length > 0 && (
-                  <section className="space-y-3">
-                    <h4 className="text-xs font-mono font-bold uppercase tracking-wider text-cyan-400 flex items-center gap-2">
-                      <FileSearch className="w-3.5 h-3.5" />
-                      Retrieved Evidence ({evidenceHits.length})
-                    </h4>
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                      {evidenceHits.map((hit) => (
-                        <Link
-                          key={hit.id}
-                          href={`/projects/${hit.projectId || project.id}/evidence${hit.id ? `#${hit.id}` : ''}`}
-                          className="p-5 rounded-2xl bg-card border border-border/80 hover:border-cyan-500/40 transition-all block"
-                        >
-                          <div className="flex items-center justify-between gap-3 pb-2 border-b border-border/60">
-                            <span className="text-xs font-bold text-foreground truncate">{hit.filename}</span>
-                            {hit.location && (
-                              <span className="text-[10px] font-mono text-muted-foreground shrink-0">{hit.location}</span>
-                            )}
-                          </div>
-                          <p className="mt-3 text-xs text-muted-foreground leading-relaxed line-clamp-4">
-                            {hit.snippet}
-                          </p>
-                        </Link>
-                      ))}
-                    </div>
-                  </section>
-                )}
+              </section>
+            )}
 
-                {projectMatches.length > 0 && (
-                  <section className="space-y-3">
-                    <h4 className="text-xs font-mono font-bold uppercase tracking-wider text-primary flex items-center gap-2">
-                      <FolderKanban className="w-3.5 h-3.5" />
-                      Active Projects ({projectMatches.length})
-                    </h4>
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                      {projectMatches.map((p) => (
-                        <Link
-                          key={p.id}
-                          href={`/projects/${p.id}/overview`}
-                          className="p-5 rounded-2xl bg-card border border-border/80 hover:border-primary/50 transition-all group"
-                        >
-                          <div className="flex items-center justify-between">
-                            <h4 className="text-sm font-bold text-foreground group-hover:text-primary">{p.name}</h4>
-                            <span className="text-[10px] font-mono text-muted-foreground">{p.health || 'WATCH'}</span>
-                          </div>
-                          <p className="mt-2 text-xs text-muted-foreground line-clamp-2">{p.description}</p>
-                        </Link>
-                      ))}
-                    </div>
-                  </section>
-                )}
+            {projectMatches.length > 0 && (
+              <section className="space-y-3">
+                <h3 className="flex items-center gap-2 font-mono text-xs font-bold uppercase tracking-wider text-primary">
+                  <FolderKanban className="h-3.5 w-3.5" aria-hidden="true" />
+                  Active projects ({projectMatches.length})
+                </h3>
+                <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
+                  {projectMatches.map((p) => (
+                    <OrgInsightCard
+                      key={p.id}
+                      href={`/projects/${p.id}/overview`}
+                      title={p.name}
+                      body={p.description || p.health || 'Active enclave project.'}
+                    />
+                  ))}
+                </div>
+              </section>
+            )}
 
-                {cases.length > 0 && (
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
-                    {cases.map(c => (
-                      <Link
-                        key={c.id}
-                        href={`/historical/${c.id}`}
-                        className="p-6 rounded-2xl bg-card border border-border/80 hover:border-primary/50 transition-all group shadow-sm flex flex-col justify-between"
-                      >
-                        <div className="space-y-3">
-                          <div className="flex items-center justify-between pb-3 border-b border-border/60">
-                            <span className="text-xs font-mono font-bold text-muted-foreground">{c.name}</span>
-                            <div className="flex items-center gap-2">
-                              <PrivacyBadge level={c.privacyLevel} />
-                              <span className="px-2 py-0.5 rounded text-xs font-mono font-bold bg-purple-500/10 text-purple-400 border border-purple-500/30">
-                                {c.similarity}% Match
-                              </span>
-                            </div>
-                          </div>
-
-                          <h4 className="text-base font-bold text-foreground group-hover:text-primary transition-colors">
-                            {c.companyAlias}
-                          </h4>
-                          <p className="text-xs text-muted-foreground leading-relaxed">
-                            {c.productDescription}
-                          </p>
-
-                          <div className="p-3 rounded-xl bg-surface-feed/70 border border-border/60 text-xs">
-                            <span className="text-[10px] font-mono text-rose-400 uppercase font-bold block mb-0.5">
-                              Failure Pattern:
+            {cases.length > 0 && (
+              <section className="space-y-3">
+                <h3 className="font-mono text-xs font-bold uppercase tracking-wider text-magic">
+                  Pattern hit ({cases.length})
+                </h3>
+                <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
+                  {cases.map((c) => (
+                    <Link
+                      key={c.id}
+                      href={`/historical/${c.id}`}
+                      className="group flex cursor-pointer flex-col justify-between rounded-[14px] border border-border bg-card p-[18px] shadow-[0_1px_0_0_rgba(13,20,36,0.45),0_8px_24px_-8px_rgba(0,0,0,0.35)] transition-colors duration-200 hover:border-primary/50 hover:bg-card-hover focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring motion-reduce:transition-none"
+                    >
+                      <div className="space-y-3">
+                        <div className="flex items-center justify-between gap-2 border-b border-border/60 pb-3">
+                          <span className="font-mono text-xs font-bold text-muted-foreground">{c.name}</span>
+                          <div className="flex items-center gap-2">
+                            <PrivacyBadge level={c.privacyLevel} />
+                            <span className="rounded border border-magic/30 bg-magic/10 px-2 py-0.5 font-mono text-xs font-bold text-magic">
+                              {c.similarity}% Match
                             </span>
-                            <p className="font-semibold text-foreground">{c.primaryFailurePattern}</p>
-                          </div>
-
-                          <div className="p-3 rounded-xl bg-emerald-500/5 border border-emerald-500/20 text-xs">
-                            <span className="text-[10px] font-mono text-emerald-400 uppercase font-bold block mb-0.5">
-                              Historical Outcome:
-                            </span>
-                            <p className="text-muted-foreground">{c.interventionOutcome}</p>
                           </div>
                         </div>
+                        <h4 className="text-sm font-semibold text-foreground">{c.companyAlias}</h4>
+                        <p className="text-xs leading-relaxed text-muted-foreground">
+                          {c.primaryFailurePattern || c.productDescription}
+                        </p>
+                      </div>
+                      <div className="mt-5 flex items-center justify-between border-t border-border/50 pt-3 text-xs font-semibold text-primary">
+                        <span>Inspect full historical case</span>
+                        <ArrowRight className="h-3.5 w-3.5 transition-transform group-hover:translate-x-1 motion-reduce:transform-none" aria-hidden="true" />
+                      </div>
+                    </Link>
+                  ))}
+                </div>
+              </section>
+            )}
 
-                        <div className="mt-5 pt-3 border-t border-border/50 flex items-center justify-between text-xs text-primary font-semibold">
-                          <span>Inspect Full Historical Case Study</span>
-                          <ArrowRight className="w-3.5 h-3.5 group-hover:translate-x-1 transition-transform" />
-                        </div>
-                      </Link>
-                    ))}
-                  </div>
-                )}
-
-                {memoryMatches.length > 0 && (
-                  <section className="space-y-3">
-                    <h4 className="text-xs font-mono font-bold uppercase tracking-wider text-emerald-400">
-                      Organizational Memory ({memoryMatches.length})
-                    </h4>
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                          {memoryMatches.map((m: any, idx: number) => (
-                        <Link key={m.id || idx} href="/memory" className="p-5 rounded-2xl bg-card border border-border/80 hover:border-emerald-500/40 transition-all block">
-                          <h4 className="text-sm font-bold text-foreground">{m.pattern}</h4>
-                          <p className="mt-2 text-xs text-muted-foreground leading-relaxed">{m.intervention || m.outcome}</p>
-                        </Link>
-                      ))}
-                    </div>
-                  </section>
-                )}
-              </div>
+            {memoryMatches.length > 0 && (
+              <section className="space-y-3">
+                <h3 className="font-mono text-xs font-bold uppercase tracking-wider text-success">
+                  Organizational memory ({memoryMatches.length})
+                </h3>
+                <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
+                  {memoryMatches.map((m: any, idx: number) => (
+                    <OrgInsightCard
+                      key={m.id || idx}
+                      href="/memory"
+                      title={m.pattern || 'Learning'}
+                      body={m.intervention || m.outcome || 'Verified organizational learning.'}
+                    />
+                  ))}
+                </div>
+              </section>
             )}
           </div>
-        </main>
+        )}
       </div>
-    </div>
+    </OrgShell>
   );
 }
-
