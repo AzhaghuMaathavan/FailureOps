@@ -74,3 +74,72 @@ export async function POST(req: NextRequest) {
   }
 }
 
+export async function GET(req: NextRequest) {
+  try {
+    const session = requireAuth(req);
+    const rate = checkRateLimit(req, 'general');
+    if (!rate.success) return apiRateLimitExceeded(rate.resetSeconds);
+
+    const { searchParams } = new URL(req.url);
+    const projectId = searchParams.get('projectId') || 'aurora';
+
+    const resp = await fetch(
+      `${serverConfig.ragInternalUrl}/api/v1/projects/${encodeURIComponent(projectId)}/documents`,
+      {
+        headers: {
+          'x-organization-id': session.organizationId,
+          'x-user-id': session.userId,
+        },
+        cache: 'no-store',
+      }
+    );
+
+    if (!resp.ok) {
+      return apiSuccess([]);
+    }
+
+    const docs = await resp.json();
+    return apiSuccess(docs);
+  } catch (error) {
+    return apiError(error, 'Failed to retrieve project documents.');
+  }
+}
+
+export async function DELETE(req: NextRequest) {
+  try {
+    const session = requireAuth(req);
+    const rate = checkRateLimit(req, 'general');
+    if (!rate.success) return apiRateLimitExceeded(rate.resetSeconds);
+
+    const { searchParams } = new URL(req.url);
+    const projectId = searchParams.get('projectId');
+    const documentId = searchParams.get('documentId');
+
+    if (!projectId || !documentId) {
+      throw new Error('projectId and documentId parameters are required');
+    }
+
+    const resp = await fetch(
+      `${serverConfig.ragInternalUrl}/api/v1/projects/${encodeURIComponent(projectId)}/documents/${encodeURIComponent(documentId)}`,
+      {
+        method: 'DELETE',
+        headers: {
+          'x-organization-id': session.organizationId,
+          'x-user-id': session.userId,
+        },
+      }
+    );
+
+    if (!resp.ok) {
+      const err = await resp.text();
+      throw new Error(`Failed to delete document (${resp.status}): ${err}`);
+    }
+
+    const result = await resp.json();
+    return apiSuccess(result);
+  } catch (error) {
+    return apiError(error, 'Failed to delete project document.');
+  }
+}
+
+

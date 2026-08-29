@@ -111,12 +111,23 @@ export const apiClient = {
     return body.data;
   },
 
+  async listDocuments(projectId: string = 'aurora'): Promise<any[]> {
+    return request<any[]>(`/api/evidence/upload?projectId=${encodeURIComponent(projectId)}`);
+  },
+
+  async deleteDocument(projectId: string, documentId: string): Promise<any> {
+    return request<any>(`/api/evidence/upload?projectId=${encodeURIComponent(projectId)}&documentId=${encodeURIComponent(documentId)}`, {
+      method: 'DELETE',
+    });
+  },
+
   async uploadEvidenceMetadata(input: EvidenceUploadInput) {
     return request('/api/evidence/upload', {
       method: 'POST',
       body: JSON.stringify(input),
     });
   },
+
 
   // Signals
   async getSignals(projectId: string = 'aurora', analysisId?: string): Promise<Signal[]> {

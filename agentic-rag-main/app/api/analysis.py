@@ -724,9 +724,42 @@ def list_project_documents(
     ]
 
 
+@router.delete("/projects/{project_id}/documents/{document_id}")
+def delete_project_document(
+    project_id: str,
+    document_id: str,
+    org_id: str = Depends(get_tenant_context),
+    db: Session = Depends(get_db)
+):
+    """
+    Deletes a project document, associated chunks, and original file with tenant isolation.
+    """
+    doc = db.query(Document).filter(
+        Document.organization_id == org_id,
+        Document.project_id == project_id,
+        Document.id == document_id
+    ).first()
+    if not doc:
+        raise HTTPException(status_code=404, detail="Document not found or unauthorized")
+
+    # Delete related chunks
+    db.query(Chunk).filter(Chunk.document_id == doc.id).delete()
+    db.delete(doc)
+    db.commit()
+
+    if doc.original_path and os.path.exists(doc.original_path):
+        try:
+            os.remove(doc.original_path)
+        except Exception:
+            pass
+
+    return {"status": "DELETED", "document_id": document_id, "project_id": project_id}
+
+
 # ==========================================
 # MEMBER 4 — DECISION & ACTION ENDPOINTS
 # ==========================================
+
 
 @router.get("/projects/{project_id}/interventions", response_model=Dict[str, Any])
 def get_project_interventions(

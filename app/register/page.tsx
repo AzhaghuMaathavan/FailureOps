@@ -25,35 +25,24 @@ export default function RegisterProductPage() {
   const [step, setStep] = useState<number>(1);
 
   // Form State
-  const [productName, setProductName] = useState('ExpenseTracker');
-  const [companyName, setCompanyName] = useState('Aurora Technologies');
-  const [description, setDescription] = useState('Expense management & corporate card intelligence platform for fast-scaling SMBs.');
-  const [industry, setIndustry] = useState('FinTech');
+  const [productName, setProductName] = useState('');
+  const [companyName, setCompanyName] = useState('');
+  const [description, setDescription] = useState('');
+  const [industry, setIndustry] = useState('Enterprise SaaS');
   const [stage, setStage] = useState('Beta');
-  const [targetUsers, setTargetUsers] = useState('SMB Finance Managers & Operations Leads');
-  const [expectedLaunchDate, setExpectedLaunchDate] = useState('2026-10-15');
+  const [targetUsers, setTargetUsers] = useState('');
+  const [expectedLaunchDate, setExpectedLaunchDate] = useState('');
 
   const [selectedSources, setSelectedSources] = useState<EvidenceSourceType[]>([
     'PRODUCT_PLAN',
     'CUSTOMER_FEEDBACK',
     'PRODUCT_METRICS',
-    'ENGINEERING_METRICS',
-    'TEAM_OPERATIONS',
   ]);
 
   const [privacyLevel, setPrivacyLevel] = useState<PrivacyLevel>('PRIVATE');
 
-  const handlePreFillAurora = () => {
-    setProductName('ExpenseTracker');
-    setCompanyName('Aurora Technologies');
-    setDescription('Expense management & corporate card intelligence platform for fast-scaling SMBs.');
-    setIndustry('FinTech');
-    setStage('Beta');
-    setTargetUsers('SMB Finance Managers & Operations Leads');
-    setExpectedLaunchDate('2026-10-15');
-  };
-
   const toggleSource = (source: EvidenceSourceType) => {
+
     if (selectedSources.includes(source)) {
       setSelectedSources(selectedSources.filter(s => s !== source));
     } else {
@@ -143,18 +132,12 @@ export default function RegisterProductPage() {
         </Link>
 
         <div className="flex items-center gap-4 text-xs">
-          <button
-            onClick={handlePreFillAurora}
-            className="hidden sm:inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-primary/10 border border-primary/30 text-primary font-mono text-xs font-bold hover:bg-primary/20 transition-colors"
-          >
-            <Sparkles className="w-3.5 h-3.5" />
-            <span>Pre-fill Project Aurora Demo</span>
-          </button>
           <Link href="/dashboard" className="text-muted-foreground hover:text-foreground">
             Cancel
           </Link>
         </div>
       </header>
+
 
       {/* Main Registration Content */}
       <main className="flex-1 max-w-3xl mx-auto w-full px-6 py-12 space-y-8">

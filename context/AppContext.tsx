@@ -33,28 +33,21 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     stage: 'Beta',
     targetUsers: 'SMB Finance Managers & Operations Leads',
     expectedLaunchDate: '2026-10-15',
-    health: 'AT_RISK',
-    failureRisk: 82,
-    riskTrend: '+24% over 4 weeks',
-    predictedNextFailure: 'Missed Beta Release',
-    predictionConfidence: 86,
-    historicalSimilarity: 89,
+    health: 'HEALTHY',
+    failureRisk: 0,
+    riskTrend: 'Baseline',
+    predictedNextFailure: 'Awaiting Analysis',
+    predictionConfidence: 0,
+    historicalSimilarity: 0,
     privacyLevel: 'PRIVATE',
-    sourcesUploaded: ['PRODUCT_PLAN', 'CUSTOMER_FEEDBACK', 'PRODUCT_METRICS', 'ENGINEERING_METRICS', 'TEAM_OPERATIONS'],
-    lastAnalyzedAt: 'Recently',
-    activeFailureSeedsCount: 4,
+    sourcesUploaded: [],
+    lastAnalyzedAt: 'Never',
+    activeFailureSeedsCount: 0,
   });
 
-  const [uploadedFiles, setUploadedFiles] = useState<Record<EvidenceSourceType, string[]>>({
-    PRODUCT_PLAN: ['Product Plan.txt'],
-    CUSTOMER_FEEDBACK: ['Customer Survey.csv'],
-    PRODUCT_METRICS: ['Analytics Report.txt'],
-    ENGINEERING_METRICS: ['Incident Report.txt'],
-    TEAM_OPERATIONS: ['Meeting Notes.txt'],
-    INCIDENT_REPORTS: ['Incident Report.txt'],
-  });
+  const [uploadedFiles, setUploadedFiles] = useState<Record<EvidenceSourceType, string[]>>({} as any);
+  const [analysisCompleted, setAnalysisCompleted] = useState<boolean>(false);
 
-  const [analysisCompleted, setAnalysisCompleted] = useState<boolean>(true);
   const [signals, setSignals] = useState<Signal[]>([]);
   const [experiment, setExperiment] = useState<Experiment>({
     id: 'exp_ci_stabilize',
