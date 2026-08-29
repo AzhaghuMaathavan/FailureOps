@@ -19,7 +19,7 @@ def parse_docx_to_blocks(file_path: str, doc_id: str, db):
     db_page = Page(
         id=page_id,
         document_id=doc_id,
-        page_number=0,
+        page_number=1,
         image_path="",
         status="COMPLETED"
     )

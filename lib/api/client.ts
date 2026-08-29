@@ -191,6 +191,56 @@ export const apiClient = {
     }>(`/api/analysis/status?jobId=${encodeURIComponent(jobId)}&projectId=${encodeURIComponent(projectId)}`);
   },
 
+  async getBackendHealth() {
+    return request<{
+      status: string;
+      service?: string;
+      backend?: { reachable: boolean; status?: string };
+    }>('/api/health');
+  },
+
+  async getDatabaseHealth() {
+    return request<{
+      status: string;
+      database: string;
+      pgvector?: boolean;
+    }>('/api/health/db');
+  },
+
+  async listFoundationDocuments(projectId: string = 'aurora') {
+    return request<any[]>(`/api/documents?projectId=${encodeURIComponent(projectId)}`);
+  },
+
+  async uploadFoundationDocument(projectId: string, file: File, sync: boolean = false) {
+    const formData = new FormData();
+    formData.append('file', file, file.name);
+    formData.append('projectId', projectId);
+    formData.append('project_id', projectId);
+    formData.append('sync', sync ? 'true' : 'false');
+    const response = await fetch('/api/documents/upload', {
+      method: 'POST',
+      body: formData,
+    });
+    const body = await response.json().catch(() => ({ success: false, message: 'Upload parse error' }));
+    if (!response.ok || !body.success) {
+      throw new ApiError(body.message || 'File upload failed', response.status);
+    }
+    return body.data;
+  },
+
+  async queryRag(projectId: string, query: string) {
+    return request<{
+      answer: string;
+      sources: { document?: string; page?: number | null; chunk_id?: string }[];
+      evidenceState?: string;
+      domainState?: string;
+      projectId: string;
+    }>('/api/rag/query', {
+      method: 'POST',
+      body: JSON.stringify({ project_id: projectId, query }),
+    });
+  },
+
   async getRagHealth() {
     return request<{
       reachable: boolean;

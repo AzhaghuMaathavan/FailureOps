@@ -6,21 +6,23 @@ import { getServerSession } from '@/lib/server/auth';
 import { serverConfig } from '@/lib/server/config';
 
 export async function GET(req: NextRequest) {
-  let rag: { reachable: boolean; status?: string } = { reachable: false };
+  let backend: { reachable: boolean; status?: string } = { reachable: false };
   try {
-    const health = await ragFetch<any>('/api/v1/health', getServerSession(req));
-    rag = { reachable: true, status: health.status };
+    const health = await ragFetch<{ status?: string }>('/health', getServerSession(req));
+    backend = { reachable: true, status: health.status || 'ok' };
   } catch (error) {
-    rag = {
+    backend = {
       reachable: false,
       status: error instanceof RagUnreachableError ? 'unreachable' : 'error',
     };
   }
 
+  const overall = backend.reachable && backend.status === 'ok' ? 'ok' : 'degraded';
+
   return apiSuccess({
-    status: 'ok',
+    status: overall,
     service: 'FailureOps',
-    ragInternalUrlConfigured: Boolean(serverConfig.ragInternalUrl),
-    rag,
+    backendUrlConfigured: Boolean(serverConfig.backendInternalUrl),
+    backend,
   });
 }

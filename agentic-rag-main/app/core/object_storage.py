@@ -120,8 +120,9 @@ def upload_object(
     document_id: str,
     filename: str,
     content_type: str = "application/octet-stream",
+    provider: Optional[str] = None,
 ) -> StoredObject:
-    provider = storage_provider()
+    provider = (provider or storage_provider()).strip().lower()
     key = object_key(project_id, document_id, filename)
     checksum = sha256_hex(content)
     size = len(content)

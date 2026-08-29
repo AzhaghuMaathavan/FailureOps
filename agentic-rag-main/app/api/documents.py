@@ -11,6 +11,8 @@ from app.core.storage import persist_upload, document_storage_fields, merge_stor
 from app.core.object_storage import delete_object
 from app.services.document_service import process_document
 from app.services.embedding_service import generate_embeddings
+from app.services.ingest_service import ingest_upload
+from app.core.tenant import get_tenant_context
 
 router = APIRouter()
 
@@ -53,6 +55,7 @@ import json
 async def upload_document(
     background_tasks: BackgroundTasks,
     file: UploadFile = File(...),
+    project_id: str = Form("aurora"),
     title: str = Form(None),
     document_type: str = Form(None),
     department: str = Form(None),
@@ -67,61 +70,22 @@ async def upload_document(
     effective_until: str = Form(None),
     version: str = Form(None),
     priority: int = Form(1),
+    sync: str = Form("false"),
+    org_id: str = Depends(get_tenant_context),
     db: Session = Depends(get_db)
 ):
-    allowed_extensions = {".pdf", ".docx", ".pptx", ".xlsx", ".csv", ".txt", ".md"}
-    ext = os.path.splitext(file.filename)[1].lower()
-
-    if ext not in allowed_extensions:
-        raise HTTPException(status_code=400, detail=f"Unsupported file format. Allowed: {', '.join(allowed_extensions)}")
-
-    doc_id = str(uuid.uuid4())
-    stored = await persist_upload(file, doc_id, project_id="aurora")
-
-    def safe_json(val):
-        if not val: return []
-        try: return json.loads(val)
-        except: return []
-
-    db_doc = Document(
-        id=doc_id,
-        filename=file.filename,
-        original_path=stored.uri,
-        status="PENDING",
+    result = await ingest_upload(
+        db,
+        file,
+        project_id=project_id,
+        organization_id=org_id,
         title=title,
         document_type=document_type,
-        department=department,
-        academic_year=academic_year,
-        semester=semester,
-        applicable_audience=applicable_audience,
         description=description,
-        topics=safe_json(topics),
-        keywords=safe_json(keywords),
-        example_questions=safe_json(example_questions),
-        effective_from=effective_from,
-        effective_until=effective_until,
-        version=version,
-        priority=priority,
-        extracted_metadata=merge_storage_metadata({}, stored),
+        sync=sync,
+        background_tasks=background_tasks,
     )
-    db.add(db_doc)
-    db.commit()
-
-    local_hint = stored.uri if stored.provider == "local" else None
-    background_tasks.add_task(process_document, doc_id, local_hint)
-
-    return {
-        "document_id": doc_id,
-        "status": "PENDING",
-        "bytes": stored.size,
-        "storage": {
-            "provider": stored.provider,
-            "bucket": stored.bucket,
-            "key": stored.key,
-            "exists": stored.exists,
-            "size": stored.size,
-        },
-    }
+    return result
 
 @router.get("/{document_id}")
 def get_document_status(document_id: str, db: Session = Depends(get_db)):

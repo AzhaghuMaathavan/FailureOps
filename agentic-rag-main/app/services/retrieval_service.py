@@ -18,11 +18,13 @@ def retrieve_candidates(
     organization_id: Optional[str] = None,
     project_id: Optional[str] = None
 ) -> List[Dict[str, Any]]:
+    if not query_vector:
+        raise RuntimeError("Query embedding is empty; cannot run pgvector search.")
     try:
         query = db.query(Chunk, Chunk.embedding.cosine_distance(query_vector).label("distance"))
-    except Exception:
-        from sqlalchemy.sql import literal
-        query = db.query(Chunk, literal(0.0).label("distance"))
+    except Exception as exc:
+        logger.error("[VECTOR SEARCH] pgvector cosine_distance unavailable: %s", exc)
+        raise RuntimeError(f"pgvector similarity search is unavailable: {exc}") from exc
         
     query = query.filter(Chunk.embedding_status == "COMPLETED")
     
@@ -35,8 +37,9 @@ def retrieve_candidates(
         
     try:
         results = query.order_by("distance").limit(top_k).all()
-    except Exception:
-        results = []
+    except Exception as exc:
+        logger.error("[VECTOR SEARCH] query failed: %s", exc)
+        raise RuntimeError(f"pgvector similarity search failed: {exc}") from exc
     
     candidates = []
     for row in results:
@@ -105,11 +108,14 @@ def rerank_candidates(query_text: str, candidates: List[Dict[str, Any]], rerank_
     for attempt in range(max_retries):
         api_key = key_manager.get_next_key()
         if not api_key:
-            for i, c in enumerate(candidates):
+            logger.warning("[RERANK] no API key configured; using retrieval rank order")
+            ranked = []
+            for i, c in enumerate(candidates[:rerank_top_k]):
                 c_copy = c.copy()
-                c_copy["rerank_score"] = float(10.0 - i * 0.5)
+                c_copy["rerank_score"] = float(c.get("hybrid_score") or -(c.get("vector_distance") or 0.0))
                 c_copy["rank"] = i + 1
-            return candidates[:rerank_top_k]
+                ranked.append(c_copy)
+            return ranked
             
         key_label = key_manager.get_key_label(api_key)
         headers = {
@@ -144,8 +150,9 @@ def rerank_candidates(query_text: str, candidates: List[Dict[str, Any]], rerank_
 
     rankings = data.get("rankings", [])
     if not rankings:
-        for i, c in enumerate(candidates):
-            c["rerank_score"] = float(10.0 - i * 0.5)
+        logger.warning("[RERANK] empty rankings; using retrieval order")
+        for i, c in enumerate(candidates[:rerank_top_k]):
+            c["rerank_score"] = float(c.get("hybrid_score") or -(c.get("vector_distance") or 0.0))
             c["rank"] = i + 1
         return candidates[:rerank_top_k]
         
@@ -218,38 +225,8 @@ def retrieve_bm25_candidates(
                 "bm25_score": float(row.rank_score)
             })
     except Exception as e:
-        # Fallback for SQLite / non-Postgres test environments
-        terms = [w.strip().lower() for w in clean_query.split() if len(w.strip()) > 3]
-        query = db.query(Chunk)
-        if organization_id:
-            query = query.filter(Chunk.organization_id == organization_id)
-        if project_id:
-            query = query.filter(Chunk.project_id == project_id)
-        if document_ids:
-            query = query.filter(Chunk.document_id.in_(document_ids))
-            
-        all_chunks = query.all()
-        scored_chunks = []
-        for c in all_chunks:
-            c_text = c.content.lower()
-            score = sum(1.0 for t in terms if t in c_text)
-            if score > 0:
-                scored_chunks.append((c, score))
-        scored_chunks.sort(key=lambda x: x[1], reverse=True)
-        
-        for c, score in scored_chunks[:top_k]:
-            candidates.append({
-                "chunk_id": c.id,
-                "document_id": c.document_id,
-                "organization_id": getattr(c, "organization_id", None),
-                "project_id": getattr(c, "project_id", None),
-                "chunk_index": c.chunk_index,
-                "content": c.content,
-                "headers": c.headers,
-                "lineage": c.lineage,
-                "bm25_score": float(score)
-            })
-        
+        logger.error("[BM25] search failed: %s", e)
+        return []
     return candidates
 
 def reciprocal_rank_fusion(vector_candidates: List[Dict], bm25_candidates: List[Dict], k: int = 60) -> List[Dict]:
@@ -327,27 +304,28 @@ def search_knowledge_base(
 
     metrics = {}
     
+    logger.info("[QUERY EMBEDDING] chars=%s", len(query_text or ""))
     try:
         t0 = time.time()
         query_vector = embed_query(query_text)
         metrics["query_embedding"] = time.time() - t0
+        logger.info("[QUERY EMBEDDING] dim=%s elapsed_ms=%s", len(query_vector or []), int(metrics["query_embedding"] * 1000))
     except Exception as e:
-        query_vector = None
-        metrics["query_embedding"] = 0.0
+        logger.error("[QUERY EMBEDDING] failed: %s", e)
+        raise RuntimeError(f"Embedding generation failed: {e}") from e
         
     t0 = time.time()
-    if query_vector:
-        vector_candidates = retrieve_candidates(
-            db, 
-            query_vector, 
-            document_ids=document_ids, 
-            top_k=vector_top_k,
-            organization_id=organization_id,
-            project_id=project_id
-        )
-    else:
-        vector_candidates = []
+    logger.info("[VECTOR SEARCH] top_k=%s project_id=%s", vector_top_k, project_id)
+    vector_candidates = retrieve_candidates(
+        db, 
+        query_vector, 
+        document_ids=document_ids, 
+        top_k=vector_top_k,
+        organization_id=organization_id,
+        project_id=project_id
+    )
     metrics["vector_search"] = time.time() - t0
+    logger.info("[VECTOR SEARCH] candidates=%s", len(vector_candidates))
     
     candidates = vector_candidates
     
@@ -371,7 +349,9 @@ def search_knowledge_base(
         t0 = time.time()
         final_evidence = rerank_candidates(query_text, candidates, rerank_top_k=rerank_top_k, exhaustive=exhaustive_rerank)
         metrics["reranking"] = time.time() - t0
+        logger.info("[RETRIEVED CHUNKS] count=%s", len(final_evidence))
     except Exception as e:
+        logger.warning("[RERANK] failed (%s); using retrieval order", e)
         final_evidence = candidates[:rerank_top_k]
         metrics["reranking"] = 0.0
         

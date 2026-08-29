@@ -125,16 +125,44 @@ async def persist_upload(
             content_type=content_type,
         )
     except Exception as exc:
-        logger.error("[STORAGE] upload failed document_id=%s error=%s", doc_id, exc)
-        raise HTTPException(
-            status_code=503,
-            detail={
-                "error": "Object storage upload failed",
-                "document_id": doc_id,
-                "stage": "storage",
-                "reason": str(exc),
-            },
-        ) from exc
+        from app.core.object_storage import storage_provider
+        if storage_provider() == "rustfs":
+            logger.error(
+                "[STORAGE] RustFS upload failed document_id=%s error=%s; falling back to local filesystem",
+                doc_id,
+                exc,
+            )
+            try:
+                stored = upload_object(
+                    content=content,
+                    project_id=project_id,
+                    document_id=doc_id,
+                    filename=original_name,
+                    content_type=content_type,
+                    provider="local",
+                )
+            except Exception as local_exc:
+                logger.error("[STORAGE] local fallback failed document_id=%s error=%s", doc_id, local_exc)
+                raise HTTPException(
+                    status_code=503,
+                    detail={
+                        "error": "Object storage upload failed",
+                        "document_id": doc_id,
+                        "stage": "storage",
+                        "reason": str(local_exc),
+                    },
+                ) from local_exc
+        else:
+            logger.error("[STORAGE] upload failed document_id=%s error=%s", doc_id, exc)
+            raise HTTPException(
+                status_code=503,
+                detail={
+                    "error": "Object storage upload failed",
+                    "document_id": doc_id,
+                    "stage": "storage",
+                    "reason": str(exc),
+                },
+            ) from exc
 
     logger.info(
         "[STORAGE] provider=%s bucket=%s key=%s exists=%s size=%s checksum=%s",

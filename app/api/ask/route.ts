@@ -37,6 +37,11 @@ export async function POST(req: NextRequest) {
     return apiSuccess({
       projectId,
       answer: raw.answer || '',
+      sources: (raw.sources || []).map((s: any) => ({
+        document: s.document,
+        page: s.page,
+        chunkId: s.chunk_id,
+      })),
       citations: (raw.citations || []).map((c: any) => ({
         documentId: c.document_id,
         lineage: c.lineage || {},

@@ -6,6 +6,7 @@ from sqlalchemy.orm import Session
 from app.services.llm_key_manager import key_manager
 from app.services.query_understanding import analyze_query
 from app.services.retrieval_service import search_knowledge_base, expand_chunk_context
+from app.services.rag_response import NO_EVIDENCE_ANSWER, sources_from_evidence
 
 logger = logging.getLogger(__name__)
 
@@ -277,7 +278,7 @@ def generate_answer(query: str, evidence: List[Dict[str, Any]], scope: str = "MU
 
 
         if content_result == "MODEL_TIMEOUT":
-            return "INSUFFICIENT_EVIDENCE: The information is not found in the uploaded documents (Model Generation Timeout).", [], "INSUFFICIENT_EVIDENCE", metrics
+            raise RuntimeError("LLM generation failed: timeout")
 
         content, ttft, gen_time = content_result
         metrics["ttft"] = ttft
@@ -298,12 +299,12 @@ def generate_answer(query: str, evidence: List[Dict[str, Any]], scope: str = "MU
                 active_citations.append(citations_map[eid])
 
         if answer.strip().startswith("INSUFFICIENT_EVIDENCE"):
-            return "I couldn't find that information in the uploaded documents.", [], "INSUFFICIENT_EVIDENCE", metrics
+            return NO_EVIDENCE_ANSWER, [], "INSUFFICIENT_EVIDENCE", metrics
 
         return answer, active_citations, "SUPPORTED", metrics
     except Exception as e:
-        logger.error(f"[generate_answer] Failed: {e}")
-        return "I encountered an error generating the answer.", [], "UNKNOWN", metrics
+        logger.error("[LLM] generation failed: %s", e)
+        raise RuntimeError(f"LLM generation failed: {e}") from e
 
 def check_strong_identifiers_in_evidence(query: str, evidence_list: List[Dict[str, Any]]) -> bool:
     import re
@@ -504,6 +505,7 @@ def orchestrate_rag(
     latencies = {}
 
     print(f"\nQUERY: {query}")
+    logger.info("[QUERY] chars=%s project_id=%s", len(query or ""), project_id)
     print("-" * 32)
 
     t_analyze = time.time()
@@ -568,8 +570,11 @@ def orchestrate_rag(
             break
             
         if agent_state["iteration"] == 1:
-            best_score = agent_state["retrieved_evidence"][0].get("rerank_score", -999.0) if agent_state["retrieved_evidence"] else -999.0
-            if not agent_state["retrieved_evidence"] or best_score < -8.5:
+            if not agent_state["retrieved_evidence"]:
+                agent_state["stop_reason"] = "OUT_OF_DOMAIN"
+                break
+            best_score = agent_state["retrieved_evidence"][0].get("rerank_score")
+            if isinstance(best_score, (int, float)) and best_score < -8.5:
                 agent_state["stop_reason"] = "OUT_OF_DOMAIN"
                 break
                 
@@ -622,27 +627,21 @@ def orchestrate_rag(
 
     if retrieval_error:
         latencies["total"] = time.time() - global_t0
-        return {
-            "answer": "I encountered an internal error during retrieval or reranking.",
-            "domain_state": "ERROR",
-            "evidence_state": "RETRIEVAL_ERROR",
-            "iterations": agent_state["iteration"],
-            "tools_used": ["search_knowledge_base"],
-            "citations": [],
-            "latencies": latencies
-        }
+        raise RuntimeError(f"Vector retrieval failed: {retrieval_error}")
 
     best_score = raw_evidence[0].get("rerank_score", -999.0) if raw_evidence else -999.0
     if not raw_evidence or agent_state["stop_reason"] == "OUT_OF_DOMAIN":
-        print(f"Fast Fail Out-Of-Domain! Best Rerank Score: {best_score}")
+        logger.info("[RESPONSE] no relevant chunks project_id=%s", project_id)
         latencies["total"] = time.time() - global_t0
         return {
-            "answer": "I couldn't find any relevant information in the uploaded documents.",
+            "answer": NO_EVIDENCE_ANSWER,
+            "sources": [],
             "domain_state": "OUT_OF_DOMAIN",
             "evidence_state": "NONE",
             "iterations": agent_state["iteration"],
             "tools_used": ["search_knowledge_base"],
             "citations": [],
+            "retrieved_evidence": [],
             "latencies": latencies
         }
 
@@ -659,12 +658,14 @@ def orchestrate_rag(
             print(f"Grounding Gate Failed! Best Gate Score for CURRENT query: {best_gate_score}")
             latencies["total"] = time.time() - global_t0
             return {
-                "answer": "I couldn't find any relevant information in the uploaded documents.",
+                "answer": NO_EVIDENCE_ANSWER,
+                "sources": [],
                 "domain_state": "OUT_OF_DOMAIN",
                 "evidence_state": "NONE",
                 "iterations": agent_state["iteration"],
                 "tools_used": ["search_knowledge_base"],
                 "citations": [],
+                "retrieved_evidence": [],
                 "latencies": latencies
             }
 
@@ -672,12 +673,14 @@ def orchestrate_rag(
     if not check_strong_identifiers_in_evidence(query, raw_evidence):
         latencies["total"] = time.time() - global_t0
         return {
-            "answer": "I couldn't find that information in the uploaded documents.",
+            "answer": NO_EVIDENCE_ANSWER,
+            "sources": [],
             "domain_state": "IN_DOMAIN",
             "evidence_state": "INSUFFICIENT_EVIDENCE",
             "iterations": agent_state["iteration"],
             "tools_used": ["search_knowledge_base"],
             "citations": [],
+            "retrieved_evidence": raw_evidence,
             "latencies": latencies
         }
         
@@ -719,6 +722,7 @@ def orchestrate_rag(
     latencies["context_building"] = time.time() - t_expand
 
     # 6. Generation
+    logger.info("[LLM] chunks=%s", len(final_evidence_list))
     t_gen = time.time()
     answer, citations, evidence_state, gen_metrics = generate_answer(query, final_evidence_list, scope=scope, logical_operation=logical_operation, targets=targets)
     citations = verify_citations(answer, citations)
@@ -727,6 +731,7 @@ def orchestrate_rag(
     latencies["context_chars"] = gen_metrics.get("input_chars", 0)
     latencies["output_chars"] = len(answer)
     latencies["evidence_chunks"] = len(final_evidence_list)
+    logger.info("[LLM] elapsed_ms=%s", int(latencies["llm_generation"] * 1000))
 
     # Log everything as requested
     print(f"Query analysis:      {latencies.get('query_analysis', 0):.2f}s")
@@ -753,7 +758,8 @@ def orchestrate_rag(
             final_stop_reason = "MAX_ITERATIONS_PARTIAL"
 
     return {
-        "answer": answer,
+        "answer": answer if evidence_state != "INSUFFICIENT_EVIDENCE" else NO_EVIDENCE_ANSWER,
+        "sources": sources_from_evidence(citations or final_evidence_list),
         "domain_state": "IN_DOMAIN",
         "evidence_state": evidence_state,
         "iterations": agent_state["iteration"],
@@ -761,6 +767,7 @@ def orchestrate_rag(
         "stop_reason": final_stop_reason,
         "tools_used": ["search_knowledge_base"],
         "citations": citations,
+        "retrieved_evidence": final_evidence_list,
         "latencies": latencies,
         "decision_history": agent_state.get("decision_history", [])
     }

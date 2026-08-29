@@ -24,6 +24,7 @@ from app.models.signal import SignalItem
 from app.models.project import Project
 from app.db.baseline_projects import ensure_baseline_project
 from app.services.document_service import process_document
+from app.services.ingest_service import ingest_upload
 from app.services.analysis_orchestrator import run_project_analysis_pipeline
 from app.services.outcome_engine import verify_experiment_outcome
 from app.core.storage import persist_upload, merge_storage_metadata, document_storage_fields
@@ -652,58 +653,25 @@ async def upload_project_document(
     document_type: Optional[str] = Form("PROJECT_DOC"),
     description: Optional[str] = Form(None),
     visibility: Optional[str] = Form("PRIVATE"),
+    sync: Optional[str] = Form("false"),
     org_id: str = Depends(get_tenant_context),
     db: Session = Depends(get_db)
 ):
     """
     Uploads a project document, attaches tenant metadata, and queues format-aware parsing.
     """
-    allowed_extensions = {".pdf", ".docx", ".pptx", ".xlsx", ".csv", ".txt", ".md", ".json"}
-    ext = os.path.splitext(file.filename)[1].lower()
-
-    if ext not in allowed_extensions:
-        raise HTTPException(status_code=400, detail=f"Unsupported format. Allowed: {', '.join(allowed_extensions)}")
-
-    doc_id = f"doc_{uuid.uuid4().hex[:12]}"
-    stored = await persist_upload(file, doc_id, project_id=project_id)
-
-    db_doc = Document(
-        id=doc_id,
-        filename=file.filename,
-        original_path=stored.uri,
-        organization_id=org_id,
+    return await ingest_upload(
+        db,
+        file,
         project_id=project_id,
-        visibility=visibility or "PRIVATE",
-        global_learning_allowed=False,
-        status="PENDING",
-        title=title or file.filename,
+        organization_id=org_id,
+        title=title,
         document_type=document_type,
         description=description,
-        extracted_metadata=merge_storage_metadata({}, stored),
+        visibility=visibility or "PRIVATE",
+        sync=sync,
+        background_tasks=background_tasks,
     )
-    db.add(db_doc)
-    db.commit()
-
-    local_hint = stored.uri if stored.provider == "local" else None
-    background_tasks.add_task(process_document, doc_id, local_hint)
-
-    return {
-        "document_id": doc_id,
-        "filename": file.filename,
-        "project_id": project_id,
-        "organization_id": org_id,
-        "status": "PENDING",
-        "visibility": visibility or "PRIVATE",
-        "bytes": stored.size,
-        "storage": {
-            "provider": stored.provider,
-            "bucket": stored.bucket,
-            "key": stored.key,
-            "exists": stored.exists,
-            "size": stored.size,
-            "checksum": stored.checksum,
-        },
-    }
 
 
 @router.get("/projects/{project_id}/documents")
@@ -855,6 +823,7 @@ def ask_project_knowledge(
     Grounded RAG Q&A over the project's ingested documents.
     """
     from app.services.agent_service import orchestrate_rag
+    from app.services.rag_response import empty_rag_response, sources_from_evidence
 
     docs = db.query(Document).filter(
         Document.organization_id == org_id,
@@ -862,17 +831,28 @@ def ask_project_knowledge(
     ).all()
     document_ids = [d.id for d in docs] or None
 
-    result = orchestrate_rag(
-        db,
-        request.query,
-        [request.query],
-        document_ids,
-        original_query=request.query,
-        organization_id=org_id,
-        project_id=project_id,
-    )
+    try:
+        result = orchestrate_rag(
+            db,
+            request.query,
+            [request.query],
+            document_ids,
+            original_query=request.query,
+            organization_id=org_id,
+            project_id=project_id,
+        )
+    except ValueError as exc:
+        raise HTTPException(status_code=502, detail=str(exc)) from exc
+    except Exception as exc:
+        raise HTTPException(status_code=500, detail=f"RAG query failed: {exc}") from exc
+
     result["project_id"] = project_id
     result["organization_id"] = org_id
+    if "sources" not in result:
+        result["sources"] = sources_from_evidence(result.get("citations") or result.get("retrieved_evidence") or [])
+    if result.get("evidence_state") == "NONE" and not result.get("sources"):
+        empty = empty_rag_response(project_id=project_id, organization_id=org_id)
+        result.update(empty)
     return result
 
 

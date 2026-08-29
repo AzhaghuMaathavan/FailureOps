@@ -45,6 +45,41 @@ FailureOps is an end-to-end organizational failure intelligence system that cont
 
 ---
 
-## 🚀 Continuous Deployment
+## 🧪 Local foundation (Frontend → Backend → PostgreSQL/pgvector → RAG)
+
+Do not point the browser at PostgreSQL. The Next.js app on `:3000` calls the FastAPI backend on `:8000`, which is the only process that connects to Postgres.
+
+```bash
+# 1. PostgreSQL + pgvector
+docker compose -f agentic-rag-main/docker-compose.yml up -d postgres
+
+# 2. Backend API (loads agentic-rag-main/.env for NVIDIA keys)
+cd agentic-rag-main
+python3 -m venv .venv
+source .venv/bin/activate
+pip install -r requirements.txt
+STORAGE_PROVIDER=local uvicorn app.main:app --host 127.0.0.1 --port 8000
+# from repo root in another terminal:
+
+# 3. Frontend BFF
+npm install
+npm run dev
+```
+
+Health checks:
+
+- http://localhost:8000/health
+- http://localhost:8000/health/db
+- http://localhost:3000/debug
+
+RAG pipeline test (backend must be running):
+
+```bash
+python3 tests/generate_aurora_docs.py
+cd agentic-rag-main && source .venv/bin/activate && cd ..
+pytest tests/test_foundation.py -q
+```
+
+---
 
 Automated GitHub Actions continuous deployment is configured via `.github/workflows/deploy.yml`. Every push to `main` automatically deploys zero-downtime updates to the VPS.

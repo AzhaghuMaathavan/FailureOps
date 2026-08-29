@@ -43,9 +43,21 @@ class Settings(BaseSettings):
 
     NVIDIA_RERANK_MODEL: str = os.getenv('NVIDIA_RERANK_MODEL', 'nvidia/llama-nemotron-rerank-vl-1b-v2')
     NVIDIA_RERANK_URL: str = os.getenv('NVIDIA_RERANK_URL', 'https://ai.api.nvidia.com/v1/retrieval/nvidia/llama-nemotron-rerank-vl-1b-v2/reranking')
-    
-    # Database
-    DATABASE_URL: str = os.getenv("DATABASE_URL", "postgresql://user:password@localhost:5432/college_rag")
+
+    FRONTEND_URL: str = os.getenv("FRONTEND_URL", "http://localhost:3000")
+    BACKEND_URL: str = os.getenv("BACKEND_URL", "http://localhost:8000")
+    APP_ENV: str = os.getenv("APP_ENV", "development")
+
+    # Database — PostgreSQL + pgvector only (no SQLite fallback)
+    DATABASE_URL: str = os.getenv(
+        "DATABASE_URL",
+        "postgresql://postgres:postgres@127.0.0.1:5432/agentic_rag",
+    )
+    POSTGRES_HOST: str = os.getenv("POSTGRES_HOST", "127.0.0.1")
+    POSTGRES_PORT: str = os.getenv("POSTGRES_PORT", "5432")
+    POSTGRES_DB: str = os.getenv("POSTGRES_DB", "agentic_rag")
+    POSTGRES_USER: str = os.getenv("POSTGRES_USER", "postgres")
+    POSTGRES_PASSWORD: str = os.getenv("POSTGRES_PASSWORD", "postgres")
     
     # NVIDIA APIs
     NVIDIA_BASE_URL: str = os.getenv("NVIDIA_BASE_URL", "https://integrate.api.nvidia.com/v1")

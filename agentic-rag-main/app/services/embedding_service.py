@@ -114,6 +114,11 @@ def generate_embeddings(db: Session, document_id: str, force: bool = False):
         # Commit per batch
         db.commit()
 
+    if completed_count == 0:
+        raise RuntimeError(
+            f"Embedding generation failed for all {failed_count or total_chunks} chunks."
+        )
+
     return {
         "total_attempted": total_chunks,
         "completed": completed_count,
@@ -122,9 +127,6 @@ def generate_embeddings(db: Session, document_id: str, force: bool = False):
     }
 
 from app.services.llm_key_manager import key_manager
-import logging
-
-logger = logging.getLogger(__name__)
 
 def embed_query(query_text: str) -> List[float]:
     payload = {'input': [query_text], 'model': EMBEDDING_MODEL, 'input_type': 'query'}

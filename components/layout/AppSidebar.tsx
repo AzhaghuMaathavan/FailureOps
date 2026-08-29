@@ -23,6 +23,7 @@ import {
   Shield,
   Sparkles,
   MessageSquare,
+  Stethoscope,
   type LucideIcon,
 } from 'lucide-react';
 import { useApp } from '@/context/AppContext';
@@ -64,6 +65,7 @@ export const AppSidebar: React.FC = () => {
         { name: 'Validated Learnings', href: '/memory', icon: Shield },
         { name: 'Global Search', href: '/search', icon: Search },
         { name: 'Settings & Privacy', href: '/settings', icon: Settings },
+        { name: 'Foundation Debug', href: '/debug', icon: Stethoscope },
       ],
     },
   ];

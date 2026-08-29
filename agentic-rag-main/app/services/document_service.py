@@ -117,7 +117,7 @@ def _run_document_pipeline(db: Session, doc: Document, document_id: str, file_pa
                 db_page = Page(
                     id=page_id,
                     document_id=doc.id,
-                    page_number=page_num,
+                    page_number=page_num + 1,
                     image_path=img_path,
                     status="PROCESSING"
                 )
@@ -125,33 +125,9 @@ def _run_document_pipeline(db: Session, doc: Document, document_id: str, file_pa
                 db.commit()
 
                 blocks_added = 0
-                try:
-                    # Call parser
-                    parser_output = parse_page_image(img_path)
-                    db_page.raw_parser_response = parser_output.get("raw_response", {})
 
-                    # Normalize
-                    normalized_blocks = normalize_parser_blocks(parser_output.get("blocks", []))
-
-                    # Save blocks
-                    for n_block in normalized_blocks:
-                        db_block = DocumentBlock(
-                            id=str(uuid.uuid4()),
-                            document_id=doc.id,
-                            page_id=db_page.id,
-                            block_index=n_block["block_index"],
-                            block_type=n_block["block_type"],
-                            content=n_block["content"],
-                            bbox=n_block["bbox"],
-                            raw_metadata=n_block["raw_metadata"]
-                        )
-                        db.add(db_block)
-                        blocks_added += 1
-                except Exception as e:
-                    logger.warning(f"Vision parser notice on page {page_num}: {e}")
-
-                # PyMuPDF direct text block fallback
-                if blocks_added == 0 and fitz_doc:
+                # Prefer native PDF text so ingest does not depend on the vision parser.
+                if fitz_doc:
                     try:
                         fitz_page = fitz_doc.load_page(page_num)
                         pdf_blocks = fitz_page.get_text("blocks")
@@ -171,7 +147,28 @@ def _run_document_pipeline(db: Session, doc: Document, document_id: str, file_pa
                                 db.add(db_block)
                                 blocks_added += 1
                     except Exception as e:
-                        logger.error(f"PyMuPDF fallback failed for page {page_num}: {e}")
+                        logger.error(f"PyMuPDF text extraction failed for page {page_num}: {e}")
+
+                if blocks_added == 0:
+                    try:
+                        parser_output = parse_page_image(img_path)
+                        db_page.raw_parser_response = parser_output.get("raw_response", {})
+                        normalized_blocks = normalize_parser_blocks(parser_output.get("blocks", []))
+                        for n_block in normalized_blocks:
+                            db_block = DocumentBlock(
+                                id=str(uuid.uuid4()),
+                                document_id=doc.id,
+                                page_id=db_page.id,
+                                block_index=n_block["block_index"],
+                                block_type=n_block["block_type"],
+                                content=n_block["content"],
+                                bbox=n_block["bbox"],
+                                raw_metadata=n_block["raw_metadata"]
+                            )
+                            db.add(db_block)
+                            blocks_added += 1
+                    except Exception as e:
+                        logger.warning(f"Vision parser notice on page {page_num}: {e}")
 
                 db_page.status = "COMPLETED" if blocks_added > 0 else "PARTIAL_SUCCESS"
                 db.commit()
@@ -203,21 +200,43 @@ def _run_document_pipeline(db: Session, doc: Document, document_id: str, file_pa
                 db.commit()
                 return
 
+        logger.info("[TEXT EXTRACTION] document_id=%s ext=%s", document_id, ext)
+
         # 3. Semantic Chunking
         create_chunks_for_document(db, doc.id)
         from app.models.chunk import Chunk
         chunk_count = db.query(Chunk).filter(Chunk.document_id == doc.id).count()
-        logger.info("[CHUNKING] document_id=%s chunks=%s", document_id, chunk_count)
+        logger.info("[CHUNK COUNT] document_id=%s chunks=%s", document_id, chunk_count)
+        if chunk_count == 0:
+            doc.status = "FAILED"
+            doc.error_message = "Document extraction produced no chunks"
+            db.commit()
+            logger.error("[TEXT EXTRACTION] document_id=%s status=failed error=no_chunks", document_id)
+            return
 
         # 4. Embeddings
         from app.services.embedding_service import generate_embeddings
-        generate_embeddings(db, doc.id)
+        try:
+            generate_embeddings(db, doc.id)
+        except Exception as exc:
+            doc.status = "FAILED"
+            doc.error_message = f"Embedding generation failed: {exc}"
+            db.commit()
+            logger.error("[EMBEDDING] document_id=%s status=failed error=%s", document_id, exc)
+            return
+
         embedded_count = db.query(Chunk).filter(
             Chunk.document_id == doc.id,
             Chunk.embedding_status == "COMPLETED",
         ).count()
         logger.info("[EMBEDDING] document_id=%s embedded=%s", document_id, embedded_count)
-        logger.info("[VECTOR] document_id=%s vectors=%s", document_id, embedded_count)
+        logger.info("[VECTOR INSERT] document_id=%s vectors=%s", document_id, embedded_count)
+        if embedded_count == 0:
+            doc.status = "FAILED"
+            doc.error_message = "Embedding generation stored zero vectors"
+            db.commit()
+            logger.error("[VECTOR INSERT] document_id=%s status=failed error=zero_vectors", document_id)
+            return
 
         # 5. Extract Profile
         extract_document_profile(db, doc)
@@ -225,3 +244,4 @@ def _run_document_pipeline(db: Session, doc: Document, document_id: str, file_pa
         # Complete document
         doc.status = "COMPLETED" if all_success else "PARTIAL_SUCCESS"
         db.commit()
+        logger.info("[SUCCESS] document_id=%s status=%s chunks=%s vectors=%s", document_id, doc.status, chunk_count, embedded_count)

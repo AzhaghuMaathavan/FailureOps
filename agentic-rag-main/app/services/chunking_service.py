@@ -120,7 +120,7 @@ def create_chunks_for_document(db: Session, document_id: str):
             active_text.append(combined_content)
             active_block_ids.append(block_obj.id)
             active_page_ids.append(page_obj.id)
-            active_page_numbers.append(page_obj.page_number + 1)
+            active_page_numbers.append(page_obj.page_number if page_obj.page_number and page_obj.page_number >= 1 else (page_obj.page_number or 0) + 1)
             active_block_metadata.append(block_obj.raw_metadata)
             flush_chunk(is_table_chunk=True)
 
@@ -128,7 +128,7 @@ def create_chunks_for_document(db: Session, document_id: str):
             active_text.append(content)
             active_block_ids.append(block_obj.id)
             active_page_ids.append(page_obj.id)
-            active_page_numbers.append(page_obj.page_number + 1)
+            active_page_numbers.append(page_obj.page_number if page_obj.page_number and page_obj.page_number >= 1 else (page_obj.page_number or 0) + 1)
             active_block_metadata.append(block_obj.raw_metadata)
 
             total_len = sum(len(t) for t in active_text)
