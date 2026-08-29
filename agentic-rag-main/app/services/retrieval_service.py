@@ -3,7 +3,7 @@ import logging
 import time
 from typing import List, Dict, Any, Optional, Tuple
 from sqlalchemy.orm import Session
-from sqlalchemy import desc
+from sqlalchemy import Float
 from app.models.chunk import Chunk
 from app.core.config import settings
 from app.services.embedding_service import embed_query
@@ -20,9 +20,10 @@ def retrieve_candidates(
 ) -> List[Dict[str, Any]]:
     if not query_vector:
         raise RuntimeError("Query embedding is empty; cannot run pgvector search.")
-    # SafeVector is a TypeDecorator; use the pgvector cosine operator directly.
-    distance = Chunk.embedding.op("<=>")(query_vector)
-    query = db.query(Chunk, distance.label("distance"))
+    # SafeVector wraps pgvector Vector. The <=> result is a float; without return_type
+    # SQLAlchemy treats the distance column as a vector and crashes on result processing.
+    distance_expr = Chunk.embedding.op("<=>", return_type=Float)(query_vector).label("distance")
+    query = db.query(Chunk, distance_expr)
     query = query.filter(Chunk.embedding_status == "COMPLETED")
     query = query.filter(Chunk.embedding.isnot(None))
     
@@ -34,22 +35,23 @@ def retrieve_candidates(
         query = query.filter(Chunk.document_id.in_(document_ids))
         
     try:
-        results = query.order_by(distance).limit(top_k).all()
+        results = query.order_by(distance_expr).limit(top_k).all()
     except Exception as exc:
         logger.error("[VECTOR SEARCH] query failed: %s", exc)
         raise RuntimeError(f"pgvector similarity search failed: {exc}") from exc
     
     candidates = []
     for row in results:
-        if hasattr(row, "Chunk"):
+        mapping = getattr(row, "_mapping", None)
+        if mapping is not None:
+            chunk = mapping.get("Chunk")
+            dist_val = mapping.get("distance", 0.0)
+        elif hasattr(row, "Chunk"):
             chunk = row.Chunk
-            distance = getattr(row, "distance", 0.0)
-        elif hasattr(row, "__getitem__"):
-            chunk = row[0]
-            distance = row[1] if len(row) > 1 else 0.0
+            dist_val = getattr(row, "distance", 0.0)
         else:
-            chunk = row
-            distance = 0.0
+            chunk = row[0]
+            dist_val = row[1] if len(row) > 1 else 0.0
 
         candidates.append({
             "chunk_id": chunk.id,
@@ -60,7 +62,7 @@ def retrieve_candidates(
             "content": chunk.content,
             "headers": chunk.headers,
             "lineage": chunk.lineage,
-            "vector_distance": float(distance)
+            "vector_distance": float(dist_val or 0.0)
         })
         
     return candidates
