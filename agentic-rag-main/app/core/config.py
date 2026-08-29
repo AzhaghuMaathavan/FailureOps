@@ -62,6 +62,15 @@ class Settings(BaseSettings):
         key = getattr(self, f"NVIDIA_{service.upper()}_API_KEY", "")
         return key if key else self.NVIDIA_API_KEY
 
-    model_config = SettingsConfigDict(env_file=".env", case_sensitive=True, extra="ignore")
+    model_config = SettingsConfigDict(
+        env_file=(
+            os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))), ".env"),
+            ".env"
+        ),
+        case_sensitive=True,
+        extra="ignore"
+    )
 
 settings = Settings()
+
+

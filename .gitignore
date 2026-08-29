@@ -39,4 +39,6 @@ storage/documents/
 storage/pages/
 storage/*.db
 storage/
+*_pages/
+
 

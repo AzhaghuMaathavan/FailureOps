@@ -4,16 +4,42 @@ from sqlalchemy.orm import relationship
 from app.db.database import Base
 from app.models.document import Document
 
-try:
-    from pgvector.sqlalchemy import Vector
-except ImportError:
-    from sqlalchemy.types import TypeDecorator, Text
-    class Vector(TypeDecorator):
-        impl = Text
-        cache_ok = True
-        def __init__(self, dim=2048):
-            super().__init__()
-            self.dim = dim
+import json
+from sqlalchemy.types import TypeDecorator, Text
+
+class SafeVector(TypeDecorator):
+    impl = Text
+    cache_ok = True
+
+    def __init__(self, dim=2048):
+        super().__init__()
+        self.dim = dim
+
+    def load_dialect_impl(self, dialect):
+        if dialect.name == "postgresql":
+            try:
+                from pgvector.sqlalchemy import Vector as PGVector
+                return dialect.type_descriptor(PGVector(self.dim))
+            except ImportError:
+                return dialect.type_descriptor(Text())
+        return dialect.type_descriptor(JSON())
+
+    def process_bind_param(self, value, dialect):
+        if value is None:
+            return None
+        if dialect.name == "postgresql":
+            return value
+        return value
+
+    def process_result_value(self, value, dialect):
+        if value is None:
+            return None
+        if isinstance(value, str):
+            try:
+                return json.loads(value)
+            except Exception:
+                return value
+        return value
 
 class Chunk(Base):
     __tablename__ = "chunks"
@@ -36,12 +62,13 @@ class Chunk(Base):
     next_chunk_id = Column(String, nullable=True)
     is_table = Column(Boolean, nullable=False, default=False)
 
-    embedding = Column(Vector(2048), nullable=True)
+    embedding = Column(SafeVector(2048), nullable=True)
     embedding_model = Column(String, nullable=True)
     embedding_status = Column(String, nullable=False, default='PENDING')
     embedding_error = Column(String, nullable=True)
 
     document = relationship("Document", back_populates="chunks")
+
 
     def __init__(self, **kwargs):
         kwargs.setdefault("organization_id", "org_aurora_technologies")

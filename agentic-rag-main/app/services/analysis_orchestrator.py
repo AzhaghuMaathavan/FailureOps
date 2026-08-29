@@ -1,7 +1,9 @@
 import time
+import uuid
 import logging
 from datetime import datetime, timezone
 from sqlalchemy.orm import Session
+
 from app.db.database import SessionLocal
 from app.models.document import Document
 from app.models.analysis import ProjectAnalysis
@@ -201,10 +203,16 @@ def run_project_analysis_pipeline(
             analysis.radar_snapshot = radar_snapshot.model_dump()
             analysis.metrics = evidence_packet.metrics.model_dump()
             
+            # Clear any existing items for this analysis_id to ensure idempotency
+            db.query(EvidenceItem).filter(EvidenceItem.analysis_id == analysis_id).delete()
+            db.query(EvidenceConflict).filter(EvidenceConflict.analysis_id == analysis_id).delete()
+            db.query(SignalItem).filter(SignalItem.analysis_id == analysis_id).delete()
+            db.flush()
+
             # Save individual evidence items for relational querying
             for item in evidence_packet.evidence:
                 db_item = EvidenceItem(
-                    id=item.id,
+                    id=f"{analysis_id}_{item.id}_{uuid.uuid4().hex[:6]}",
                     analysis_id=analysis_id,
                     organization_id=organization_id,
                     project_id=project_id,
@@ -225,7 +233,7 @@ def run_project_analysis_pipeline(
                 
             for conflict in evidence_packet.conflicts:
                 db_conf = EvidenceConflict(
-                    id=conflict.id,
+                    id=f"{analysis_id}_{conflict.id}_{uuid.uuid4().hex[:6]}",
                     analysis_id=analysis_id,
                     organization_id=organization_id,
                     project_id=project_id,
@@ -239,7 +247,7 @@ def run_project_analysis_pipeline(
             # Save individual signal items
             for sig in signal_packet.signals:
                 db_sig = SignalItem(
-                    id=sig.signal_id,
+                    id=f"{analysis_id}_{sig.signal_id}_{uuid.uuid4().hex[:6]}",
                     analysis_id=analysis_id,
                     organization_id=organization_id,
                     project_id=project_id,
@@ -261,14 +269,19 @@ def run_project_analysis_pipeline(
                 
             db.commit()
 
+
         # Completed!
         update_analysis_stage(db, analysis_id, "COMPLETED", "Full Intelligence Pipeline Complete", 100)
         logger.info(f"[analysis_orchestrator] Analysis {analysis_id} completed successfully in {round(time.time() - t_start, 2)}s with Member 1, 2, and 3 intelligence models.")
 
-
     except Exception as e:
         logger.error(f"[analysis_orchestrator] Analysis {analysis_id} failed: {e}", exc_info=True)
-        update_analysis_stage(db, analysis_id, "FAILED", "Analysis encountered an error", 0, error_msg=str(e))
+        try:
+            db.rollback()
+            update_analysis_stage(db, analysis_id, "FAILED", "Analysis encountered an error", 0, error_msg=str(e))
+        except Exception as update_err:
+            logger.error(f"[analysis_orchestrator] Failed to record failure state for {analysis_id}: {update_err}")
     finally:
         db.close()
+
 

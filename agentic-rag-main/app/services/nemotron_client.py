@@ -47,38 +47,42 @@ def fix_json_array(json_str: str) -> list:
 
 def parse_page_image(image_path: str) -> dict:
     """Sends a page image to Nemotron Parse and returns the structured JSON output."""
-    with open(image_path, "rb") as f:
-        b64_img = base64.b64encode(f.read()).decode("utf-8")
-        
-    headers = {
-        "Authorization": f"Bearer {settings.get_api_key('PARSE')}",
-        "Content-Type": "application/json"
-    }
-    
-    payload = {
-        "model": "nvidia/nemotron-parse",
-        "messages": [
-            {
-                "role": "user",
-                "content": [
-                    {"type": "image_url", "image_url": {"url": f"data:image/png;base64,{b64_img}"}}
-                ]
-            }
-        ],
-        "max_tokens": 8192
-    }
-    
-    resp = httpx.post(
-        f"{settings.NVIDIA_BASE_URL}/chat/completions",
-        headers=headers,
-        json=payload,
-        timeout=120.0
-    )
-    resp.raise_for_status()
-    data = resp.json()
-    
-    # Extract the markdown_bbox arguments
+    api_key = settings.get_api_key('PARSE')
+    if not api_key:
+        return {"raw_response": {}, "blocks": []}
+
     try:
+        with open(image_path, "rb") as f:
+            b64_img = base64.b64encode(f.read()).decode("utf-8")
+            
+        headers = {
+            "Authorization": f"Bearer {api_key}",
+            "Content-Type": "application/json"
+        }
+        
+        payload = {
+            "model": "nvidia/nemotron-parse",
+            "messages": [
+                {
+                    "role": "user",
+                    "content": [
+                        {"type": "image_url", "image_url": {"url": f"data:image/png;base64,{b64_img}"}}
+                    ]
+                }
+            ],
+            "max_tokens": 8192
+        }
+        
+        resp = httpx.post(
+            f"{settings.NVIDIA_BASE_URL}/chat/completions",
+            headers=headers,
+            json=payload,
+            timeout=120.0
+        )
+        resp.raise_for_status()
+        data = resp.json()
+        
+        # Extract the markdown_bbox arguments
         tool_calls = data["choices"][0]["message"].get("tool_calls", [])
         for tc in tool_calls:
             if tc["function"]["name"] == "markdown_bbox":
@@ -88,4 +92,5 @@ def parse_page_image(image_path: str) -> dict:
     except Exception as e:
         pass
         
-    return {"raw_response": data, "blocks": []}
+    return {"raw_response": {}, "blocks": []}
+

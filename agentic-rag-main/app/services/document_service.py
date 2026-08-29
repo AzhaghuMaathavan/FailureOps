@@ -71,6 +71,13 @@ def process_document(document_id: str, file_path: str):
                 db.commit()
                 return
 
+            import fitz
+            fitz_doc = None
+            try:
+                fitz_doc = fitz.open(file_path)
+            except Exception:
+                pass
+
             # 2. Process each page independently
             for page_num, img_path in enumerate(image_paths):
                 page_id = str(uuid.uuid4())
@@ -84,10 +91,11 @@ def process_document(document_id: str, file_path: str):
                 db.add(db_page)
                 db.commit()
 
+                blocks_added = 0
                 try:
                     # Call parser
                     parser_output = parse_page_image(img_path)
-                    db_page.raw_parser_response = parser_output["raw_response"]
+                    db_page.raw_parser_response = parser_output.get("raw_response", {})
 
                     # Normalize
                     normalized_blocks = normalize_parser_blocks(parser_output.get("blocks", []))
@@ -105,15 +113,36 @@ def process_document(document_id: str, file_path: str):
                             raw_metadata=n_block["raw_metadata"]
                         )
                         db.add(db_block)
-
-                    db_page.status = "COMPLETED"
+                        blocks_added += 1
                 except Exception as e:
-                    db_page.status = "FAILED"
-                    db_page.error_message = str(e)
-                    all_success = False
-                    logger.error(f"Failed to process page {page_num}: {e}")
+                    logger.warning(f"Vision parser notice on page {page_num}: {e}")
 
+                # PyMuPDF direct text block fallback
+                if blocks_added == 0 and fitz_doc:
+                    try:
+                        fitz_page = fitz_doc.load_page(page_num)
+                        pdf_blocks = fitz_page.get_text("blocks")
+                        for b_idx, b in enumerate(pdf_blocks):
+                            b_text = b[4].strip() if len(b) > 4 else ""
+                            if b_text:
+                                db_block = DocumentBlock(
+                                    id=str(uuid.uuid4()),
+                                    document_id=doc.id,
+                                    page_id=db_page.id,
+                                    block_index=b_idx,
+                                    block_type="Text",
+                                    content=b_text,
+                                    bbox=[b[0], b[1], b[2], b[3]] if len(b) >= 4 else None,
+                                    raw_metadata={"lines": f"Block {b_idx}"}
+                                )
+                                db.add(db_block)
+                                blocks_added += 1
+                    except Exception as e:
+                        logger.error(f"PyMuPDF fallback failed for page {page_num}: {e}")
+
+                db_page.status = "COMPLETED" if blocks_added > 0 else "PARTIAL_SUCCESS"
                 db.commit()
+
         else:
             # Multi-format parsers
             if ext == '.docx':

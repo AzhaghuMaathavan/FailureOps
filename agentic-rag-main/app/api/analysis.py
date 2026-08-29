@@ -36,8 +36,10 @@ from pydantic import BaseModel
 
 router = APIRouter()
 
-UPLOAD_DIR = os.path.join(os.getcwd(), "storage", "documents")
+BACKEND_ROOT = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+UPLOAD_DIR = os.path.join(BACKEND_ROOT, "storage", "documents")
 os.makedirs(UPLOAD_DIR, exist_ok=True)
+
 
 def get_tenant_context(
     x_organization_id: Optional[str] = Header(None),
