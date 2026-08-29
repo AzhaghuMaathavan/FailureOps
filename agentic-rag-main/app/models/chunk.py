@@ -1,4 +1,4 @@
-from sqlalchemy import Column, String, Integer, Boolean, DateTime, ForeignKey, JSON
+from sqlalchemy import Column, String, Integer, Boolean, DateTime, ForeignKey, JSON, Float
 from sqlalchemy.sql import func
 from sqlalchemy.orm import relationship
 from app.db.database import Base
@@ -23,6 +23,16 @@ class SafeVector(TypeDecorator):
             except ImportError:
                 return dialect.type_descriptor(Text())
         return dialect.type_descriptor(JSON())
+
+    class comparator_factory(TypeDecorator.Comparator):
+        def cosine_distance(self, other):
+            return self.op("<=>", return_type=Float)(other)
+
+        def l2_distance(self, other):
+            return self.op("<->", return_type=Float)(other)
+
+        def max_inner_product(self, other):
+            return self.op("<#", return_type=Float)(other)
 
     def process_bind_param(self, value, dialect):
         if value is None:

@@ -20,13 +20,11 @@ def retrieve_candidates(
 ) -> List[Dict[str, Any]]:
     if not query_vector:
         raise RuntimeError("Query embedding is empty; cannot run pgvector search.")
-    try:
-        query = db.query(Chunk, Chunk.embedding.cosine_distance(query_vector).label("distance"))
-    except Exception as exc:
-        logger.error("[VECTOR SEARCH] pgvector cosine_distance unavailable: %s", exc)
-        raise RuntimeError(f"pgvector similarity search is unavailable: {exc}") from exc
-        
+    # SafeVector is a TypeDecorator; use the pgvector cosine operator directly.
+    distance = Chunk.embedding.op("<=>")(query_vector)
+    query = db.query(Chunk, distance.label("distance"))
     query = query.filter(Chunk.embedding_status == "COMPLETED")
+    query = query.filter(Chunk.embedding.isnot(None))
     
     if organization_id:
         query = query.filter(Chunk.organization_id == organization_id)
@@ -36,7 +34,7 @@ def retrieve_candidates(
         query = query.filter(Chunk.document_id.in_(document_ids))
         
     try:
-        results = query.order_by("distance").limit(top_k).all()
+        results = query.order_by(distance).limit(top_k).all()
     except Exception as exc:
         logger.error("[VECTOR SEARCH] query failed: %s", exc)
         raise RuntimeError(f"pgvector similarity search failed: {exc}") from exc
