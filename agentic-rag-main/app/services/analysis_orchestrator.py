@@ -157,8 +157,35 @@ def run_project_analysis_pipeline(
             dna_packet=dna_packet
         )
 
-        # Stage 11: Relational Database Persistence
-        update_analysis_stage(db, analysis_id, "PERSISTING_ANALYSIS", "Persisting Intelligence Packets...", 99)
+        # Stage 11: Member 4 Decision & Action Layer (Interventions, Experiments, Outcomes, Radar)
+        update_analysis_stage(db, analysis_id, "SYNTHESIZING_DECISIONS", "Formulating prioritized interventions & failure radar...", 98)
+        from app.services.intervention_engine import generate_intervention_plan
+        from app.services.experiment_engine import generate_initial_experiments_from_plan
+        from app.services.outcome_engine import verify_all_project_experiments
+        from app.services.radar_engine import synthesize_failure_radar_snapshot
+
+        intervention_plan = generate_intervention_plan(
+            signal_packet=signal_packet,
+            dna_packet=dna_packet,
+            chain_packet=chain_packet,
+            memory_packet=memory_packet,
+            simulation_packet=simulation_packet
+        )
+
+        experiment_list = generate_initial_experiments_from_plan(intervention_plan)
+        outcome_packet = verify_all_project_experiments(experiment_list.experiments)
+
+        radar_snapshot = synthesize_failure_radar_snapshot(
+            signal_packet=signal_packet,
+            dna_packet=dna_packet,
+            chain_packet=chain_packet,
+            intervention_plan=intervention_plan,
+            experiment_list=experiment_list,
+            memory_packet=memory_packet
+        )
+
+        # Stage 12: Relational Database Persistence
+        update_analysis_stage(db, analysis_id, "PERSISTING_ANALYSIS", "Persisting Intelligence & Decision Packets...", 99)
         
         analysis = db.query(ProjectAnalysis).filter(ProjectAnalysis.id == analysis_id).first()
         if analysis:
@@ -168,6 +195,10 @@ def run_project_analysis_pipeline(
             analysis.failure_chain = chain_packet.model_dump()
             analysis.historical_matches = memory_packet.model_dump()
             analysis.simulations = simulation_packet.model_dump()
+            analysis.interventions = intervention_plan.model_dump()
+            analysis.experiments = experiment_list.model_dump()
+            analysis.outcomes = outcome_packet.model_dump()
+            analysis.radar_snapshot = radar_snapshot.model_dump()
             analysis.metrics = evidence_packet.metrics.model_dump()
             
             # Save individual evidence items for relational querying

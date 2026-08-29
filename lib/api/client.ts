@@ -168,8 +168,8 @@ export const apiClient = {
   },
 
   // What-if Simulations & Experiments
-  async getExperiments(projectId: string = 'aurora'): Promise<Experiment[]> {
-    return request<Experiment[]>(`/api/experiments?projectId=${encodeURIComponent(projectId)}`);
+  async getExperiments(projectId: string = 'aurora'): Promise<any> {
+    return request<any>(`/api/experiments?projectId=${encodeURIComponent(projectId)}`);
   },
 
   async runSimulation(projectId: string = 'aurora', scenarioId: string = 'simplify_onboarding') {
@@ -178,5 +178,32 @@ export const apiClient = {
       body: JSON.stringify({ projectId, scenarioId }),
     });
   },
+
+  // Member 4: Interventions, Experiments, Outcomes & Radar
+  async getInterventions(projectId: string = 'aurora') {
+    return request<any>(`/api/interventions?projectId=${encodeURIComponent(projectId)}`);
+  },
+
+  async startExperiment(projectId: string = 'aurora', experimentId: string = 'exp_01') {
+    return request<any>(`/api/experiments?action=start&projectId=${encodeURIComponent(projectId)}&experimentId=${encodeURIComponent(experimentId)}`, {
+      method: 'POST',
+    });
+  },
+
+  async verifyExperiment(projectId: string = 'aurora', experimentId: string = 'exp_01', metrics?: any) {
+    return request<any>(`/api/experiments?action=verify&projectId=${encodeURIComponent(projectId)}&experimentId=${encodeURIComponent(experimentId)}`, {
+      method: 'POST',
+      body: JSON.stringify({ metrics }),
+    });
+  },
+
+  async getOutcomes(projectId: string = 'aurora') {
+    return request<any>(`/api/outcomes?projectId=${encodeURIComponent(projectId)}`);
+  },
+
+  async getExecutiveRadarSnapshot(projectId: string = 'aurora') {
+    return request<any>(`/api/radar?view=executive&projectId=${encodeURIComponent(projectId)}`);
+  },
 };
+
 

@@ -21,6 +21,10 @@ class ProjectAnalysis(Base):
     failure_chain = Column(JSON, nullable=True)
     historical_matches = Column(JSON, nullable=True)
     simulations = Column(JSON, nullable=True)
+    interventions = Column(JSON, nullable=True)
+    experiments = Column(JSON, nullable=True)
+    outcomes = Column(JSON, nullable=True)
+    radar_snapshot = Column(JSON, nullable=True)
     metrics = Column(JSON, nullable=True)
 
 
