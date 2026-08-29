@@ -2,7 +2,7 @@
 
 import React, { useState, useEffect } from 'react';
 import { useParams } from 'next/navigation';
-import Link from 'next/navigation';
+import Link from 'next/link';
 import { Activity, TrendingDown, TrendingUp, AlertTriangle, ShieldCheck, Zap, RefreshCw, CheckCircle2 } from 'lucide-react';
 import { apiClient } from '@/lib/api/client';
 import { Signal } from '@/types';
@@ -108,6 +108,12 @@ export default function SignalExplorerPage() {
           <p className="text-xs font-mono text-muted-foreground max-w-md mx-auto">
             No signal anomalies detected for this project yet. Run a fresh Evidence Intelligence analysis on project documents to generate signals.
           </p>
+          <Link
+            href={`/projects/${projectId}/analysis`}
+            className="inline-block px-4 py-2 rounded-xl bg-primary text-white text-xs font-bold"
+          >
+            Run Project Analysis
+          </Link>
         </div>
       )}
 
@@ -174,10 +180,10 @@ export default function SignalExplorerPage() {
                   {/* Connected Evidence List */}
                   <div className="mt-4 space-y-1.5">
                     <span className="text-[10px] font-mono text-muted-foreground uppercase font-semibold block">
-                      Supported by Citations ({sig.supportingEvidenceIds.length}):
+                      Supported by Citations ({sig.supportingEvidenceIds?.length || 0}):
                     </span>
                     <div className="flex flex-wrap gap-1.5">
-                      {sig.supportingEvidenceIds.map(eid => (
+                      {(sig.supportingEvidenceIds || []).map(eid => (
                         <a
                           key={eid}
                           href={`/projects/${projectId}/evidence#${eid}`}

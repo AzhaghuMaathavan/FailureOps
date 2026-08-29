@@ -1,6 +1,7 @@
 'use client';
 
 import React, { useState, useEffect } from 'react';
+import Link from 'next/link';
 import { useParams } from 'next/navigation';
 import { FileSearch, Filter, ShieldCheck, Database, Layers, Loader2 } from 'lucide-react';
 import { apiClient } from '@/lib/api/client';
@@ -30,19 +31,22 @@ export default function EvidenceIntelligencePage() {
           const mapped: EvidenceItem[] = rawItems.map((item: any) => ({
             id: item.id || item.evidence_id || `ev_${Math.random().toString(36).substring(2, 7)}`,
             projectId: item.project_id || projectId,
-            sourceType: item.category || item.sourceType || 'PRODUCT_METRICS',
-            filename: item.source?.document_name || item.source_citation?.file_name || item.filename || 'Project Telemetry',
-            location: item.source?.location_value || item.source_citation?.page_or_sheet_or_line || item.location || 'Lineage Trace',
-            timestamp: item.time_period?.start || item.source_citation?.timestamp || item.timestamp || '2026-08-01',
-            rawSnippet: item.statement || item.rawSnippet || '',
-            normalizedFact: item.statement || item.normalizedFact || '',
-            category: item.category || 'TECHNICAL',
+            sourceType: (item.category || item.sourceType || 'PRODUCT_METRICS') as EvidenceItem['sourceType'],
+            sourceFile: item.source?.document_name || item.source_citation?.file_name || item.filename || 'Project Telemetry',
+            content: item.statement || item.content || item.rawSnippet || item.normalizedFact || '',
+            reference: item.source?.location_value || item.source_citation?.page_or_sheet_or_line || item.location || item.id || 'Lineage Trace',
             confidence: Math.round((item.evidence_confidence ?? item.confidence ?? 0.9) * ((item.evidence_confidence ?? item.confidence ?? 0.9) <= 1 ? 100 : 1)),
-            extractedAt: item.created_at || 'Recently',
-            metadata: item.normalized_value || {},
+            timestamp: item.time_period?.start || item.source_citation?.timestamp || item.timestamp || 'Recently',
+            category: item.category || 'TECHNICAL',
+            snippetContext: item.statement || item.normalizedFact || item.content || '',
           }));
 
           setEvidenceList(mapped);
+          const hashId = typeof window !== 'undefined' ? window.location.hash.replace('#', '') : '';
+          if (hashId) {
+            const matched = mapped.find((item) => item.id === hashId);
+            if (matched) setSelectedEvidence(matched);
+          }
           setIsLoading(false);
         }
       })
@@ -130,9 +134,15 @@ export default function EvidenceIntelligencePage() {
           <p className="text-xs mt-1 text-rose-400">{error}</p>
         </div>
       ) : filteredList.length === 0 ? (
-        <div className="p-12 rounded-2xl bg-card border border-border text-center">
+        <div className="p-12 rounded-2xl bg-card border border-border text-center space-y-3">
           <p className="text-sm font-bold text-foreground">No evidence items in this category</p>
           <p className="text-xs text-muted-foreground mt-1">Upload additional project documents to populate citations</p>
+          <Link
+            href={`/projects/${projectId}/upload`}
+            className="inline-block mt-2 px-4 py-2 rounded-xl bg-primary text-white text-xs font-bold"
+          >
+            Upload Evidence
+          </Link>
         </div>
       ) : (
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">

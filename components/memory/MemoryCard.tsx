@@ -30,11 +30,11 @@ export const MemoryCard: React.FC<MemoryCardProps> = ({ entry }) => {
       {/* Context info */}
       <div className="flex items-center gap-2 text-xs text-muted-foreground font-mono">
         <Building2 className="w-3.5 h-3.5 text-primary" />
-        <span>{entry.context.industry}</span>
+        <span>{entry.context?.industry || 'Cross-Industry'}</span>
         <span>•</span>
-        <span>{entry.context.stage}</span>
+        <span>{entry.context?.stage || 'Validated'}</span>
         <span>•</span>
-        <span>{entry.context.targetMarket}</span>
+        <span>{entry.context?.targetMarket || 'Organization'}</span>
       </div>
 
       {/* Intervention & Outcome grid */}
@@ -57,7 +57,7 @@ export const MemoryCard: React.FC<MemoryCardProps> = ({ entry }) => {
       {/* Tags */}
       <div className="flex flex-wrap items-center gap-1.5 pt-2 border-t border-border/50">
         <Tag className="w-3 h-3 text-muted-foreground mr-1" />
-        {entry.tags.map(tag => (
+        {(entry.tags || []).map(tag => (
           <span
             key={tag}
             className="px-2 py-0.5 rounded-md bg-surface-feed border border-border/70 text-[10px] font-mono text-muted-foreground"

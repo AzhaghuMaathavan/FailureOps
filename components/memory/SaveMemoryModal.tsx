@@ -3,6 +3,7 @@
 import React, { useState } from 'react';
 import { X, Database, CheckCircle2, ShieldCheck } from 'lucide-react';
 import { useApp } from '@/context/AppContext';
+import { apiClient } from '@/lib/api/client';
 
 interface SaveMemoryModalProps {
   isOpen: boolean;
@@ -16,7 +17,7 @@ export const SaveMemoryModal: React.FC<SaveMemoryModalProps> = ({ isOpen, onClos
   if (!isOpen) return null;
 
   const handleSave = () => {
-    addMemoryEntry({
+    const entry = {
       id: `mem-${Date.now().toString().slice(-4)}`,
       pattern: 'Pre-Release Progressive Onboarding & Sandbox Validation',
       evidenceSummary: [
@@ -32,9 +33,11 @@ export const SaveMemoryModal: React.FC<SaveMemoryModalProps> = ({ isOpen, onClos
         stage: 'Beta / Pre-Launch',
         targetMarket: 'SMB Finance Managers',
       },
-      tags: ['Onboarding', 'Activation', 'A/B Test', 'FinTech', 'Aurora'],
-      verifiedAt: '2026-08-29',
-    });
+      tags: ['Onboarding', 'Activation', 'A/B Test', 'FinTech'],
+      verifiedAt: new Date().toISOString().slice(0, 10),
+    };
+    addMemoryEntry(entry);
+    apiClient.saveOrganizationalMemory(entry).catch(() => {});
     setIsSaved(true);
     setTimeout(() => {
       onClose();
@@ -90,7 +93,7 @@ export const SaveMemoryModal: React.FC<SaveMemoryModalProps> = ({ isOpen, onClos
           <button
             onClick={handleSave}
             disabled={isSaved}
-            className="px-4 py-2 rounded-lg bg-primary hover:bg-primary-hover text-white text-xs font-bold transition-colors shadow-sm flex items-center gap-1.5"
+            className="px-4 py-2 rounded-lg bg-primary hover:bg-primary-hover text-white text-xs font-bold transition-colors shadow-sm flex items-center gap-1.5 cursor-pointer"
           >
             {isSaved ? (
               <>

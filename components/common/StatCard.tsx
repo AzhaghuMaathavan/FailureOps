@@ -45,10 +45,11 @@ export const StatCard: React.FC<StatCardProps> = ({
   return (
     <div
       onClick={onClick}
-      className={`relative p-5 rounded-xl bg-card border border-border/80 shadow-sm transition-all duration-200 ${
-        onClick ? 'cursor-pointer hover:border-primary/50 hover:bg-card-hover' : ''
+      className={`relative overflow-hidden p-5 rounded-xl bg-card border border-border/70 shadow-[0_8px_24px_-12px_rgba(0,0,0,0.45)] transition-all duration-200 ${
+        onClick ? 'cursor-pointer hover:border-primary/40 hover:bg-card-hover hover:-translate-y-0.5' : ''
       } ${className}`}
     >
+      <div className="absolute left-0 top-0 bottom-0 w-0.5 bg-gradient-to-b from-primary/80 to-primary/10" />
       <div className="flex items-start justify-between">
         <span className="text-xs font-medium uppercase tracking-wider text-muted-foreground">
           {label}

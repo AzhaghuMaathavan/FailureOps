@@ -67,7 +67,11 @@ export const TruthEngineQuerySchema = z.object({
 // 5. Global Search Validation
 export const SearchQuerySchema = z.object({
   query: z.string().max(150, 'Search query cannot exceed 150 characters').default(''),
-  filter: z.enum(['ALL', 'HISTORICAL_CASES', 'ORGANIZATIONAL_MEMORY', 'ACTIVE_PROJECTS']).default('ALL'),
+  filter: z.preprocess(
+    (value) => String(value ?? 'ALL').trim().replace(/\s+/g, '_').toUpperCase(),
+    z.enum(['ALL', 'HISTORICAL_CASES', 'ORGANIZATIONAL_MEMORY', 'ACTIVE_PROJECTS', 'EVIDENCE'])
+  ),
+  projectId: z.string().max(64).optional(),
 });
 
 // 6. Save to Organizational Memory Validation

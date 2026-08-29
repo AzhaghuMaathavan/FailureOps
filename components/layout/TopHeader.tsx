@@ -21,7 +21,7 @@ export const TopHeader: React.FC = () => {
   const { project, theme, toggleTheme } = useApp();
 
   return (
-    <header className="sticky top-0 z-30 h-14 w-full bg-background/80 backdrop-blur-md border-b border-border/80 px-4 lg:px-6 flex items-center justify-between">
+    <header className="sticky top-0 z-30 h-14 w-full bg-background/70 backdrop-blur-xl border-b border-border/60 px-4 lg:px-6 flex items-center justify-between">
       {/* Left: Organization & Project selector */}
       <div className="flex items-center gap-3">
         <Link

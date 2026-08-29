@@ -2,6 +2,7 @@ import 'server-only';
 import { NextResponse } from 'next/server';
 import { ZodError } from 'zod';
 import { AuthorizationError } from './authorization';
+import { RagBackendError } from './rag';
 
 /**
  * Standardized, sanitized server response helpers.
@@ -71,7 +72,10 @@ export function apiError(error: unknown, fallbackMessage: string = 'An error occ
   }
 
   // Handle Not Found
-  if (error instanceof Error && error.message === 'NOT_FOUND') {
+  if (
+    (error instanceof Error && error.message === 'NOT_FOUND') ||
+    (error instanceof RagBackendError && error.status === 404)
+  ) {
     return NextResponse.json(
       {
         success: false,

@@ -4,7 +4,7 @@ import { requireAuth } from '@/lib/server/auth';
 import { authorizeProjectAccess } from '@/lib/server/authorization';
 import { checkRateLimit } from '@/lib/server/rate-limit';
 import { apiSuccess, apiError, apiRateLimitExceeded } from '@/lib/server/response';
-import { serverConfig } from '@/lib/server/config';
+import { ragFetch } from '@/lib/server/rag';
 import { Signal } from '@/types';
 
 export async function GET(req: NextRequest) {
@@ -17,28 +17,15 @@ export async function GET(req: NextRequest) {
     const projectId = searchParams.get('projectId') || 'aurora';
     const analysisId = searchParams.get('analysisId');
 
-    // Verify multi-tenant authorization
     authorizeProjectAccess(session, projectId);
 
-    const endpointUrl = analysisId
-      ? `${serverConfig.ragInternalUrl}/api/v1/projects/${encodeURIComponent(projectId)}/analysis/${encodeURIComponent(analysisId)}/signals`
-      : `${serverConfig.ragInternalUrl}/api/v1/projects/${encodeURIComponent(projectId)}/signals`;
+    const endpointPath = analysisId
+      ? `/api/v1/projects/${encodeURIComponent(projectId)}/analysis/${encodeURIComponent(analysisId)}/signals`
+      : `/api/v1/projects/${encodeURIComponent(projectId)}/signals`;
 
-    const backendResp = await fetch(endpointUrl, {
-      headers: {
-        'x-organization-id': session.organizationId,
-        'x-user-id': session.userId,
-      },
-      cache: 'no-store',
-    });
-
-    if (!backendResp.ok) {
-      throw new Error(`Backend signals returned HTTP ${backendResp.status}`);
-    }
-
-    const backendData = await backendResp.json();
+    const backendData = await ragFetch<any>(endpointPath, session);
     const rawSignals = backendData.signals || [];
-    
+
     const mappedSignals: Signal[] = rawSignals.map((s: any) => ({
       id: s.signal_id,
       projectId: s.project_id || projectId,
@@ -63,4 +50,3 @@ export async function GET(req: NextRequest) {
     return apiError(error, 'Unable to retrieve project operational signals.');
   }
 }
-

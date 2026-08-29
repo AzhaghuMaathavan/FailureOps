@@ -30,14 +30,18 @@ rag.db
 *.sqlite3
 *.db
 
-# Node modules and frontend build
-frontend/node_modules/
-frontend/dist/
-frontend/.npm/
-frontend/build/
+# Node leftovers (this package is backend-only)
+node_modules/
+dist/
+build/
+frontend/
 npm-debug.log*
 yarn-debug.log*
 yarn-error.log*
+
+# Python packaging
+*.egg-info/
+.eggs/
 
 # IDE/editor files
 .vscode/

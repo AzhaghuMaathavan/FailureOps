@@ -4,7 +4,7 @@ import { requireAuth } from '@/lib/server/auth';
 import { checkRateLimit } from '@/lib/server/rate-limit';
 import { apiSuccess, apiError, apiRateLimitExceeded } from '@/lib/server/response';
 import { SaveMemorySchema } from '@/lib/validation/schemas';
-import { serverConfig } from '@/lib/server/config';
+import { ragFetchSafe, mapHistoricalCase, mapMemoryEntry } from '@/lib/server/rag';
 
 export async function GET(req: NextRequest) {
   try {
@@ -17,27 +17,32 @@ export async function GET(req: NextRequest) {
     const view = searchParams.get('view');
     const pattern = searchParams.get('pattern');
 
-    const endpointPath = view === 'historical'
-      ? `/api/v1/projects/${encodeURIComponent(projectId)}/historical-cases`
-      : `/api/v1/projects/${encodeURIComponent(projectId)}/organizational-memory${pattern ? `?pattern=${encodeURIComponent(pattern)}` : ''}`;
-
-    const backendResp = await fetch(
-      `${serverConfig.ragInternalUrl}${endpointPath}`,
-      {
-        headers: {
-          'x-organization-id': session.organizationId,
-          'x-user-id': session.userId,
-        },
-        cache: 'no-store',
-      }
-    );
-
-    if (!backendResp.ok) {
-      throw new Error(`Backend memory returned HTTP ${backendResp.status}`);
+    if (view === 'historical') {
+      const memoryData = await ragFetchSafe<any>(
+        `/api/v1/projects/${encodeURIComponent(projectId)}/historical-cases`,
+        session,
+        {},
+        { matched_cases: [] }
+      );
+      const cases = (memoryData.matched_cases || []).map(mapHistoricalCase);
+      return apiSuccess({
+        ...memoryData,
+        matched_cases: cases,
+        cases,
+        similar_cases: cases,
+      });
     }
 
-    const memoryData = await backendResp.json();
-    return apiSuccess(memoryData);
+    const endpointPath = `/api/v1/projects/${encodeURIComponent(projectId)}/organizational-memory${
+      pattern ? `?pattern=${encodeURIComponent(pattern)}` : ''
+    }`;
+    const memoryData = await ragFetchSafe<any>(endpointPath, session, {}, { memories: [] });
+    const entries = (memoryData.memories || memoryData.entries || []).map(mapMemoryEntry);
+    return apiSuccess({
+      ...memoryData,
+      memories: entries,
+      entries,
+    });
   } catch (error) {
     return apiError(error, 'Unable to load organizational memory vault.');
   }
@@ -71,4 +76,3 @@ export async function POST(req: NextRequest) {
     return apiError(error, 'Failed to save validated learning to organizational memory.');
   }
 }
-

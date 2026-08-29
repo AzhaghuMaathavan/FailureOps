@@ -187,10 +187,42 @@ export const apiClient = {
   },
 
   // Global Search
-  async search(query: string, filter: string = 'ALL') {
-    return request<{ query: string; filter: string; historicalMatches: any[]; organizationalMemoryMatches: any[] }>(
-      `/api/search?q=${encodeURIComponent(query)}&filter=${encodeURIComponent(filter)}`
+  async search(query: string, filter: string = 'ALL', projectId?: string) {
+    const projectQ = projectId ? `&projectId=${encodeURIComponent(projectId)}` : '';
+    return request<{
+      query: string;
+      filter: string;
+      projectId?: string;
+      historicalMatches: any[];
+      organizationalMemoryMatches: any[];
+      evidenceHits: any[];
+      projectMatches: any[];
+    }>(`/api/search?q=${encodeURIComponent(query)}&filter=${encodeURIComponent(filter)}${projectQ}`);
+  },
+
+  async retrieveKnowledge(query: string, projectId?: string) {
+    return request<{ query: string; projectId: string | null; hits: any[]; metrics: any }>(
+      '/api/retrieval',
+      {
+        method: 'POST',
+        body: JSON.stringify({ query, projectId }),
+      }
     );
+  },
+
+  async askProject(projectId: string, query: string, conversationId?: string) {
+    return request<{
+      projectId: string;
+      answer: string;
+      citations: { documentId?: string; filename?: string; lineage?: any }[];
+      hits: any[];
+      conversationId?: string;
+      domainState?: string;
+      evidenceState?: string;
+    }>('/api/ask', {
+      method: 'POST',
+      body: JSON.stringify({ projectId, query, conversationId }),
+    });
   },
 
   // Organizational Memory & Historical Cases
@@ -233,10 +265,14 @@ export const apiClient = {
     });
   },
 
-  async runSimulation(projectId: string = 'aurora', scenarioId: string = 'simplify_onboarding') {
-    return request<any>('/api/experiments', {
+  async getSimulation(projectId: string = 'aurora') {
+    return request<any>(`/api/simulation?projectId=${encodeURIComponent(projectId)}`);
+  },
+
+  async runSimulation(projectId: string = 'aurora', scenarioId?: string) {
+    return request<any>('/api/simulation', {
       method: 'POST',
-      body: JSON.stringify({ projectId, scenarioId, action: 'simulate' }),
+      body: JSON.stringify({ projectId, scenarioId }),
     });
   },
 

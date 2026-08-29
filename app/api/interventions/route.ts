@@ -4,7 +4,7 @@ import { requireAuth } from '@/lib/server/auth';
 import { authorizeProjectAccess } from '@/lib/server/authorization';
 import { checkRateLimit } from '@/lib/server/rate-limit';
 import { apiSuccess, apiError, apiRateLimitExceeded } from '@/lib/server/response';
-import { serverConfig } from '@/lib/server/config';
+import { ragFetch } from '@/lib/server/rag';
 
 export async function GET(req: NextRequest) {
   try {
@@ -17,25 +17,12 @@ export async function GET(req: NextRequest) {
 
     authorizeProjectAccess(session, projectId);
 
-    const backendResp = await fetch(
-      `${serverConfig.ragInternalUrl}/api/v1/projects/${encodeURIComponent(projectId)}/interventions`,
-      {
-        headers: {
-          'x-organization-id': session.organizationId,
-          'x-user-id': session.userId,
-        },
-        cache: 'no-store',
-      }
+    const data = await ragFetch<any>(
+      `/api/v1/projects/${encodeURIComponent(projectId)}/interventions`,
+      session
     );
-
-    if (!backendResp.ok) {
-      throw new Error(`Backend interventions returned HTTP ${backendResp.status}`);
-    }
-
-    const data = await backendResp.json();
     return apiSuccess(data);
   } catch (error) {
     return apiError(error, 'Unable to retrieve intervention plan.');
   }
 }
-

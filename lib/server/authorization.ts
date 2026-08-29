@@ -1,7 +1,5 @@
 import 'server-only';
 import { UserSession } from './auth';
-import { mockProjects } from '@/data/mockProjects';
-import { Project } from '@/types';
 
 export class AuthorizationError extends Error {
   constructor(message: string = 'Forbidden: Cross-tenant access is strictly prohibited.') {

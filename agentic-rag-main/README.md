@@ -1,7 +1,7 @@
 # 🚀 College Agentic RAG
 
 ![FastAPI](https://img.shields.io/badge/FastAPI-005571?style=for-the-badge&logo=fastapi)
-![React](https://img.shields.io/badge/React-20232A?style=for-the-badge&logo=react&logoColor=61DAFB)
+![Next.js](https://img.shields.io/badge/Next.js-000000?style=for-the-badge&logo=nextdotjs&logoColor=white)
 ![PostgreSQL](https://img.shields.io/badge/PostgreSQL-316192?style=for-the-badge&logo=postgresql&logoColor=white)
 ![pgvector](https://img.shields.io/badge/pgvector-336791?style=for-the-badge&logo=postgresql)
 ![TailwindCSS](https://img.shields.io/badge/Tailwind_CSS-38B2AC?style=for-the-badge&logo=tailwind-css&logoColor=white)
@@ -24,7 +24,7 @@ An intelligent, production-grade document-grounded question-answering system. It
 - [🤖 Agentic RAG Capabilities](#-agentic-rag-capabilities)
 - [📈 Performance Benchmarks](#-performance-benchmarks)
 - [🤖 AI / ML Technology Stack](#-ai--ml-technology-stack)
-- [🖥️ Frontend](#️-frontend)
+- [🖥️ FailureOps UI](#️-failureops-ui)
 - [🔌 Backend API](#-backend-api)
 - [🗄️ Database Architecture](#️-database-architecture)
 - [📁 Project Structure](#-project-structure)
@@ -74,7 +74,7 @@ An intelligent, production-grade document-grounded question-answering system. It
 - **Strict Prompt Grounding:** The LLM is heavily prompted to rely *only* on the provided evidence.
 
 ### 📊 Observability & Citations
-- **Source Tracking:** The frontend renders citation tags linked directly to specific filenames and logical page numbers.
+- **Source Tracking:** FailureOps renders citation tags linked directly to specific filenames and logical page numbers.
 - **Pipeline Visibility:** Displays domain classification state, execution iterations, and TTFT metrics directly in the UI.
 
 ### ⚡ Performance Optimization
@@ -87,7 +87,7 @@ An intelligent, production-grade document-grounded question-answering system. It
 
 ```mermaid
 flowchart TD
-    A[User] -->|Uploads Document / Asks Question| B[React Frontend]
+    A[User] -->|Uploads Document / Asks Question| B[FailureOps X Next.js]
     
     subgraph Backend [FastAPI Backend]
         C["Query Analysis & Intent Detection"]
@@ -185,7 +185,7 @@ Agentic RAG generation
 > **IMPORTANT:** The PDF pipeline continues to use the existing vision-language model (VLM) parser and was strictly preserved. Non-PDF formats are parsed natively and mapped directly into the existing chunking architecture. All non-PDF formats converge into the same existing RAG pipeline after parsing.
 
 ### Format-Aware Citations
-Source lineage securely preserves format-specific structural metadata. The LLM sees structured source paths, and the frontend dynamically renders citations appropriately:
+Source lineage securely preserves format-specific structural metadata. The LLM sees structured source paths, and FailureOps dynamically renders citations appropriately:
 
 - **PDF** → Page
 - **PPTX** → Slide
@@ -348,11 +348,11 @@ To ensure production reliability and combat rate limits, the system implements a
 - **Cooldowns & Retries:** If a `429 Too Many Requests` or timeout occurs, the manager temporarily places the specific key on cooldown and seamlessly retries the request using the next healthy key in the pool.
 
 ### 6. Frontend Progress Visibility
-The React UI natively exposes the agent's internal state. The UI features an expandable observability block that tracks:
-- Execution Iterations (e.g., `1 / 3`)
-- LLM Stop Reason (e.g., `SUFFICIENT_EVIDENCE`, `MAX_ITERATIONS_PARTIAL`)
-- Domain State & Evidence State
-- Total and generation latencies
+FailureOps X (Next.js) surfaces grounded-ask and analysis state from this backend:
+- Execution iterations (e.g., `1 / 3`)
+- LLM stop reason (e.g., `SUFFICIENT_EVIDENCE`, `MAX_ITERATIONS_PARTIAL`)
+- Domain state and evidence state on Evidence Ask and Truth Engine
+- Retrieval latency and citation lineage from `POST /api/ask`
 
 ---
 
@@ -373,7 +373,7 @@ The React UI natively exposes the agent's internal state. The UI features an exp
 
 | Component | Technology / Model | Purpose |
 |---|---|---|
-| **Frontend Framework** | React / Vite | User Interface |
+| **Product UI** | FailureOps X (Next.js) | Upload, analysis, search, Evidence Ask, Truth Engine |
 | **Backend Framework** | FastAPI | API Server |
 | **Database** | PostgreSQL | Relational Persistence & BM25 |
 | **Vector Search** | pgvector | Semantic Vector Retrieval |
@@ -386,17 +386,14 @@ The React UI natively exposes the agent's internal state. The UI features an exp
 
 ---
 
-## 🖥️ Frontend
+## 🖥️ FailureOps UI
 
-Built with **React, TypeScript, Vite, Tailwind CSS, and Lucide Icons**.
+This backend has no standalone UI. The FailureOps X Next.js app (repo root) is the only frontend:
 
-**Capabilities:**
-- **File Upload:** Asynchronous multipart file upload with real-time UI polling (`PENDING`, `PROCESSING`, `COMPLETED`, `FAILED`).
-- **Sidebar Management:** Persistent tracking of the uploaded document knowledge base with one-click deletion.
-- **Chat Interface:** Distinct user/assistant message bubbling.
-- **Markdown Rendering:** Natively supports bold, italics, code blocks, and markdown tables.
-- **Citation Badges:** Assistant answers include explicitly grouped citation badges mapped to filenames and format-specific lineage (e.g., logical page numbers, slides, sheets, sections).
-- **Pipeline Observability:** Includes an expandable debug block tracking Domain State, Execution Iterations, and Latency metrics.
+- Upload and document status: `/projects/{id}/upload`
+- Analysis pipeline: `/projects/{id}/analysis`
+- Hybrid retrieval: `/search` and Truth Engine
+- Grounded ask: `/projects/{id}/ask` (`POST /api/ask` → `/api/v1/projects/{id}/ask`)
 
 ---
 
@@ -450,7 +447,6 @@ agentic_rag/
 │       └── json_parser.py
 ├── docker/                  # Docker Compose (PostgreSQL + pgvector)
 ├── docs/                    # Technical architecture notes
-├── frontend/                # React / Vite SPA codebase
 ├── storage/                 # Local mounted file storage for documents
 ├── tests/                   # Headless evaluation suite
 ├── .env.example             # Configuration template
@@ -465,7 +461,6 @@ agentic_rag/
 
 ### 1. Prerequisites
 - **Python 3.10+**
-- **Node.js 18+**
 - **Docker Desktop** (Required to run the PostgreSQL database with the specialized AI `pgvector` extension)
 - **Git**
 
@@ -511,13 +506,13 @@ python -m app.db.init_db
 python -m uvicorn app.main:app --host 127.0.0.1 --port 8000 --reload
 ```
 
-### 8. Start Frontend (New Terminal)
+### 8. Start FailureOps (repo root, new terminal)
 ```bash
-cd frontend
+# from FailureOps X root
 npm install
 npm run dev
 ```
-Navigate to **`http://localhost:5173`** to access the application!
+The Next.js app at **`http://localhost:3000`** is the only UI. Set `RAG_INTERNAL_URL=http://127.0.0.1:8000`.
 
 ---
 
@@ -546,7 +541,7 @@ $env:PYTHONUNBUFFERED=1; python tests/eval_suite.py
 ## ⚠️ Troubleshooting
 
 - **`psycopg2.OperationalError` (Backend Crash):** Your Docker container isn't running. Open Docker Desktop and ensure `docker-compose up -d` was executed.
-- **Frontend says `Failed to fetch`:** The React frontend cannot reach the FastAPI backend. Ensure the backend is actively running on port 8000.
+- **FailureOps pages fail to load evidence:** The Next.js BFF cannot reach this API. Ensure uvicorn is running on port 8000 and `RAG_INTERNAL_URL` is set.
 - **`MODEL_TIMEOUT` or `429 Too Many Requests`:** The NVIDIA API is rate-limiting you. Ensure you have configured separate keys for `NVIDIA_API_KEY` and `NVIDIA_LLM_API_KEY_1` in `.env`.
 - **Upload stays in `PENDING`:** Ensure the backend worker is not frozen and check the backend terminal for parsing logs.
 
@@ -563,5 +558,5 @@ $env:PYTHONUNBUFFERED=1; python tests/eval_suite.py
 ### Future Enhancements
 - **GraphRAG Support:** Extract local knowledge graphs from documents for deeper multi-hop entity reasoning.
 - **Web Search Integration:** Allow the system to dynamically break out to web searches when local document evidence is explicitly insufficient.
-- **Streaming UI:** Implement Server-Sent Events (SSE) to stream generator output token-by-token to the React frontend to mask generation latency.
+- **Streaming UI:** Stream grounded answers into the FailureOps Next.js app to mask generation latency.
 - **Document-Aware Chat Memory:** Expand the chat pipeline to store and rewrite conversational context against vector history.

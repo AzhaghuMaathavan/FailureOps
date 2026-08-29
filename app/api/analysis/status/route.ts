@@ -3,7 +3,7 @@ import { NextRequest } from 'next/server';
 import { requireAuth } from '@/lib/server/auth';
 import { checkRateLimit } from '@/lib/server/rate-limit';
 import { apiSuccess, apiError, apiRateLimitExceeded } from '@/lib/server/response';
-import { serverConfig } from '@/lib/server/config';
+import { ragFetch } from '@/lib/server/rag';
 import { INITIAL_ANALYSIS_STAGES } from '@/services/analysisService';
 
 export async function GET(req: NextRequest) {
@@ -20,22 +20,10 @@ export async function GET(req: NextRequest) {
       return apiError(new Error('Missing jobId parameter'), 'jobId is required.');
     }
 
-    const resp = await fetch(
-      `${serverConfig.ragInternalUrl}/api/v1/projects/${encodeURIComponent(projectId)}/analysis/${encodeURIComponent(jobId)}`,
-      {
-        headers: {
-          'x-organization-id': session.organizationId,
-          'x-user-id': session.userId,
-        },
-        cache: 'no-store',
-      }
+    const backendStatus = await ragFetch<any>(
+      `/api/v1/projects/${encodeURIComponent(projectId)}/analysis/${encodeURIComponent(jobId)}`,
+      session
     );
-
-    if (!resp.ok) {
-      throw new Error(`Backend returned HTTP ${resp.status}`);
-    }
-
-    const backendStatus = await resp.json();
     const progress = backendStatus.progress_percent || 0;
     const isDone = backendStatus.status === 'COMPLETED';
 

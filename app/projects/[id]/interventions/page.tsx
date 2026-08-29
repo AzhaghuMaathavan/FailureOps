@@ -1,10 +1,10 @@
 'use client';
 
 import React, { useState, useEffect } from 'react';
+import Link from 'next/link';
 import { useParams } from 'next/navigation';
-import { Lightbulb, History, Sparkles, CheckCircle2, Calculator, ShieldCheck, ArrowRight, Loader2, AlertTriangle } from 'lucide-react';
+import { Lightbulb, CheckCircle2, Calculator, Loader2, ArrowRight } from 'lucide-react';
 import { apiClient } from '@/lib/api/client';
-import { InterventionCard } from '@/components/intervention/InterventionCard';
 
 export default function InterventionsPage() {
   const params = useParams();
@@ -71,9 +71,15 @@ export default function InterventionsPage() {
           <p className="text-xs mt-1 text-rose-400">{error}</p>
         </div>
       ) : interventions.length === 0 ? (
-        <div className="p-12 rounded-2xl bg-card border border-border text-center">
+        <div className="p-12 rounded-2xl bg-card border border-border text-center space-y-3">
           <p className="text-sm font-bold text-foreground">No interventions generated yet</p>
           <p className="text-xs text-muted-foreground mt-1">Run project analysis to synthesize grounded recovery interventions</p>
+          <Link
+            href={`/projects/${projectId}/analysis`}
+            className="inline-block mt-2 px-4 py-2 rounded-xl bg-primary text-white text-xs font-bold"
+          >
+            Run Project Analysis
+          </Link>
         </div>
       ) : (
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
@@ -144,9 +150,13 @@ export default function InterventionsPage() {
                 <span className="text-xs font-mono text-emerald-400 font-semibold">
                   Expected Reduction: -{item.expected_risk_reduction || 15} pts
                 </span>
-                <span className="text-[11px] font-mono text-muted-foreground">
-                  Owner: {item.owner_role || 'Engineering Lead'}
-                </span>
+                <Link
+                  href={`/projects/${projectId}/experiment`}
+                  className="inline-flex items-center gap-1 text-xs font-semibold text-primary hover:underline"
+                >
+                  <span>Launch Experiment</span>
+                  <ArrowRight className="w-3.5 h-3.5" />
+                </Link>
               </div>
             </div>
           );

@@ -27,7 +27,7 @@ export function getServerSession(req?: NextRequest): UserSession {
     organizationId: 'org_aurora_technologies',
     organizationName: 'Aurora Technologies',
     role: 'ORGANIZATION_ADMIN',
-    allowedProjectIds: ['aurora', 'pulseflow', 'zenith'],
+    allowedProjectIds: ['*', 'aurora', 'pulseflow', 'zenith'],
     createdAt: Date.now(),
   };
 }

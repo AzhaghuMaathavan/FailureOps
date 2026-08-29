@@ -4,7 +4,7 @@ import { requireAuth } from '@/lib/server/auth';
 import { authorizeProjectAccess } from '@/lib/server/authorization';
 import { checkRateLimit } from '@/lib/server/rate-limit';
 import { apiSuccess, apiError, apiRateLimitExceeded } from '@/lib/server/response';
-import { serverConfig } from '@/lib/server/config';
+import { ragFetch } from '@/lib/server/rag';
 
 export async function GET(req: NextRequest) {
   try {
@@ -17,26 +17,12 @@ export async function GET(req: NextRequest) {
 
     authorizeProjectAccess(session, projectId);
 
-    const backendResp = await fetch(
-      `${serverConfig.ragInternalUrl}/api/v1/projects/${encodeURIComponent(projectId)}/failure-dna`,
-      {
-        headers: {
-          'x-organization-id': session.organizationId,
-          'x-user-id': session.userId,
-        },
-        cache: 'no-store',
-      }
+    const dnaData = await ragFetch<any>(
+      `/api/v1/projects/${encodeURIComponent(projectId)}/failure-dna`,
+      session
     );
-
-    if (!backendResp.ok) {
-      throw new Error(`Backend Failure DNA returned HTTP ${backendResp.status}`);
-    }
-
-    const dnaData = await backendResp.json();
     return apiSuccess(dnaData);
   } catch (error) {
     return apiError(error, 'Unable to retrieve Failure DNA profile.');
   }
 }
-
-

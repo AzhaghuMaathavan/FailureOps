@@ -4,7 +4,7 @@ import { requireAuth } from '@/lib/server/auth';
 import { authorizeProjectAccess } from '@/lib/server/authorization';
 import { checkRateLimit } from '@/lib/server/rate-limit';
 import { apiSuccess, apiError, apiRateLimitExceeded } from '@/lib/server/response';
-import { serverConfig } from '@/lib/server/config';
+import { ragFetch } from '@/lib/server/rag';
 
 export async function GET(req: NextRequest) {
   try {
@@ -25,25 +25,12 @@ export async function GET(req: NextRequest) {
       backendPath = 'predictions';
     }
 
-    const backendResp = await fetch(
-      `${serverConfig.ragInternalUrl}/api/v1/projects/${encodeURIComponent(projectId)}/${backendPath}`,
-      {
-        headers: {
-          'x-organization-id': session.organizationId,
-          'x-user-id': session.userId,
-        },
-        cache: 'no-store',
-      }
+    const rawData = await ragFetch<any>(
+      `/api/v1/projects/${encodeURIComponent(projectId)}/${backendPath}`,
+      session
     );
-
-    if (!backendResp.ok) {
-      throw new Error(`Backend radar endpoint returned HTTP ${backendResp.status}`);
-    }
-
-    const rawData = await backendResp.json();
     return apiSuccess(rawData);
   } catch (error) {
     return apiError(error, 'Unable to query failure radar telemetry.');
   }
 }
-

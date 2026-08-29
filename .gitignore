@@ -40,5 +40,6 @@ storage/pages/
 storage/*.db
 storage/
 *_pages/
+*.tsbuildinfo
 
 

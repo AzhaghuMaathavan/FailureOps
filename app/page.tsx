@@ -73,12 +73,13 @@ export default function LandingPage() {
   ];
 
   return (
-    <div className="min-h-screen bg-background text-foreground flex flex-col justify-between selection:bg-primary/30">
+    <div className="min-h-screen bg-background text-foreground flex flex-col justify-between selection:bg-primary/30 relative overflow-hidden">
+      <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(900px_420px_at_70%_-10%,rgba(255,122,0,0.14),transparent_55%)]" />
       {/* Top Bar */}
       <header className="h-16 w-full border-b border-border/80 px-6 lg:px-12 flex items-center justify-between backdrop-blur-md sticky top-0 z-50 bg-background/80">
         <div className="flex items-center gap-3">
-          <div className="w-8 h-8 rounded-xl bg-gradient-to-br from-primary via-amber-500 to-rose-600 flex items-center justify-center shadow-[0_0_15px_rgba(255,122,0,0.4)]">
-            <span className="font-mono text-white font-extrabold text-sm">FX</span>
+            <div className="w-8 h-8 rounded-xl bg-gradient-to-br from-primary via-amber-400 to-orange-700 flex items-center justify-center shadow-[0_0_18px_rgba(255,122,0,0.45)]">
+              <span className="font-mono text-background font-extrabold text-sm">FX</span>
           </div>
           <div className="flex flex-col">
             <span className="font-mono font-extrabold tracking-wider text-foreground text-sm">
@@ -168,7 +169,7 @@ export default function LandingPage() {
                 <Link
                   key={cap.title}
                   href={cap.href}
-                  className="group p-5 rounded-2xl bg-card border border-border/80 hover:border-primary/50 hover:bg-card-hover transition-all duration-200 shadow-sm flex flex-col justify-between"
+                  className="group p-5 rounded-2xl bg-card border border-border/70 hover:border-primary/40 hover:bg-card-hover transition-all duration-200 shadow-[0_8px_24px_-16px_rgba(0,0,0,0.5)] flex flex-col justify-between"
                 >
                   <div>
                     <div className="w-10 h-10 rounded-xl bg-surface-feed border border-border flex items-center justify-center text-primary group-hover:bg-primary group-hover:text-white transition-colors mb-4">

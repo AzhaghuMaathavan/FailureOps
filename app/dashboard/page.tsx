@@ -25,9 +25,11 @@ import { RiskBadge } from '@/components/common/RiskBadge';
 import { PrivacyBadge } from '@/components/common/PrivacyBadge';
 import { apiClient } from '@/lib/api/client';
 import { Project } from '@/types';
+import { useApp } from '@/context/AppContext';
 
 export default function GlobalDashboardPage() {
   const router = useRouter();
+  const { setProject } = useApp();
   const [projects, setProjects] = React.useState<Project[]>([]);
   const [isLoading, setIsLoading] = React.useState<boolean>(true);
   const [error, setError] = React.useState<string | null>(null);
@@ -174,7 +176,10 @@ export default function GlobalDashboardPage() {
                   return (
                   <div
                     key={p.id}
-                    onClick={() => router.push(`/projects/${p.id}/overview`)}
+                    onClick={() => {
+                      setProject(p);
+                      router.push(`/projects/${p.id}/overview`);
+                    }}
                     className="p-6 rounded-2xl bg-card border border-border/80 hover:border-primary/50 hover:bg-card-hover transition-all duration-200 cursor-pointer shadow-sm flex flex-col justify-between group"
                   >
                     <div>

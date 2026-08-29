@@ -20,8 +20,9 @@ import {
   Settings,
   UploadCloud,
   PlusCircle,
-  AlertOctagon,
   Shield,
+  Sparkles,
+  MessageSquare,
 } from 'lucide-react';
 import { useApp } from '@/context/AppContext';
 import { RiskBadge } from '@/components/common/RiskBadge';
@@ -38,12 +39,14 @@ export const AppSidebar: React.FC = () => {
       items: [
         { name: 'Overview', href: `/projects/${projectId}/overview`, icon: LayoutDashboard },
         { name: 'Evidence Intelligence', href: `/projects/${projectId}/evidence`, icon: FileText },
+        { name: 'Evidence Ask', href: `/projects/${projectId}/ask`, icon: MessageSquare },
         { name: 'Signal Explorer', href: `/projects/${projectId}/signals`, icon: Activity },
         { name: 'Failure DNA', href: `/projects/${projectId}/dna`, icon: Dna },
         { name: 'Truth Engine', href: `/projects/${projectId}/truth-engine`, icon: Scale },
         { name: 'Failure Radar', href: `/projects/${projectId}/radar`, icon: Radar },
         { name: 'Causal Analysis', href: `/projects/${projectId}/causal`, icon: GitFork },
         { name: 'Predicted Failure', href: `/projects/${projectId}/prediction`, icon: Compass },
+        { name: 'What-If Simulation', href: `/projects/${projectId}/simulation`, icon: Sparkles },
         { name: 'Interventions', href: `/projects/${projectId}/interventions`, icon: Lightbulb },
         { name: 'Experiments', href: `/projects/${projectId}/experiment`, icon: FlaskConical },
         { name: 'Outcome Verification', href: `/projects/${projectId}/outcomes`, icon: CheckCircle2 },
@@ -69,8 +72,8 @@ export const AppSidebar: React.FC = () => {
         {/* Brand Header */}
         <div className="p-4 border-b border-sidebar-border flex items-center justify-between">
           <Link href="/" className="flex items-center gap-2.5 group">
-            <div className="w-8 h-8 rounded-xl bg-gradient-to-br from-primary via-amber-500 to-rose-600 flex items-center justify-center shadow-[0_0_15px_rgba(255,122,0,0.4)] transition-transform group-hover:scale-105">
-              <span className="font-mono text-white font-extrabold text-sm tracking-wider">FX</span>
+            <div className="w-8 h-8 rounded-xl bg-gradient-to-br from-primary via-amber-400 to-orange-700 flex items-center justify-center shadow-[0_0_18px_rgba(255,122,0,0.45)] transition-transform group-hover:scale-105">
+              <span className="font-mono text-background font-extrabold text-sm tracking-wider">FX</span>
             </div>
             <div className="flex flex-col">
               <div className="flex items-center gap-1.5">
@@ -120,10 +123,10 @@ export const AppSidebar: React.FC = () => {
                     <Link
                       key={item.name}
                       href={item.href}
-                      className={`flex items-center justify-between px-2.5 py-1.5 rounded-lg text-xs font-medium transition-all ${
+                      className={`flex items-center justify-between px-2.5 py-1.5 rounded-lg text-xs font-medium transition-all cursor-pointer border-l-2 ${
                         isActive
-                          ? 'bg-primary/15 text-primary font-semibold border border-primary/40 shadow-sm'
-                          : 'text-muted-foreground hover:text-foreground hover:bg-surface-feed border border-transparent'
+                          ? 'bg-primary/10 text-primary font-semibold border-l-primary border-y-transparent border-r-transparent shadow-[inset_0_0_0_1px_rgba(255,122,0,0.18)]'
+                          : 'text-muted-foreground hover:text-foreground hover:bg-white/5 border-l-transparent border-y-transparent border-r-transparent'
                       }`}
                     >
                       <div className="flex items-center gap-2.5 truncate">

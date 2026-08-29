@@ -491,7 +491,14 @@ def agent_decide_next_action(agent_state: Dict[str, Any], scope: str, logical_op
         return fallback
 
 def orchestrate_rag(
-db: Session, query: str, initial_queries: List[str] = None, document_ids: List[str] = None, original_query: str = None) -> Dict[str, Any]:
+    db: Session,
+    query: str,
+    initial_queries: List[str] = None,
+    document_ids: List[str] = None,
+    original_query: str = None,
+    organization_id: str = None,
+    project_id: str = None,
+) -> Dict[str, Any]:
 
     global_t0 = time.time()
     latencies = {}
@@ -537,7 +544,14 @@ db: Session, query: str, initial_queries: List[str] = None, document_ids: List[s
                     continue
                 agent_state["retrieval_attempts"].append(tgt)
                 
-                tgt_evidence, t_metrics, _ = search_knowledge_base(db, tgt, document_ids, filters=query_filters)
+                tgt_evidence, t_metrics, _ = search_knowledge_base(
+                    db,
+                    tgt,
+                    document_ids,
+                    filters=query_filters,
+                    organization_id=organization_id,
+                    project_id=project_id,
+                )
                 for k, v in t_metrics.items():
                     r_metrics[k] = r_metrics.get(k, 0) + v
                 for e in tgt_evidence:

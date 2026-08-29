@@ -4,7 +4,7 @@ import { requireAuth } from '@/lib/server/auth';
 import { checkRateLimit } from '@/lib/server/rate-limit';
 import { apiSuccess, apiError, apiRateLimitExceeded } from '@/lib/server/response';
 import { ProjectRegistrationSchema } from '@/lib/validation/schemas';
-import { serverConfig } from '@/lib/server/config';
+import { ragFetch } from '@/lib/server/rag';
 
 export async function GET(req: NextRequest) {
   try {
@@ -12,19 +12,7 @@ export async function GET(req: NextRequest) {
     const rate = checkRateLimit(req, 'general');
     if (!rate.success) return apiRateLimitExceeded(rate.resetSeconds);
 
-    const resp = await fetch(`${serverConfig.ragInternalUrl}/api/v1/projects`, {
-      headers: {
-        'x-organization-id': session.organizationId,
-        'x-user-id': session.userId,
-      },
-      cache: 'no-store',
-    });
-
-    if (!resp.ok) {
-      throw new Error(`Backend returned HTTP ${resp.status}`);
-    }
-
-    const projects = await resp.json();
+    const projects = await ragFetch<any>('/api/v1/projects', session);
     return apiSuccess(projects);
   } catch (error) {
     return apiError(error, 'Unable to retrieve authorized project portfolio from backend.');
@@ -40,25 +28,12 @@ export async function POST(req: NextRequest) {
     const body = await req.json();
     const validated = ProjectRegistrationSchema.parse(body);
 
-    const resp = await fetch(`${serverConfig.ragInternalUrl}/api/v1/projects`, {
+    const createdProject = await ragFetch<any>('/api/v1/projects', session, {
       method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'x-organization-id': session.organizationId,
-        'x-user-id': session.userId,
-      },
       body: JSON.stringify(validated),
     });
-
-    if (!resp.ok) {
-      const errDetail = await resp.text();
-      throw new Error(`Backend registration failed (${resp.status}): ${errDetail}`);
-    }
-
-    const createdProject = await resp.json();
     return apiSuccess(createdProject, 201);
   } catch (error) {
     return apiError(error, 'Failed to register project in database.');
   }
 }
-

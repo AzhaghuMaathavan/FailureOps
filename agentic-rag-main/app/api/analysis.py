@@ -2,11 +2,12 @@ import os
 import uuid
 from datetime import datetime, timezone
 from typing import List, Dict, Any, Optional
-from fastapi import APIRouter, Depends, UploadFile, File, Form, BackgroundTasks, HTTPException, Header
+from fastapi import APIRouter, Depends, UploadFile, File, Form, BackgroundTasks, HTTPException
 
 from sqlalchemy.orm import Session
 from app.db.database import get_db
 from app.core.config import settings
+from app.core.tenant import get_tenant_context
 from app.models.document import Document
 from app.models.chunk import Chunk
 from app.models.analysis import ProjectAnalysis
@@ -32,6 +33,7 @@ from app.services.experiment_engine import generate_initial_experiments_from_pla
 from app.services.memory_engine import search_historical_failure_cases
 from app.services.outcome_engine import verify_all_project_experiments, verify_experiment_outcome
 from app.services.radar_engine import synthesize_failure_radar_snapshot
+from app.services.retrieval_service import search_knowledge_base
 from pydantic import BaseModel
 
 router = APIRouter()
@@ -39,17 +41,6 @@ router = APIRouter()
 BACKEND_ROOT = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 UPLOAD_DIR = os.path.join(BACKEND_ROOT, "storage", "documents")
 os.makedirs(UPLOAD_DIR, exist_ok=True)
-
-
-def get_tenant_context(
-    x_organization_id: Optional[str] = Header(None),
-    x_user_id: Optional[str] = Header(None)
-) -> str:
-    """
-    Derives authenticated organization identity from server-side headers.
-    Defaults to configured default organization if not supplied.
-    """
-    return x_organization_id or settings.DEFAULT_ORGANIZATION_ID
 
 
 class ProjectCreateSchema(BaseModel):
@@ -725,6 +716,10 @@ def list_project_documents(
             "status": d.status,
             "visibility": d.visibility,
             "chunk_count": db.query(Chunk).filter(Chunk.document_id == d.id).count(),
+            "embedded_count": db.query(Chunk).filter(
+                Chunk.document_id == d.id,
+                Chunk.embedding_status == "COMPLETED"
+            ).count(),
             "created_at": d.created_at.isoformat() if d.created_at else None
         }
         for d in docs
@@ -761,6 +756,83 @@ def delete_project_document(
             pass
 
     return {"status": "DELETED", "document_id": document_id, "project_id": project_id}
+
+
+class ProjectRetrieveRequest(BaseModel):
+    query: str
+    document_ids: Optional[List[str]] = None
+
+
+class ProjectAskRequest(BaseModel):
+    query: str
+    conversation_id: Optional[str] = None
+
+
+@router.post("/projects/{project_id}/retrieve")
+def retrieve_project_knowledge(
+    project_id: str,
+    request: ProjectRetrieveRequest,
+    org_id: str = Depends(get_tenant_context),
+    db: Session = Depends(get_db)
+):
+    """
+    Project-scoped hybrid RAG retrieval used by FailureOps search and Truth Engine.
+    """
+    document_ids = request.document_ids
+    if not document_ids:
+        docs = db.query(Document).filter(
+            Document.organization_id == org_id,
+            Document.project_id == project_id
+        ).all()
+        document_ids = [d.id for d in docs] or None
+
+    results, metrics, _ = search_knowledge_base(
+        db,
+        request.query,
+        document_ids,
+        organization_id=org_id,
+        project_id=project_id,
+    )
+
+    return {
+        "query": request.query,
+        "project_id": project_id,
+        "organization_id": org_id,
+        "results": results,
+        "metrics": metrics,
+    }
+
+
+@router.post("/projects/{project_id}/ask")
+def ask_project_knowledge(
+    project_id: str,
+    request: ProjectAskRequest,
+    org_id: str = Depends(get_tenant_context),
+    db: Session = Depends(get_db)
+):
+    """
+    Grounded RAG Q&A over the project's ingested documents.
+    """
+    from app.services.agent_service import orchestrate_rag
+
+    docs = db.query(Document).filter(
+        Document.organization_id == org_id,
+        Document.project_id == project_id
+    ).all()
+    document_ids = [d.id for d in docs] or None
+
+    result = orchestrate_rag(
+        db,
+        request.query,
+        [request.query],
+        document_ids,
+        original_query=request.query,
+        organization_id=org_id,
+        project_id=project_id,
+    )
+    result["project_id"] = project_id
+    result["organization_id"] = org_id
+    return result
 
 
 # ==========================================

@@ -9,55 +9,79 @@ import { AppSidebar } from '@/components/layout/AppSidebar';
 import { TopHeader } from '@/components/layout/TopHeader';
 import { apiClient } from '@/lib/api/client';
 import { HistoricalCase } from '@/types';
+import { useApp } from '@/context/AppContext';
+
+function matchHistoricalCase(cases: any[], caseId: string) {
+  const needle = caseId.toLowerCase();
+  return cases.find((c) =>
+    c.id === caseId ||
+    c.case_id === caseId ||
+    String(c.id || '').toLowerCase().includes(needle) ||
+    String(c.name || '').toLowerCase().includes(needle)
+  );
+}
+
+function toHistoricalCase(found: any, caseId: string): HistoricalCase {
+  return {
+    id: found.id || found.case_id || caseId,
+    name: found.name || found.project_name || 'Historical Case',
+    companyAlias: found.companyAlias || found.company_alias || found.name,
+    industry: found.industry || 'Enterprise',
+    productDescription: found.productDescription || found.description || found.pattern || '',
+    similarity: found.similarity || found.similarity_score || 0,
+    outcome: found.outcome || found.historical_outcome || found.interventionOutcome || '',
+    outcomeType: found.outcomeType || found.outcome_type || 'RECOVERED',
+    primaryFailurePattern: found.primaryFailurePattern || found.dominant_archetype || found.failure || found.pattern || '',
+    historicalIntervention: found.historicalIntervention || found.intervention || '',
+    interventionOutcome: found.interventionOutcome || found.outcome || '',
+    privacyLevel: found.privacyLevel || found.privacy_level || 'ANONYMOUS_LEARNING',
+    timeline: found.timeline && found.timeline.length > 0 ? found.timeline : [
+      { step: 'Phase 1', description: found.failure || found.primaryFailurePattern || 'Failure pattern emerged', date: 'Month 1' },
+      { step: 'Phase 2', description: found.intervention || found.historicalIntervention || 'Intervention deployed', date: 'Month 2' },
+      { step: 'Phase 3', description: found.outcome || found.interventionOutcome || 'Outcome observed', date: 'Month 3' },
+    ],
+    keyLessons: found.keyLessons || found.key_lessons || found.lessons_learned || [
+      'Validate onboarding friction before expanding mandatory setup gates.',
+      'Quarantine compounding pipeline failures before they freeze release velocity.',
+    ],
+  };
+}
 
 export default function HistoricalCaseDetailPage() {
   const params = useParams();
   const caseId = (params?.id as string) || 'atlas';
+  const { project } = useApp();
   const [histCase, setHistCase] = useState<HistoricalCase | null>(null);
   const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
     let mounted = true;
-    apiClient.getHistoricalCases(caseId)
-      .then((res: any) => {
+
+    const extractCases = (res: any) =>
+      res?.cases || res?.matched_cases || res?.similar_cases || (Array.isArray(res) ? res : []);
+
+    const load = async () => {
+      try {
+        const primary = await apiClient.getHistoricalCases(project.id);
+        let found = matchHistoricalCase(extractCases(primary), caseId);
+        if (!found && project.id !== 'aurora') {
+          const fallback = await apiClient.getHistoricalCases('aurora');
+          found = matchHistoricalCase(extractCases(fallback), caseId);
+        }
         if (mounted) {
-          const cases = res?.cases || res?.similar_cases || (Array.isArray(res) ? res : []);
-          const found = cases.find((c: any) => c.id === caseId || c.case_id === caseId) || cases[0];
-          if (found) {
-            setHistCase({
-              id: found.id || found.case_id || caseId,
-              name: found.name || found.project_name || 'Project Atlas',
-              companyAlias: found.companyAlias || found.company_alias || 'FinTech Growth Co',
-              industry: found.industry || 'FinTech / Payments',
-              productDescription: found.productDescription || found.description || 'Cloud expense & corporate card platform.',
-              similarity: found.similarity || found.similarity_score || 89,
-              outcome: found.outcome || found.historical_outcome || 'Delayed Beta & $450k engineering overtime burnout before recovery.',
-              outcomeType: found.outcomeType || 'RECOVERED',
-              primaryFailurePattern: found.primaryFailurePattern || found.dominant_archetype || 'Scope Creep & CI Pipeline Paralysis',
-              historicalIntervention: found.historicalIntervention || 'Quarantined integration test suite and simplified compliance onboarding.',
-              interventionOutcome: found.interventionOutcome || 'Activation jumped to 64% and test failure rate dropped to 12%.',
-              privacyLevel: found.privacyLevel || found.privacy_level || 'SHARED_ANONYMIZED',
-              timeline: found.timeline || [
-                { step: 'Phase 1', description: 'Monolithic decomposition introduced 28.6% CI failure rate', date: 'Month 1' },
-                { step: 'Phase 2', description: '7-step onboarding gate triggered 68% drop-off at KYC', date: 'Month 2' },
-                { step: 'Phase 3', description: 'Emergency 3-step progressive onboarding and merge queue deployed', date: 'Month 3' },
-              ],
-              keyLessons: found.keyLessons || found.lessons_learned || [
-                'Never enforce mandatory blocking integrations on initial user workspace setup.',
-                'Isolate test quarantine queues before compounding defect debt paralyzes release branches.',
-                'Progressive onboarding sandboxes achieve 2.1x higher trial-to-paid conversions.',
-              ],
-            });
-          }
+          setHistCase(found ? toHistoricalCase(found, caseId) : null);
           setIsLoading(false);
         }
-      })
-      .catch(() => {
+      } catch {
         if (mounted) setIsLoading(false);
-      });
+      }
+    };
 
-    return () => { mounted = false; };
-  }, [caseId]);
+    load();
+    return () => {
+      mounted = false;
+    };
+  }, [caseId, project.id]);
 
 
   return (
@@ -134,7 +158,7 @@ export default function HistoricalCaseDetailPage() {
                   <span className="text-xs font-mono font-bold uppercase tracking-wider text-emerald-400 block">
                     Historical Intervention Deployed
                   </span>
-                  <h3 className="text-base font-bold text-foreground">Progressive Onboarding Redesign</h3>
+                  <h3 className="text-base font-bold text-foreground">{histCase.historicalIntervention || 'Verified recovery intervention'}</h3>
                   <p className="text-xs text-emerald-300/90 leading-relaxed pt-1">
                     {histCase.interventionOutcome}
                   </p>

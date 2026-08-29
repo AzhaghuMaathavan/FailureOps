@@ -5,7 +5,7 @@ import { authorizeProjectAccess } from '@/lib/server/authorization';
 import { checkRateLimit } from '@/lib/server/rate-limit';
 import { apiSuccess, apiError, apiRateLimitExceeded } from '@/lib/server/response';
 import { AnalysisJobSchema } from '@/lib/validation/schemas';
-import { serverConfig } from '@/lib/server/config';
+import { ragFetch } from '@/lib/server/rag';
 
 export async function POST(req: NextRequest) {
   try {
@@ -20,27 +20,18 @@ export async function POST(req: NextRequest) {
     // Verify tenant authorization
     authorizeProjectAccess(session, validated.projectId);
 
-    const resp = await fetch(`${serverConfig.ragInternalUrl}/api/v1/projects/${encodeURIComponent(validated.projectId)}/analysis`, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'x-organization-id': session.organizationId,
-        'x-user-id': session.userId,
-      },
-      body: JSON.stringify({
-        project_id: validated.projectId,
-        reasoning_depth: (body as any)?.reasoningDepth || 'DEEP',
-        skip_cache: (body as any)?.skipCache || false,
-      }),
-
-    });
-
-    if (!resp.ok) {
-      const errText = await resp.text();
-      throw new Error(`Backend analysis dispatch failed (${resp.status}): ${errText}`);
-    }
-
-    const data = await resp.json();
+    const data = await ragFetch<any>(
+      `/api/v1/projects/${encodeURIComponent(validated.projectId)}/analysis`,
+      session,
+      {
+        method: 'POST',
+        body: JSON.stringify({
+          project_id: validated.projectId,
+          reasoning_depth: (body as any)?.reasoningDepth || 'DEEP',
+          skip_cache: (body as any)?.skipCache || false,
+        }),
+      }
+    );
     return apiSuccess({
       jobId: data.analysis_id,
       analysisId: data.analysis_id,

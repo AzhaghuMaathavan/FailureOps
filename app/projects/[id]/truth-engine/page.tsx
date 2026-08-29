@@ -35,7 +35,9 @@ export default function TruthEnginePage() {
           ],
           findingSummary: res.explanation || 'Empirical telemetry contradicts this operating assumption.',
           alternativeExplanation: res.evidenceSnippet || 'Root causes indicate operational bottlenecks rather than hypothesized drivers.',
-          evidenceSources: ['customer_feedback.csv', 'product_metrics.csv', 'incident_reports.pdf'],
+          evidenceSources: (res.evidenceSources && res.evidenceSources.length > 0)
+            ? res.evidenceSources
+            : (res.ragHits || []).map((h: any) => h.filename).filter(Boolean).slice(0, 6),
         };
         setInvestigation(mapped);
       }

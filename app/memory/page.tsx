@@ -11,16 +11,17 @@ import { apiClient } from '@/lib/api/client';
 import { OrganizationalMemoryEntry } from '@/types';
 
 export default function OrganizationalMemoryPage() {
+  const { project, memoryEntries } = useApp();
   const [entries, setEntries] = useState<OrganizationalMemoryEntry[]>([]);
   const [searchQuery, setSearchQuery] = useState('');
   const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
     let mounted = true;
-    apiClient.getOrganizationalMemory()
+    apiClient.getOrganizationalMemory(project.id)
       .then(res => {
         if (mounted) {
-          const rawEntries = res?.entries || (Array.isArray(res) ? res : []);
+          const rawEntries = res?.entries || res?.memories || (Array.isArray(res) ? res : []);
           setEntries(rawEntries);
           setIsLoading(false);
         }
@@ -32,15 +33,19 @@ export default function OrganizationalMemoryPage() {
         }
       });
     return () => { mounted = false; };
-  }, []);
+  }, [project.id]);
 
 
-  const filteredEntries = entries.filter(
+  const mergedEntries = [...memoryEntries, ...entries].filter(
+    (entry, index, list) => list.findIndex((item) => item.id === entry.id) === index
+  );
+
+  const filteredEntries = mergedEntries.filter(
     m =>
       !searchQuery ||
-      m.pattern.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      m.intervention.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      m.tags.some(t => t.toLowerCase().includes(searchQuery.toLowerCase()))
+      (m.pattern || '').toLowerCase().includes(searchQuery.toLowerCase()) ||
+      (m.intervention || '').toLowerCase().includes(searchQuery.toLowerCase()) ||
+      (m.tags || []).some(t => t.toLowerCase().includes(searchQuery.toLowerCase()))
   );
 
 
@@ -58,7 +63,7 @@ export default function OrganizationalMemoryPage() {
                   Institutional Vault
                 </span>
                 <span className="px-2.5 py-0.5 rounded-full text-xs font-mono bg-emerald-500/10 text-emerald-400 border border-emerald-500/30">
-                  {entries.length} Validated Learnings
+                  {filteredEntries.length} Validated Learnings
                 </span>
 
               </div>
@@ -71,10 +76,10 @@ export default function OrganizationalMemoryPage() {
             </div>
 
             <Link
-              href="/projects/aurora/overview"
+              href={`/projects/${project.id}/overview`}
               className="inline-flex items-center gap-1.5 px-4 py-2 rounded-xl bg-surface-feed hover:bg-card border border-border text-xs font-mono font-bold text-foreground transition-all shadow-sm"
             >
-              <span>Current Aurora Case</span>
+              <span>Open {project.name} Briefing</span>
             </Link>
           </div>
 

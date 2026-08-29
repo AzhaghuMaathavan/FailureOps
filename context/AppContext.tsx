@@ -1,6 +1,6 @@
 'use client';
 
-import React, { createContext, useContext, useState, useEffect } from 'react';
+import React, { createContext, useContext, useState, useEffect, useCallback } from 'react';
 import { Project, Signal, Experiment, OrganizationalMemoryEntry, EvidenceSourceType } from '@/types';
 
 interface AppContextType {
@@ -12,8 +12,8 @@ interface AppContextType {
   analysisCompleted: boolean;
   setAnalysisCompleted: (completed: boolean) => void;
   signals: Signal[];
-  experiment: Experiment;
-  setExperiment: (exp: Experiment) => void;
+  experiment: Experiment | null;
+  setExperiment: (exp: Experiment | null) => void;
   memoryEntries: OrganizationalMemoryEntry[];
   addMemoryEntry: (entry: OrganizationalMemoryEntry) => void;
   theme: 'dark' | 'light';
@@ -49,24 +49,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   const [analysisCompleted, setAnalysisCompleted] = useState<boolean>(false);
 
   const [signals, setSignals] = useState<Signal[]>([]);
-  const [experiment, setExperiment] = useState<Experiment>({
-    id: 'exp_ci_stabilize',
-    projectId: 'aurora',
-    interventionId: 'int_ci',
-    hypothesis: 'Pre-flight merge queue validation will reduce CI build failures from 34% to <15% within 14 days.',
-    controlGroup: 'Current manual review without merge queue pre-flight gating',
-    treatmentGroup: 'Automated merge queue validation with quarantined flaky tests',
-    duration: '14 Days',
-    successMetric: 'CI build failure rate < 15%',
-    status: 'RUNNING',
-    baselineMetric: 34,
-    currentMetric: 12,
-    treatmentMetric: 12,
-    improvementDelta: -22,
-    evidenceStrength: 91,
-    observedOutcome: 'CI build failure rate reduced from 34% to 12% across 14-day observation.',
-    aiInterpretation: 'Statistically significant improvement directly attributed to merge queue gating and flaky test quarantine.',
-  });
+  const [experiment, setExperiment] = useState<Experiment | null>(null);
 
 
   const [memoryEntries, setMemoryEntries] = useState<OrganizationalMemoryEntry[]>([]);
@@ -85,12 +68,12 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     }
   }, []);
 
-  const setProject = (newProject: Project) => {
+  const setProject = useCallback((newProject: Project) => {
     setProjectState(newProject);
     if (typeof window !== 'undefined') {
       localStorage.setItem('failureops_active_project_id', newProject.id);
     }
-  };
+  }, []);
 
   const toggleTheme = () => {
     setTheme(prev => {

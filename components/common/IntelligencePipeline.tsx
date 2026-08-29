@@ -14,6 +14,7 @@ import {
   FlaskConical,
   CheckCircle2,
   Database,
+  Sparkles,
   ChevronRight,
 } from 'lucide-react';
 
@@ -36,6 +37,7 @@ export const IntelligencePipeline: React.FC<IntelligencePipelineProps> = ({
     { id: 'memory-search', label: 'Historical Memory', href: `/historical/atlas`, icon: History },
     { id: 'radar', label: 'Failure Radar', href: `/projects/${projectId}/radar`, icon: Radar },
     { id: 'prediction', label: 'Prediction', href: `/projects/${projectId}/prediction`, icon: Compass },
+    { id: 'simulation', label: 'Simulation', href: `/projects/${projectId}/simulation`, icon: Sparkles },
     { id: 'interventions', label: 'Intervention', href: `/projects/${projectId}/interventions`, icon: Lightbulb },
     { id: 'experiment', label: 'Experiment', href: `/projects/${projectId}/experiment`, icon: FlaskConical },
     { id: 'outcomes', label: 'Verification', href: `/projects/${projectId}/outcomes`, icon: CheckCircle2 },

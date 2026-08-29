@@ -370,6 +370,9 @@ export default function EvidenceUploadPage() {
                     <h4 className="text-xs font-bold text-foreground truncate">{doc.filename}</h4>
                     <p className="text-[10px] font-mono text-muted-foreground mt-0.5">
                       Type: <span className="text-foreground">{doc.document_type || 'PROJECT_DOC'}</span> • Chunks: <span className="text-foreground font-bold">{doc.chunk_count || 0}</span>
+                      {typeof doc.embedded_count === 'number' && (
+                        <> • Embedded: <span className="text-foreground font-bold">{doc.embedded_count}</span></>
+                      )}
                     </p>
                     <span className="inline-block mt-2 px-2 py-0.5 rounded text-[9px] font-mono font-bold bg-emerald-500/10 text-emerald-400 border border-emerald-500/30">
                       {doc.status || 'INDEXED'}
