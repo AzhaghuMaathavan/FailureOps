@@ -11,6 +11,8 @@ from app.models.analysis import ProjectAnalysis
 from app.models.evidence import EvidenceItem, EvidenceConflict
 from app.schemas.analysis import StartAnalysisRequest, StartAnalysisResponse, AnalysisStatusResponse
 from app.schemas.evidence_packet import EvidencePacket
+from app.schemas.signal_packet import SignalPacket
+from app.models.signal import SignalItem
 from app.services.document_service import process_document
 from app.services.analysis_orchestrator import run_project_analysis_pipeline
 
@@ -133,6 +135,100 @@ def get_analysis_evidence_packet(
         raise HTTPException(status_code=500, detail="Evidence packet unavailable")
 
     return EvidencePacket(**analysis.evidence_packet)
+
+
+@router.get("/projects/{project_id}/analysis/{analysis_id}/signals", response_model=SignalPacket)
+def get_analysis_signal_packet(
+    project_id: str,
+    analysis_id: str,
+    org_id: str = Depends(get_tenant_context),
+    db: Session = Depends(get_db)
+):
+    """
+    Retrieves the verified structured Signal Packet produced by the Member 2 Signal Engine.
+    """
+    analysis = db.query(ProjectAnalysis).filter(
+        ProjectAnalysis.id == analysis_id,
+        ProjectAnalysis.organization_id == org_id,
+        ProjectAnalysis.project_id == project_id
+    ).first()
+
+    if not analysis:
+        raise HTTPException(status_code=404, detail="Analysis job not found or unauthorized")
+
+    if analysis.status != "COMPLETED":
+        raise HTTPException(
+            status_code=400, 
+            detail=f"Analysis is still in progress (Current status: {analysis.status}, Progress: {analysis.progress_percent}%)"
+        )
+
+    if not analysis.signal_packet:
+        raise HTTPException(status_code=500, detail="Signal packet unavailable")
+
+    return SignalPacket(**analysis.signal_packet)
+
+
+@router.get("/projects/{project_id}/signals", response_model=SignalPacket)
+def get_latest_project_signals(
+    project_id: str,
+    org_id: str = Depends(get_tenant_context),
+    db: Session = Depends(get_db)
+):
+    """
+    Retrieves the latest completed Signal Packet for a project with multi-tenant scoping.
+    """
+    latest_analysis = db.query(ProjectAnalysis).filter(
+        ProjectAnalysis.organization_id == org_id,
+        ProjectAnalysis.project_id == project_id,
+        ProjectAnalysis.status == "COMPLETED"
+    ).order_by(ProjectAnalysis.created_at.desc()).first()
+
+    if not latest_analysis or not latest_analysis.signal_packet:
+        # Check individual signal records as fallback
+        signals = db.query(SignalItem).filter(
+            SignalItem.organization_id == org_id,
+            SignalItem.project_id == project_id
+        ).all()
+        
+        if not signals:
+            return SignalPacket(
+                project_id=project_id,
+                analysis_id="none",
+                organization_id=org_id,
+                signals=[]
+            )
+
+        signal_schemas = [
+            SignalItemSchema(
+                signal_id=s.id,
+                project_id=s.project_id,
+                analysis_id=s.analysis_id,
+                organization_id=s.organization_id,
+                name=s.name,
+                category=s.category,
+                signal_type=s.signal_type,
+                polarity=s.polarity,
+                status=s.status,
+                severity=s.severity,
+                summary=s.summary,
+                metric_change=s.metric_change,
+                signal_strength=s.signal_strength,
+                signal_confidence=s.signal_confidence,
+                historical_prevalence=s.historical_prevalence,
+                supporting_evidence_ids=s.supporting_evidence_ids,
+                supporting_relationship_ids=s.supporting_relationship_ids or []
+            )
+            for s in signals
+        ]
+        return SignalPacket(
+            project_id=project_id,
+            analysis_id=signals[0].analysis_id if signals else "none",
+            organization_id=org_id,
+            signals=signal_schemas
+        )
+
+    return SignalPacket(**latest_analysis.signal_packet)
+
 
 
 @router.post("/projects/{project_id}/documents/upload")

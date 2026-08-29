@@ -50,15 +50,20 @@ export interface Signal {
   projectId: string;
   name: string;
   category: string;
-  severity: 'LOW' | 'MEDIUM' | 'HIGH' | 'CRITICAL';
-  direction: 'POSITIVE' | 'NEGATIVE' | 'NEUTRAL';
-  trend: 'INCREASING' | 'DECREASING' | 'STABLE';
+  severity: 'LOW' | 'MEDIUM' | 'HIGH' | 'CRITICAL' | 'HEALTHY';
+  direction: 'POSITIVE' | 'NEGATIVE' | 'NEUTRAL' | 'MIXED';
+  trend: 'INCREASING' | 'DECREASING' | 'STABLE' | 'FLUCTUATING';
   confidence: number;
   metricChange: string;
   supportingEvidenceIds: string[];
+  supportingRelationshipIds?: string[];
   historicalPrevalence: number;
   description: string;
+  signalStrength?: number;
+  status?: string;
+  signalType?: string;
 }
+
 
 export interface FailureDNADimension {
   dimension: 'Technical' | 'Operational' | 'Adoption' | 'Execution' | 'Financial' | 'Customer';

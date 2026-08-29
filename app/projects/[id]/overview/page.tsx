@@ -23,13 +23,26 @@ import { StatCard } from '@/components/common/StatCard';
 import { RiskBadge } from '@/components/common/RiskBadge';
 import { PrivacyBadge } from '@/components/common/PrivacyBadge';
 import { IntelligencePipeline } from '@/components/common/IntelligencePipeline';
-import { mockSignals } from '@/data/mockSignals';
+import { apiClient } from '@/lib/api/client';
+import { Signal } from '@/types';
 
 export default function ProjectOverviewPage() {
   const router = useRouter();
   const params = useParams();
   const projectId = (params?.id as string) || 'aurora';
   const { project } = useApp();
+  const [signals, setSignals] = React.useState<Signal[]>([]);
+
+  React.useEffect(() => {
+    let isMounted = true;
+    apiClient.getSignals(projectId).then(res => {
+      if (isMounted && res && res.length > 0) {
+        setSignals(res);
+      }
+    }).catch(() => {});
+    return () => { isMounted = false; };
+  }, [projectId]);
+
 
   return (
     <div className="space-y-8">
@@ -177,7 +190,7 @@ export default function ProjectOverviewPage() {
         </div>
 
         <div className="space-y-2.5">
-          {mockSignals.map((sig, i) => (
+          {signals.slice(0, 5).map((sig, i) => (
             <div
               key={sig.id}
               onClick={() => router.push(`/projects/${projectId}/signals`)}
@@ -202,8 +215,14 @@ export default function ProjectOverviewPage() {
               </div>
             </div>
           ))}
+          {signals.length === 0 && (
+            <div className="p-4 text-center text-xs font-mono text-muted-foreground">
+              No active operational signals extracted yet.
+            </div>
+          )}
         </div>
       </div>
     </div>
   );
 }
+

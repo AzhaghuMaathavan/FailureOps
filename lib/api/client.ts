@@ -1,11 +1,13 @@
 import {
   Project,
   EvidenceItem,
+  Signal,
   FailureDNA,
   AssumptionInvestigation,
   OrganizationalMemoryEntry,
   Experiment,
 } from '@/types';
+
 import { ProjectRegistrationInput, EvidenceUploadInput } from '@/lib/validation/schemas';
 
 interface ApiResponse<T> {
@@ -88,7 +90,13 @@ export const apiClient = {
     return request<EvidenceItem[]>(`/api/evidence?projectId=${encodeURIComponent(projectId)}`);
   },
 
+  // Signals
+  async getSignals(projectId: string = 'aurora'): Promise<Signal[]> {
+    return request<Signal[]>(`/api/signals?projectId=${encodeURIComponent(projectId)}`);
+  },
+
   async uploadEvidenceMetadata(input: EvidenceUploadInput) {
+
     return request('/api/evidence/upload', {
       method: 'POST',
       body: JSON.stringify(input),

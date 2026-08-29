@@ -6,9 +6,15 @@ from app.db.database import SessionLocal
 from app.models.document import Document
 from app.models.analysis import ProjectAnalysis
 from app.models.evidence import EvidenceItem, EvidenceConflict
+from app.models.signal import SignalItem
 from app.services.document_service import process_document
 from app.services.evidence_retriever import retrieve_project_evidence_candidates
 from app.services.evidence_agent import run_evidence_agent
+from app.services.signal_consumer import consume_evidence_packet
+from app.services.evidence_grouper import group_verified_evidence
+from app.services.trend_detector import detect_trends_from_groups
+from app.services.relationship_detector import detect_evidence_relationships
+from app.services.signal_agent import generate_signal_packet
 
 logger = logging.getLogger(__name__)
 
@@ -37,14 +43,15 @@ def run_project_analysis_pipeline(
     project_id: str
 ):
     """
-    Asynchronous worker task that executes the complete RAG + Evidence Intelligence lifecycle.
+    Asynchronous worker task that executes the complete FailureOps Intelligence lifecycle:
+    Member 1 (RAG + Evidence Intelligence) -> Member 2 (Signal Engine).
     """
     db: Session = SessionLocal()
     t_start = time.time()
     
     try:
         # Stage 1: Document Processing Check
-        update_analysis_stage(db, analysis_id, "PARSING_DOCUMENTS", "Processing project files...", 15)
+        update_analysis_stage(db, analysis_id, "PARSING_DOCUMENTS", "Processing and normalizing project artifacts...", 15)
         
         # Check if any documents for this project are still pending
         pending_docs = db.query(Document).filter(
@@ -60,11 +67,11 @@ def run_project_analysis_pipeline(
                 logger.error(f"Error processing pending document {doc.id}: {e}")
 
         # Stage 2: Chunking & Indexing
-        update_analysis_stage(db, analysis_id, "INDEXING", "Indexing semantic chunks and embeddings...", 40)
-        time.sleep(0.5)
+        update_analysis_stage(db, analysis_id, "INDEXING", "Indexing semantic chunks and embeddings...", 30)
+        time.sleep(0.3)
 
-        # Stage 3: 16-Dimension Targeted Hybrid Retrieval
-        update_analysis_stage(db, analysis_id, "RETRIEVING_EVIDENCE", "Retrieving evidence across 16 dimensions...", 60)
+        # Stage 3: 16-Dimension Targeted Hybrid Retrieval (with Acceptance Gating)
+        update_analysis_stage(db, analysis_id, "RETRIEVING_EVIDENCE", "Executing 16-dimension hybrid retrieval...", 50)
         
         # Get all project document IDs
         project_docs = db.query(Document).filter(
@@ -80,12 +87,8 @@ def run_project_analysis_pipeline(
             document_ids=doc_ids
         )
 
-        # Stage 4: Cross-Encoder Reranking
-        update_analysis_stage(db, analysis_id, "RERANKING", "Ranking factual evidence candidates...", 75)
-        time.sleep(0.5)
-
-        # Stage 5: Evidence Extraction & Citation Validation
-        update_analysis_stage(db, analysis_id, "EXTRACTING_EVIDENCE", "Extracting and normalizing facts...", 85)
+        # Stage 4: Evidence Extraction & Citation Validation (Member 1)
+        update_analysis_stage(db, analysis_id, "EXTRACTING_EVIDENCE", "Extracting verified facts and citations...", 70)
         
         t_duration = time.time() - t_start
         evidence_packet = run_evidence_agent(
@@ -97,15 +100,39 @@ def run_project_analysis_pipeline(
             processing_time=t_duration
         )
 
-        # Stage 6: Persistence in Database
-        update_analysis_stage(db, analysis_id, "VALIDATING_EVIDENCE", "Persisting Evidence Packet...", 95)
+        # Stage 5: Signal Input Validation & Evidence Grouping (Member 2 Stage 1 & 2)
+        update_analysis_stage(db, analysis_id, "GROUPING_EVIDENCE", "Validating input packet and clustering evidence...", 80)
+        signal_input_context = consume_evidence_packet(
+            packet_input=evidence_packet,
+            authorized_org_id=organization_id,
+            expected_project_id=project_id
+        )
+        evidence_groups = group_verified_evidence(signal_input_context)
+
+        # Stage 6: Trend & Relationship Detection (Member 2 Stage 3 & 4)
+        update_analysis_stage(db, analysis_id, "CORRELATING_PATTERNS", "Detecting numerical trends and cross-source patterns...", 88)
+        detected_trends = detect_trends_from_groups(evidence_groups)
+        relationships = detect_evidence_relationships(evidence_groups, detected_trends)
+
+        # Stage 7: Signal Agent Synthesis & Grounding (Member 2 Stage 5)
+        update_analysis_stage(db, analysis_id, "SYNTHESIZING_SIGNALS", "Synthesizing operational signals and strength metrics...", 94)
+        signal_packet = generate_signal_packet(
+            context=signal_input_context,
+            groups=evidence_groups,
+            trends=detected_trends,
+            relationships=relationships
+        )
+
+        # Stage 8: Relational Database Persistence
+        update_analysis_stage(db, analysis_id, "PERSISTING_ANALYSIS", "Persisting Evidence & Signal Packets...", 98)
         
         analysis = db.query(ProjectAnalysis).filter(ProjectAnalysis.id == analysis_id).first()
         if analysis:
             analysis.evidence_packet = evidence_packet.model_dump()
+            analysis.signal_packet = signal_packet.model_dump()
             analysis.metrics = evidence_packet.metrics.model_dump()
             
-            # Save individual items for relational querying
+            # Save individual evidence items for relational querying
             for item in evidence_packet.evidence:
                 db_item = EvidenceItem(
                     id=item.id,
@@ -139,15 +166,39 @@ def run_project_analysis_pipeline(
                     status=conflict.status
                 )
                 db.add(db_conf)
+
+            # Save individual signal items
+            for sig in signal_packet.signals:
+                db_sig = SignalItem(
+                    id=sig.signal_id,
+                    analysis_id=analysis_id,
+                    organization_id=organization_id,
+                    project_id=project_id,
+                    name=sig.name,
+                    category=sig.category,
+                    signal_type=sig.signal_type,
+                    polarity=sig.polarity,
+                    status=sig.status,
+                    severity=sig.severity,
+                    summary=sig.summary,
+                    metric_change=sig.metric_change,
+                    signal_strength=sig.signal_strength,
+                    signal_confidence=sig.signal_confidence,
+                    historical_prevalence=sig.historical_prevalence,
+                    supporting_evidence_ids=sig.supporting_evidence_ids,
+                    supporting_relationship_ids=sig.supporting_relationship_ids
+                )
+                db.add(db_sig)
                 
             db.commit()
 
         # Completed!
-        update_analysis_stage(db, analysis_id, "COMPLETED", "Evidence Intelligence Report Ready", 100)
-        logger.info(f"[analysis_orchestrator] Analysis {analysis_id} completed successfully in {round(time.time() - t_start, 2)}s")
+        update_analysis_stage(db, analysis_id, "COMPLETED", "Intelligence & Signal Analysis Complete", 100)
+        logger.info(f"[analysis_orchestrator] Analysis {analysis_id} completed successfully in {round(time.time() - t_start, 2)}s with {len(signal_packet.signals)} signals.")
 
     except Exception as e:
         logger.error(f"[analysis_orchestrator] Analysis {analysis_id} failed: {e}", exc_info=True)
         update_analysis_stage(db, analysis_id, "FAILED", "Analysis encountered an error", 0, error_msg=str(e))
     finally:
         db.close()
+

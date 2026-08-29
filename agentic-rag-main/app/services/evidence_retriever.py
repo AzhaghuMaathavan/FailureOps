@@ -127,7 +127,30 @@ def retrieve_project_evidence_candidates(
         
         # Clean & expand context
         expanded = expand_chunk_context(db, final_evidence[:settings.EVIDENCE_FINAL_TOP_K])
-        results_by_dimension[dim] = expanded
+        
+        # Retrieval Acceptance Gate:
+        # Filter out generic/irrelevant chunks that do not meet relevance thresholds or dimension affinity
+        gated_chunks = []
+        dim_terms = [t.lower() for t in dim_info.get("bm25_terms", "").split() if len(t) > 2]
+        
+        for chunk in expanded:
+            content_lower = chunk.get("content", "").lower()
+            rerank_score = chunk.get("rerank_score", 0.0)
+            hybrid_score = chunk.get("hybrid_score", 0.0)
+            bm25_score = chunk.get("bm25_score", 0.0)
+            
+            # Acceptance conditions:
+            # 1. Has direct keyword match with dimension domain terms OR
+            # 2. Strong rerank score exceeding threshold (for deep semantic matches)
+            has_term_match = any(t in content_lower for t in dim_terms)
+            meets_rerank = rerank_score >= settings.RETRIEVAL_MIN_RERANK_SCORE
+            meets_hybrid = hybrid_score >= settings.RETRIEVAL_MIN_HYBRID_SCORE
+            meets_bm25 = bm25_score >= settings.RETRIEVAL_MIN_BM25_SCORE
+            
+            if (has_term_match and (meets_rerank or meets_hybrid or meets_bm25)) or (rerank_score >= 4.0):
+                gated_chunks.append(chunk)
+                
+        results_by_dimension[dim] = gated_chunks
         total_searched += len(raw_candidates)
         
     duration = time.time() - t0
@@ -139,3 +162,4 @@ def retrieve_project_evidence_candidates(
     }
     
     return results_by_dimension, operational_metrics
+

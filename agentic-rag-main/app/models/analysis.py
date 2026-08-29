@@ -16,6 +16,7 @@ class ProjectAnalysis(Base):
     error_message = Column(Text, nullable=True)
 
     evidence_packet = Column(JSON, nullable=True)
+    signal_packet = Column(JSON, nullable=True)
     metrics = Column(JSON, nullable=True)
 
     created_at = Column(DateTime(timezone=True), server_default=func.now())
@@ -23,3 +24,5 @@ class ProjectAnalysis(Base):
 
     evidence_items = relationship("EvidenceItem", back_populates="analysis", cascade="all, delete-orphan")
     conflicts = relationship("EvidenceConflict", back_populates="analysis", cascade="all, delete-orphan")
+    signals = relationship("SignalItem", back_populates="analysis", cascade="all, delete-orphan")
+

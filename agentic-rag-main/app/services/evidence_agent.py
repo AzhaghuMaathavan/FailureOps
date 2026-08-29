@@ -138,35 +138,55 @@ def extract_evidence_from_dimension_chunks(
 def heuristic_extract_evidence(dimension: str, chunks: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
     """
     Deterministic rule-based fallback extractor if LLM is offline or timed out.
+    Enforces dimension keyword affinity to prevent cross-contamination.
     """
+    from app.services.evidence_retriever import EVIDENCE_DIMENSIONS
+    dim_terms = [t.lower() for t in EVIDENCE_DIMENSIONS.get(dimension, {}).get("bm25_terms", "").split() if len(t) > 2]
+
     items = []
     for idx, c in enumerate(chunks[:5]):
         content = c.get("content", "")
+        # Require chunk to have affinity with the dimension
+        if dim_terms and not any(t in content.lower() for t in dim_terms):
+            continue
+
         lines = [line.strip() for line in content.split("\n") if len(line.strip()) > 20]
         for line in lines:
-            if any(term in line.lower() for term in ["%", "rate", "declined", "increased", "dropped", "bottleneck", "delay", "incident", "complaint", "users", "week", "hours"]):
+            has_metric_terms = any(term in line.lower() for term in ["%", "rate", "declined", "increased", "dropped", "bottleneck", "delay", "incident", "complaint", "users", "week", "hours", "arr", "mrr", "churn", "retention"])
+            has_dim_terms = not dim_terms or any(t in line.lower() or t in content.lower() for t in dim_terms)
+
+            if has_metric_terms and has_dim_terms:
                 # Extract number
-                nums = re.findall(r'\b\d+(?:\.\d+)?\b', line)
-                before = float(nums[0]) if len(nums) >= 2 else None
-                after = float(nums[1]) if len(nums) >= 2 else (float(nums[0]) if len(nums) == 1 else None)
-                direction = "DECREASE" if any(w in line.lower() for w in ["drop", "decline", "fell", "down"]) else ("INCREASE" if any(w in line.lower() for w in ["increas", "grew", "surge", "up"]) else "STABLE")
+                nums = re.findall(r'\b\d+(?:\.\d+)?%?\b', line)
+                raw_nums = [float(n.replace('%', '')) for n in nums if re.match(r'^\d+(?:\.\d+)?%?$', n)]
+                before = raw_nums[0] if len(raw_nums) >= 2 else None
+                after = raw_nums[1] if len(raw_nums) >= 2 else (raw_nums[0] if len(raw_nums) == 1 else None)
+                direction = "DECREASE" if any(w in line.lower() for w in ["drop", "decline", "fell", "down", "slow"]) else ("INCREASE" if any(w in line.lower() for w in ["increas", "grew", "surge", "up", "overtime"]) else "STABLE")
                 
+                # Derive descriptive metric name from line
+                metric_name = f"{dimension.lower()}_metric"
+                for dt in dim_terms:
+                    if dt in line.lower():
+                        metric_name = dt
+                        break
+
                 items.append({
                     "chunk_index": idx,
                     "category": dimension,
-                    "evidence_type": "METRIC" if nums else "OBSERVATION",
+                    "evidence_type": "METRIC" if raw_nums else "OBSERVATION",
                     "statement": line[:200],
                     "normalized_value": {
-                        "metric": f"{dimension.lower()}_indicator",
+                        "metric": metric_name,
                         "before": before,
                         "after": after,
-                        "unit": "value",
+                        "unit": "percent" if "%" in line else "count",
                         "direction": direction
                     } if after is not None else None,
                     "time_period": None
                 })
                 break
     return items
+
 
 
 def run_evidence_agent(

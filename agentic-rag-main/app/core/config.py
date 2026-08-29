@@ -28,6 +28,11 @@ class Settings(BaseSettings):
     EVIDENCE_FINAL_TOP_K: int = int(os.getenv('EVIDENCE_FINAL_TOP_K', 8))
     EVIDENCE_MIN_CONFIDENCE: float = float(os.getenv('EVIDENCE_MIN_CONFIDENCE', 0.70))
 
+    # Retrieval Acceptance Gating
+    RETRIEVAL_MIN_RERANK_SCORE: float = float(os.getenv('RETRIEVAL_MIN_RERANK_SCORE', -2.5))
+    RETRIEVAL_MIN_BM25_SCORE: float = float(os.getenv('RETRIEVAL_MIN_BM25_SCORE', 0.05))
+    RETRIEVAL_MIN_HYBRID_SCORE: float = float(os.getenv('RETRIEVAL_MIN_HYBRID_SCORE', 0.012))
+
     # Demo Mode
     DEMO_MODE: bool = os.getenv('DEMO_MODE', 'false').lower() == 'true'
 

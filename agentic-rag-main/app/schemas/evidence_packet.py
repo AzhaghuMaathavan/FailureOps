@@ -1,5 +1,7 @@
 from typing import List, Dict, Any, Optional
+from datetime import datetime, timezone
 from pydantic import BaseModel, Field
+
 
 class NormalizedMetric(BaseModel):
     metric: str
@@ -66,8 +68,9 @@ class EvidencePacket(BaseModel):
     project_id: str
     analysis_id: str
     organization_id: str
-    generated_at: str
+    generated_at: str = Field(default_factory=lambda: datetime.now(timezone.utc).isoformat())
     evidence: List[EvidenceItemSchema] = Field(default_factory=list)
     conflicts: List[EvidenceConflictSchema] = Field(default_factory=list)
     coverage: Dict[str, str] = Field(default_factory=dict)
     metrics: EvidenceMetrics = Field(default_factory=EvidenceMetrics)
+

@@ -3,6 +3,7 @@ from app.models.chunk import Chunk
 from app.models.chat import Conversation, Message
 from app.models.analysis import ProjectAnalysis
 from app.models.evidence import EvidenceItem, EvidenceConflict
+from app.models.signal import SignalItem
 
 __all__ = [
     "Document",
@@ -13,5 +14,7 @@ __all__ = [
     "Message",
     "ProjectAnalysis",
     "EvidenceItem",
-    "EvidenceConflict"
+    "EvidenceConflict",
+    "SignalItem"
 ]
+
