@@ -216,29 +216,29 @@ export default function EvidenceIntelligencePage() {
 
   return (
     <div className="space-y-6">
-      <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
-        <div className="space-y-1.5">
-          <p className="text-[11px] font-mono font-bold uppercase tracking-[0.66px] text-primary">
-            INGEST  ·  ENCLAVE
-          </p>
-          <h1 className="text-2xl font-extrabold tracking-tight text-foreground lg:text-[28px]">
-            Evidence Intelligence
-          </h1>
-          <p className="max-w-xl text-[13px] text-muted-foreground">
-            PRDs, tickets, telemetry, and feedback — conflict-ranked, citation-backed.
+      {/* Top Header matching LangGraph Orchestrated banner */}
+      <div className="bg-card rounded-xl border border-border p-4 sm:p-5 shadow-[0_8px_24px_-8px_rgba(0,0,0,0.35)] flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+        <div>
+          <div className="flex items-center gap-2.5 flex-wrap">
+            <ShieldCheck className="w-5 h-5 text-primary shrink-0" aria-hidden="true" />
+            <h1 className="text-xl sm:text-2xl font-extrabold text-foreground tracking-tight">
+              Evidence Intelligence Service
+            </h1>
+            <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-[11px] font-mono font-bold bg-primary/10 text-primary border border-primary/20">
+              LangGraph Orchestrated
+            </span>
+          </div>
+          <p className="text-xs text-muted-foreground mt-1 font-mono">
+            Deterministic Grounded Ingestion &rarr; Citation Extractor &rarr; Chronological Telemetry Engine
           </p>
         </div>
 
         <div className="flex flex-wrap items-center gap-2">
-          <span className="inline-flex items-center gap-1.5 font-mono text-[11px] text-muted-foreground">
-            <ShieldCheck className="h-3.5 w-3.5 text-success" aria-hidden="true" />
-            Zero PII outside enclave
-          </span>
           <Link
             href={`/projects/${projectId}/upload`}
-            className="inline-flex cursor-pointer items-center justify-center rounded-[10px] bg-primary px-4 py-2.5 text-xs font-bold text-primary-foreground shadow-[0_0_18px_-4px_rgba(255,122,0,0.35)] transition-colors hover:bg-primary-hover focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+            className="inline-flex cursor-pointer items-center justify-center rounded-[10px] bg-primary px-4 py-2 text-xs font-bold font-mono text-primary-foreground shadow-[0_0_18px_-4px_rgba(255,122,0,0.35)] transition-colors hover:bg-primary-hover focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
           >
-            Upload source
+            Upload Evidence
           </Link>
         </div>
       </div>

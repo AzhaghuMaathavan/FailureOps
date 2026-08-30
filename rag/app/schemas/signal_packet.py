@@ -60,4 +60,5 @@ class SignalPacket(BaseModel):
     organization_id: str
     generated_at: str = Field(default_factory=lambda: datetime.now(timezone.utc).isoformat())
     signals: List[SignalItemSchema] = Field(default_factory=list)
+    risk_dimensions: List[Dict[str, Any]] = Field(default_factory=list)
     summary: OverallSignalSummary = Field(default_factory=OverallSignalSummary)

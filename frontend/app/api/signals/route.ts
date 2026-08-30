@@ -78,6 +78,7 @@ export async function GET(req: NextRequest) {
         ? backendData.analysis_id
         : null,
       signals: mappedSignals,
+      riskDimensions: backendData.risk_dimensions || [],
       packet: backendData,
     });
   } catch (error) {

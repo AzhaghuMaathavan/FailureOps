@@ -619,7 +619,24 @@ def get_latest_project_signals(
             signals=signal_schemas
         )
 
-    return SignalPacket(**latest_analysis.signal_packet)
+    packet_dict = dict(latest_analysis.signal_packet)
+    if "risk_dimensions" not in packet_dict or not packet_dict.get("risk_dimensions"):
+        if latest_analysis.failure_dna and "dimensions" in latest_analysis.failure_dna:
+            dims = []
+            for d in latest_analysis.failure_dna["dimensions"]:
+                if d.get("risk_score") is not None:
+                    dims.append({
+                        "dimension": d.get("dimension", "").upper(),
+                        "risk_score": d.get("risk_score"),
+                        "severity": d.get("severity") or d.get("status") or "MEDIUM",
+                        "trend": d.get("trend") or "STABLE",
+                        "change_percent": d.get("change_percent") or d.get("risk_change_percent"),
+                        "evidence_count": d.get("evidence_count") or len(d.get("evidence_ids") or []),
+                        "confidence": d.get("confidence") or 0.85,
+                        "why_explanation": d.get("why_explanation")
+                    })
+            packet_dict["risk_dimensions"] = dims
+    return SignalPacket(**packet_dict)
 
 
 @router.get("/projects/{project_id}/failure-dna", response_model=FailureDNAPacket)

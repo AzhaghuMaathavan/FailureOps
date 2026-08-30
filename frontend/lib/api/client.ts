@@ -2,6 +2,7 @@ import {
   Project,
   EvidenceItem,
   Signal,
+  DimensionRiskScore,
   FailureDNA,
   AssumptionInvestigation,
   OrganizationalMemoryEntry,
@@ -169,18 +170,20 @@ export const apiClient = {
   async getSignals(projectId: string = 'aurora', analysisId?: string): Promise<{
     analysisId: string | null;
     signals: Signal[];
+    riskDimensions?: DimensionRiskScore[];
     packet?: unknown;
   }> {
     const q = analysisId ? `&analysisId=${encodeURIComponent(analysisId)}` : '';
-    const data = await request<{ analysisId: string | null; signals: Signal[]; packet?: unknown } | Signal[]>(
+    const data = await request<{ analysisId: string | null; signals: Signal[]; riskDimensions?: DimensionRiskScore[]; packet?: unknown } | Signal[]>(
       `/api/signals?projectId=${encodeURIComponent(projectId)}${q}`
     );
     if (Array.isArray(data)) {
-      return { analysisId: null, signals: data };
+      return { analysisId: null, signals: data, riskDimensions: [] };
     }
     return {
       analysisId: data?.analysisId ?? null,
       signals: data?.signals || [],
+      riskDimensions: data?.riskDimensions || (data?.packet as any)?.risk_dimensions || [],
       packet: data?.packet,
     };
   },

@@ -118,6 +118,17 @@ export interface Signal {
 }
 
 
+export interface DimensionRiskScore {
+  dimension: string;
+  risk_score: number | null;
+  severity: 'LOW' | 'MEDIUM' | 'HIGH' | 'CRITICAL' | 'NO_EVIDENCE' | string;
+  change_percent?: number | null;
+  trend?: 'INCREASING' | 'DECREASING' | 'STABLE' | 'UNKNOWN' | string;
+  evidence_count: number;
+  confidence: number;
+  why_explanation?: string;
+}
+
 export interface FailureDNADimension {
   dimension: 'Technical' | 'Operational' | 'Adoption' | 'Execution' | 'Financial' | 'Customer';
   score: number; // 0 - 100
