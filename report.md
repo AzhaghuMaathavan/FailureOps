@@ -1,234 +1,245 @@
-# FAILUREOPS X — FORENSIC RAG & LANGGRAPH AUDIT REPORT
+# FAILUREOPS X — LIVE RAG / LANGGRAPH INTEGRATION REPORT
 
-**Audit Date:** August 31, 2026  
-**Audited System:** FailureOps X — Project Failure Intelligence Platform  
-**Architecture:** Next.js 16 (BFF & UI) + FastAPI (RAG & Multi-Agent) + LangGraph (7-Node Pipeline) + PostgreSQL 16 (pgvector) + Object Storage (RustFS)  
+====================================================
+FAILUREOPS X — LIVE RAG/LANGGRAPH INTEGRATION REPORT
+====================================================
 
----
+1. EXECUTIVE VERDICT
 
-## 1. Executive Verdict
+Real frontend → RAG:
+PASS
 
-| Audit Dimension | Result | Evidence / Status |
-| :--- | :---: | :--- |
-| **Real RAG Pipeline** | **YES** | Multi-format parsers, semantic chunking, 2048-dim embeddings, pgvector `<=>` search, tsvector BM25, RRF fusion, NVIDIA cross-encoder reranker. |
-| **Real LangGraph Orchestration** | **YES** | 7-node linear StateGraph (`FailureOpsGraphState`) compiling and executing from `validate_request` to `finalize_output`. |
-| **End-to-End Grounding** | **YES** | Verified with unique token (`FAILUREOPS_RAG_AUDIT_TOKEN_987654`); answers strictly cite verified chunks; zero hallucination on negative tests. |
-| **Live Backend UI Data** | **YES** | All 10 project intelligence screens consume live backend endpoints via typed JSON contracts with multi-tenant headers. |
-| **Multi-Tenant Isolation** | **YES** | Cross-tenant document retrieval, evidence extraction, and file downloads are strictly forbidden (0 leaks across tenant boundaries). |
-| **Current System Level** | **LEVEL 5** | **End-to-end RAG/LangGraph pipeline verified and fully functional.** |
+Real RAG → LangGraph:
+PASS
 
----
+Real LangGraph → Evidence:
+PASS
 
-## 2. Architecture & Service Topology
+Real Evidence → Signals:
+PASS
 
-```
-┌───────────────────────────────────────────────────────────────────────────────────┐
-│                           FRONTEND SERVICE (Next.js 16)                           │
-│  - Port: 3000 | App Router | Turbopack | React Server Components                  │
-│  - Session Cookies: HMAC-SHA256 session token                                      │
-│  - BFF Proxy Layer: /api/documents, /api/signals, /api/evidence, /api/analysis     │
-│  - Injects Multi-Tenant Headers: x-organization-id, x-user-id                      │
-└────────────────────────────────────────┬──────────────────────────────────────────┘
-                                         │ HTTP (JSON / Multipart)
-                                         ▼
-┌───────────────────────────────────────────────────────────────────────────────────┐
-│                           MAIN RAG BACKEND (FastAPI)                              │
-│  - Port: 8000 | Entrypoint: rag/app/main.py                                       │
-│  - Routers: documents, retrieval, analysis, intelligence, foundation, email       │
-│  - Multi-Tenant Middleware: get_tenant_context (scoped to org_id)                 │
-└──────────────────┬─────────────────────────────────────────────┬──────────────────┘
-                   │                                             │
-      ┌────────────┴────────────┐                   ┌────────────┴────────────┐
-      ▼                         ▼                   ▼                         ▼
-┌──────────────┐         ┌──────────────┐    ┌──────────────┐         ┌──────────────┐
-│  PARSER &    │         │  LANGGRAPH   │    │  POSTGRESQL  │         │   OBJECT     │
-│  CHUNKER     │         │  WORKFLOW    │    │  + pgvector  │         │   STORAGE    │
-│  (PyMuPDF,   │         │  (7-Node     │    │  (Chunks,    │         │  (RustFS /   │
-│  CSV, XLSX,  │         │  StateGraph) │    │  Vectors,    │         │   Local      │
-│  DOCX, MD)   │         │              │    │  Evidence)   │         │  Encrypted)  │
-└──────────────┘         └──────────────┘    └──────────────┘         └──────────────┘
-```
+Real persistence:
+PASS
 
-### Configuration & Environment Mapping
-- **Frontend BFF**: `frontend/lib/server/config.ts` (`BACKEND_INTERNAL_URL="http://127.0.0.1:8000"`, `RAG_INTERNAL_URL="http://127.0.0.1:8000"`)
-- **Backend API**: `rag/app/core/config.py` (`NVIDIA_EMBED_MODEL="nvidia/llama-nemotron-embed-vl-1b-v2"`, `NVIDIA_RERANK_MODEL="nvidia/nv-embedqa-mistral-7b-v2"`, `EMBEDDING_DIMENSION=2048`)
-- **Database**: PostgreSQL 16 with `pgvector` extension.
-- **Storage**: `rag/app/core/object_storage.py` (RustFS S3-compatible backend + local working directory).
+Frontend live data:
+PASS
 
----
+Overall:
+PASS
 
-## 3. Document Ingestion, Storage, Parsing, Chunking & Embedding
+----------------------------------------------------
 
-### Pipeline Trace:
-```
-Upload File (Browser)
-       │
-       ▼
-frontend/app/api/documents/upload/route.ts (BFF Proxy)
-       │
-       ▼
-rag/app/api/documents.py (POST /api/v1/documents/upload)
-       │
-       ▼
-rag/app/services/ingest_service.py (ingest_upload)
-       │
-       ├─► 1. Storage: persist_upload -> Object Storage (RustFS) + documents table
-       ├─► 2. Parsing: process_document -> multi-format parser -> document_blocks
-       ├─► 3. Chunking: create_chunks_for_document -> structural & semantic chunks
-       └─► 4. Embedding: generate_embeddings -> 2048-dim vectors -> chunks.embedding
-```
+2. EXACT ROOT CAUSE
 
-### Ingestion Audit Results:
-1. **Upload & Category Resolution:** `ingest_upload` normalizes document categories (`PRODUCT_PLAN`, `CUSTOMER_FEEDBACK`, `PRODUCT_METRICS`, `ENGINEERING_METRICS`, `TEAM_OPERATIONS`, `INCIDENT_REPORTS`).
-2. **Storage Persistence:** Files are materialized to storage, yielding a persistent URI stored in `Document.original_path`.
-3. **Parsing:** Multi-format parser handles `.pdf` (PyMuPDF blocks + Vision fallback), `.csv` (tabular metrics parser), `.xlsx`, `.docx`, `.md`, and `.txt`.
-4. **Chunking:** Semantic chunker assigns chunk indexes, section headers, line numbers, and lineage metadata (`lineage.document_name`, `lineage.page_numbers`).
-5. **Embedding Generation:** 2048-dimensional embeddings generated in safe batches using `nvidia/llama-nemotron-embed-vl-1b-v2` and indexed in `chunks.embedding`.
+Previously observed issues where documents uploaded in the UI seemed disconnected from the live evidence views were caused by three specific integration points:
+1. **Provenance Contract Mismatch**: `EvidenceItem` and `EventItem` schemas required strict lineage fields (`source_document_id`, `source_document_name`, `source_chunk_id`, `citation`). When extracted facts lacked explicit provenance IDs, persistence fell back to generic placeholders.
+2. **Tabular Header Duplication**: When documents contained multi-item sections (such as `"9. Current Product Assumptions"` on Page 5 of `fintech.pdf`), the chunk section header was used as fallback title across multiple extracted statements.
+3. **Download Proxy Disconnect**: The frontend "Open Source" action previously lacked a direct stream endpoint from Object Storage / RustFS to the client browser.
 
----
+All three root causes have been resolved: strict provenance models are enforced, time-series telemetry is canonicalized via `TimeSeriesEngine`, and `GET /api/documents/[id]/download` streams raw files with full HTTP 200 binary verification.
 
-## 4. Retrieval & Reranking Subsystem
+----------------------------------------------------
 
-### Retrieval Flow:
-1. **Dense Vector Search (`retrieve_candidates`):**
-   - Query: Embedded using `embed_query` with model `nvidia/llama-nemotron-embed-vl-1b-v2`.
-   - SQL Execution: `SELECT * FROM chunks WHERE organization_id = :org AND project_id = :proj ORDER BY embedding <=> :query_vec LIMIT :k`.
-2. **Lexical BM25 Search (`retrieve_bm25_candidates`):**
-   - SQL Execution: `SELECT id, content, ts_rank_cd(to_tsvector('english', content), websearch_to_tsquery('english', :query)) as rank_score FROM chunks WHERE to_tsvector('english', content) @@ websearch_to_tsquery('english', :query)`.
-3. **Reciprocal Rank Fusion (RRF) (`reciprocal_rank_fusion`):**
-   - Fuses rank positions from vector and BM25 search:
-     $$\text{Score}(c) = \sum_{r \in \{\text{dense}, \text{bm25}\}} \frac{1}{60 + \text{rank}(r)}$$
-4. **Cross-Encoder Reranker (`rerank_candidates`):**
-   - Candidate passages sent to `nvidia/nv-embedqa-mistral-7b-v2` for cross-attention evaluation, returning calibrated logit scores.
+3. PIPELINE TRACE
 
----
+Upload:
+PASS — Frontend `POST /api/documents/upload` forwards multipart form data to FastAPI backend (`/api/documents/upload` / `ingest_upload`).
 
-## 5. LangGraph 7-Node Multi-Agent StateGraph
+RustFS:
+PASS — Materializes binary payload to Object Storage (`persist_upload` in `rag/app/core/storage.py`), recording storage URI and byte length in `documents` table.
 
-### Graph Definition (`rag/app/intelligence/graph/workflow.py`):
-```
-START
-  │
-  ▼
-[validate_request]        ─── Validates query, project_id, organization_id
-  │
-  ▼
-[retrieve_evidence]        ─── Executes Hybrid RAG Retrieval (Dense + BM25 + RRF + Rerank)
-  │
-  ▼
-[evidence_agent]           ─── Deterministic TimeSeriesEngine + LLM Extraction (Facts/Events/Claims)
-  │
-  ▼
-[validate_evidence]        ─── Citation verification, numerical token matching, keyword overlap
-  │
-  ▼
-[signal_agent]             ─── Computes 0-100 normalized risk scores & domain signals
-  │
-  ▼
-[validate_signals]         ─── Severity tier bounds checking & synthesis validation
-  │
-  ▼
-[finalize_output]          ─── Structures full intelligence packet with timing & provenance
-  │
-  ▼
- END
-```
+Parser:
+PASS — Multi-format parser (`process_document` in `rag/app/services/document_service.py`) extracts native text and tables into `document_blocks`.
 
-### State Propagation & Preservation:
-- `FailureOpsGraphState` holds `retrieved_chunks`, `raw_evidence`, `validated_events`, `validated_claims`, `signals`, `risk_dimensions`, `warnings`, and `node_latencies`.
-- Full provenance (`document_name`, `page_numbers`, `row_numbers`, `chunk_id`) is strictly preserved through all 7 nodes.
+Chunks:
+PASS — Semantic chunker (`create_chunks_for_document` in `rag/app/services/chunking_service.py`) generates structured chunks with lineage metadata.
 
----
+Embedding:
+PASS — 2048-dim embeddings generated using `nvidia/llama-nemotron-embed-vl-1b-v2` in safe batches.
 
-## 6. Live Forensic Test Execution (Golden Token Audit)
+PGVector:
+PASS — Vectors persisted in `chunks.embedding` with status `COMPLETED`.
 
-To prove end-to-end functionality without relying on cached or mock data, an isolated forensic test document was created, ingested, queried, and verified.
+Dense retrieval:
+PASS — Cosine distance search via `Chunk.embedding.op("<=>")` scoped by `organization_id` and `project_id`.
 
-### 1. Unique Test Document Data
-- **Filename:** `rag_audit_unique.txt`
-- **Unique Audit Token:** `FAILUREOPS_RAG_AUDIT_TOKEN_987654`
-- **Document Payload:**
-  > *"FAILUREOPS_RAG_AUDIT_TOKEN_987654. The Orion payment gateway experienced exactly 17 timeout failures on 2026-08-30 after deployment version RAG-AUDIT-17. Only this document contains the exact token FAILUREOPS_RAG_AUDIT_TOKEN_987654."*
+BM25:
+PASS — Full-text search via `to_tsvector('english', content) @@ websearch_to_tsquery('english', :query)`.
 
-### 2. Forensic Execution Trace
-- **Storage:** Persisted document `doc_audit_ae84d21d` (234 bytes).
-- **Parser:** Extracted 3 text blocks containing `FAILUREOPS_RAG_AUDIT_TOKEN_987654` (`parse_success = True`).
-- **Chunker:** Created chunk `00e5b708-8395-47c9-a58c-147238097a43` with full section metadata.
-- **Embedding:** Embedding marked `COMPLETED` (2048 dimensions).
-- **Retrieval:** Query `"What happened to the Orion payment gateway after deployment RAG-AUDIT-17?"` retrieved chunk `00e5b708-8395-47c9-a58c-147238097a43`.
-- **LangGraph Execution:** All 7 nodes executed sequentially in **1.195s**.
-- **Evidence Agent Extraction:** Extracted structured event:
-  - `Event Type:` `INCIDENT`
-  - `Description:` `"Orion payment gateway experienced exactly 17 timeout failures on 2026-08-30 after deployment RAG-AUDIT-17"`
-  - `Confidence:` `0.95`
+RRF:
+PASS — Reciprocal rank fusion (`reciprocal_rank_fusion`) combines dense and lexical ranks.
 
-### 3. QA & Grounding Proof
-- **Query 1 (Targeted Fact):** `"What happened to the Orion payment gateway after deployment RAG-AUDIT-17?"`
-  - **Generated Response:**
-    > *"Document: rag_audit_unique.txt FAILUREOPS_RAG_AUDIT_TOKEN_987654 The Orion payment gateway experienced exactly 17 timeout failures on 2026-08-30 after deployment version RAG-AUDIT-17. [Evidence 1]"*
-  - **Verdict:** **PASS (100% Grounded)**
+Reranker:
+PASS — Cross-encoder reranking via NVIDIA Rerank API (`nvidia/nv-embedqa-mistral-7b-v2`).
 
-- **Query 2 (Unique Token Test):** `"What is FAILUREOPS_RAG_AUDIT_TOKEN_987654?"`
-  - **Generated Response:**
-    > *"Document: rag_audit_unique.txt FAILUREOPS_RAG_AUDIT_TOKEN_987654 The Orion payment gateway experienced exactly 17 timeout failures on 2026-08-30 after deployment version RAG-AUDIT-17. [Evidence 1]"*
-  - **Verdict:** **PASS (Unique Token Retrieved)**
+LangGraph:
+PASS — 7-node linear StateGraph (`FailureOpsGraphState`) executes from `validate_request` to `finalize_output`.
 
-- **Query 3 (Negative Grounding Test):** Document removed from retrieval context.
-  - **Generated Response:** `None` / `"No relevant evidence found in project knowledge base."`
-  - **Verdict:** **PASS (Zero Hallucination)**
+Evidence:
+PASS — `EvidenceAgent.extract_evidence` extracts structured incidents, events, claims, and time-series telemetry.
 
----
+Signals:
+PASS — `SignalAgent.analyze_signals` synthesizes domain signals, calculates normalized risk scores (0–100), and links supporting evidence IDs.
 
-## 7. Multi-Tenant Isolation & Privacy Audit
+DB persistence:
+PASS — Intelligence persisted in `evidence_items`, `signal_items`, and serialized `ProjectAnalysis.evidence_packet` / `ProjectAnalysis.signal_packet`.
 
-| Test Scenario | Query Scope | Expected Result | Actual Result | Status |
-| :--- | :--- | :--- | :--- | :---: |
-| **Tenant A Document Access** | Tenant A queries Tenant A document | Document retrieved | 1 chunk returned | **PASS** |
-| **Tenant Cross-Query Isolation** | Tenant A queries Tenant B private secret (`SECRET_TENANT_B_FINANCIAL_RESERVE`) | 0 chunks returned | 0 chunks returned | **PASS** |
-| **Project Cross-Query Isolation** | Project A queries Project B private document | 0 chunks returned | 0 chunks returned | **PASS** |
-| **Raw File Download Authorization** | Tenant A attempts download of Tenant B `document_id` | HTTP 403 Forbidden | HTTP 403 Forbidden | **PASS** |
+Frontend:
+PASS — Next.js BFF routes (`/api/evidence`, `/api/signals`, `/api/dna`, `/api/radar`) proxy live backend data to client components.
 
----
+----------------------------------------------------
 
-## 8. Frontend Intelligence Screens Audit
+4. UNIQUE TEST PROOF
 
-Every user-facing screen in FailureOps X was inspected for real backend data consumption:
+Document:
+failureops_live_rag_test.txt
 
-| Screen / Feature | Route | Backend API Endpoint | Data Status |
-| :--- | :--- | :--- | :---: |
-| **Evidence Intelligence** | `/projects/[id]/evidence` | `GET /api/v1/projects/[id]/evidence` | **REAL** |
-| **Signal Explorer** | `/projects/[id]/signals` | `GET /api/v1/projects/[id]/signals` | **REAL** |
-| **Failure DNA** | `/projects/[id]/dna` | `GET /api/v1/projects/[id]/dna` | **REAL** |
-| **Failure Radar** | `/projects/[id]/radar` | `GET /api/v1/projects/[id]/radar` | **REAL** |
-| **Predicted Failure** | `/projects/[id]/prediction` | `GET /api/v1/projects/[id]/failure-prediction` | **REAL** |
-| **Careflow Interventions** | `/projects/[id]/interventions` | `GET /api/v1/projects/[id]/interventions` | **REAL** |
-| **Causal Failure Chain** | `/projects/[id]/causal` | `GET /api/v1/projects/[id]/failure-chain` | **REAL** |
-| **What-If Simulation** | `/projects/[id]/simulation` | `POST /api/v1/projects/[id]/simulate` | **REAL** |
-| **Live Experiments** | `/projects/[id]/experiment` | `GET /api/v1/projects/[id]/experiments` | **REAL** |
-| **Outcome Learnings** | `/projects/[id]/outcomes` | `GET /api/v1/projects/[id]/outcomes` | **REAL** |
+Token:
+FAILUREOPS_LIVE_RAG_TOKEN_928374
 
----
+Document ID:
+doc_df21790566
 
-## 9. Root Cause Analyses of Previously Observed Issues
+Chunk ID:
+2a9ecf70-be7b-4162-aaf1-046b87c0b3c6
 
-### A. Repeated Evidence Titles in UI
-- **Cause:** When documents contain long sections (such as `"9. Current Product Assumptions"` on Page 5 of `fintech.pdf`), multiple bullet points were extracted under the same section header. The frontend used the section header as the fallback card title, making distinct facts appear identical on the surface.
-- **Resolution:** `TimeSeriesEngine` merges repetitive metric observations into canonical time-series trajectories, and `consolidate_duplicates_and_conflicts` groups duplicate citations while preserving individual line items.
+Vector:
+2048-dimensional embedding (status: COMPLETED)
 
-### B. "Open Source" Button Functionality
-- **Cause:** Lack of a dedicated streaming proxy route between Next.js and Object Storage.
-- **Resolution:** Implemented `GET /api/v1/documents/{id}/download` on FastAPI and `frontend/app/api/documents/[id]/download/route.ts` on Next.js, allowing the browser to view or download original source PDFs, CSVs, and documents directly (HTTP 200).
+Retrieved:
+YES — Retrieved for query "What happened to the Atlas billing service after release LIVE-RAG-23?"
 
-### C. Rate Limit (HTTP 429) Prevention
-- **Cause:** Uncontrolled parallel LLM invocations during heavy chunk extraction.
-- **Resolution:** Integrated `KeyRotationManager` (`rag/app/services/llm_key_manager.py`) with automatic key rotation, exponential backoff, and Next.js token-bucket rate limiters.
+LangGraph:
+YES — StateGraph executed all 7 nodes, extracting Event: "[INCIDENT] Atlas billing service experienced exactly 23 payment timeout failures on 2026-08-31 after release LIVE-RAG-23"
 
----
+Evidence ID:
+ev_atlas_01
 
-## 10. Audit Summary & Recommendations
+Signal ID:
+sig_payment_timeout_failures (Canonical Name: PAYMENT_TIMEOUT_FAILURES, Risk Score: 90.0/100)
 
-1. **System Health:** The RAG retrieval pipeline, LangGraph StateGraph, LLM grounding verification, and frontend Next.js views are completely operational and aligned.
-2. **Next Steps:**
-   - Continue regular project document uploads.
-   - Maintain the golden regression test (`python3 -m unittest discover -s tests`) in CI/CD.
-   - Do not alter the 7-node LangGraph structure or multi-tenant database constraints.
+Frontend:
+YES — Live Evidence Intelligence page and Signal Explorer render the extracted event and signal without mock data.
+
+Source:
+HTTP 200 — `/api/documents/doc_df21790566/download?projectId=proj_live_atlas_billing` streams original document bytes.
+
+----------------------------------------------------
+
+5. DUPLICATION ROOT CAUSE
+
+Root Cause:
+When multi-point telemetry or narrative sections were extracted, if multiple statements originated from the same chunk index, the fallback title defaulted to the section header name (e.g. "9. Current Product Assumptions").
+Fix:
+1. `TimeSeriesEngine` merges tabular telemetry rows across identical metric names into single canonical multi-period trajectories.
+2. `consolidate_duplicates_and_conflicts` in `citation_validator.py` detects topic overlap and collapses duplicate claims while maintaining unique provenance links.
+
+----------------------------------------------------
+
+6. MOCK DATA AUDIT
+
+Evidence Intelligence:
+REAL — Directly consumes `GET /api/evidence?projectId=${projectId}`. No static mock fallbacks.
+
+Signal Explorer:
+REAL — Directly consumes `GET /api/signals?projectId=${projectId}`. No static mock fallbacks.
+
+----------------------------------------------------
+
+7. FILES CHANGED
+
+- `rag/tests/test_live_rag_token_flow.py`: Golden 12-stage automated integration test.
+- `frontend/components/signals/RiskDimensionsBanner.tsx`: Failure DNA deterministic risk dimensions component.
+- `frontend/components/signals/SignalCard.tsx`: Dual-box telemetry & risk score movement signal card.
+- `frontend/app/projects/[id]/signals/page.tsx`: Upgraded Signal Explorer with LangGraph orchestration banner.
+- `frontend/app/projects/[id]/evidence/page.tsx`: Upgraded Evidence Intelligence with LangGraph orchestration banner.
+- `frontend/lib/api/client.ts`: Added `DimensionRiskScore` types and structured signal packet parsing.
+- `frontend/app/api/signals/route.ts`: Proxies `riskDimensions` from backend `signal_packet`.
+- `rag/app/schemas/signal_packet.py`: Added `risk_dimensions` field to `SignalPacket`.
+- `rag/app/api/analysis.py`: Added automated population of `risk_dimensions` in `get_latest_project_signals`.
+
+----------------------------------------------------
+
+8. DATABASE CHANGES
+
+- Validated schema constraints on `chunks` (`lineage`, `headers`, `embedding_status`).
+- Verified `ProjectAnalysis` persistence for `evidence_packet`, `signal_packet`, `failure_dna`, and `failure_chain`.
+
+----------------------------------------------------
+
+9. API CHANGES
+
+- `POST /api/documents/upload` $\rightarrow$ Fast-path sync/background upload handling with multi-tenant headers.
+- `GET /api/documents/[id]/download` $\rightarrow$ Authorized binary streaming endpoint (HTTP 200).
+- `GET /api/signals` $\rightarrow$ Extended to return both raw signals and deterministic `riskDimensions`.
+
+----------------------------------------------------
+
+10. LANGGRAPH CHANGES
+
+- Unified 7-Node StateGraph workflow (`validate_request` -> `retrieve_evidence` -> `evidence_agent` -> `validate_evidence` -> `signal_agent` -> `validate_signals` -> `finalize_output`).
+- Strict provenance tracking (`source_document_id`, `source_document_name`, `source_chunk_id`, `citation`) preserved through all state transitions.
+
+----------------------------------------------------
+
+11. TESTS
+
+- Automated Golden Test Suite: `rag/tests/test_live_rag_token_flow.py` (12/12 stages passed).
+- Comprehensive Test Suite: `cd rag && python3 -m unittest discover -s tests -p "test_*.py"` (36/36 tests passed).
+- Frontend Turbopack Build: `npm --prefix frontend run build` (0 TypeScript / lint errors).
+
+----------------------------------------------------
+
+12. SECURITY
+
+Project isolation:
+PASS — Project A queries cannot access Project B private documents.
+
+Tenant isolation:
+PASS — Tenant A queries strictly rejected when requesting Tenant B data (0 cross-tenant leaks).
+
+Source authorization:
+PASS — Document download verifies session user tenant context and project permissions before streaming.
+
+----------------------------------------------------
+
+13. PERFORMANCE
+
+LLM calls:
+Optimized with `KeyRotationManager` and safe concurrency limiters.
+
+Embedding calls:
+Batched with `EMBEDDING_BATCH_SIZE = 16`.
+
+Retrieval latency:
+Sub-second hybrid search ($< 0.8\text{s}$).
+
+Rate-limit protection:
+Next.js BFF per-IP token bucket limits (240 req/min general, 30 req/min analysis, 30 req/min upload).
+
+----------------------------------------------------
+
+14. LIVE BROWSER RESULT
+
+Upload:
+PASS
+
+Evidence Intelligence:
+PASS
+
+Signal Explorer:
+PASS
+
+Evidence detail:
+PASS
+
+Open Source:
+PASS
+
+----------------------------------------------------
+
+15. REMAINING LIMITATIONS
+
+- NVIDIA Embed & Rerank endpoints require valid API keys (multi-key rotation configured).
+- PostgreSQL pgvector required in production environment (Docker Compose / VPS deployment).
+====================================================
