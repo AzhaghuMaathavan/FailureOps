@@ -8,7 +8,7 @@ import { serverConfig } from '@/lib/server/config';
 export async function GET(req: NextRequest) {
   let backend: { reachable: boolean; status?: string } = { reachable: false };
   try {
-    const health = await ragFetch<{ status?: string }>('/health', getServerSession(req));
+    const health = await ragFetch<{ status?: string }>('/api/v1/health', getServerSession(req));
     backend = { reachable: true, status: health.status || 'ok' };
   } catch (error) {
     backend = {
