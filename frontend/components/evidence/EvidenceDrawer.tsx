@@ -188,7 +188,7 @@ export const EvidenceDrawer: React.FC<EvidenceDrawerProps> = ({ evidence, onClos
         role="dialog"
         aria-modal="true"
         aria-labelledby="evidence-drawer-title"
-        className="flex h-full w-full max-w-lg flex-col justify-between overflow-y-auto border-l border-border bg-background p-6 shadow-2xl"
+        className="flex h-full w-full max-w-full sm:max-w-lg flex-col justify-between overflow-y-auto border-l border-border bg-background p-4 sm:p-6 shadow-2xl animate-slide-in"
         onClick={(event) => event.stopPropagation()}
       >
         <div className="space-y-6">

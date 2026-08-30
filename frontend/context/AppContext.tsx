@@ -48,6 +48,10 @@ interface AppContextType {
   addMemoryEntry: (entry: OrganizationalMemoryEntry) => void;
   theme: 'dark' | 'light';
   toggleTheme: () => void;
+  isMobileNavOpen: boolean;
+  setIsMobileNavOpen: (open: boolean) => void;
+  toggleMobileNav: () => void;
+  closeMobileNav: () => void;
 }
 
 const AppContext = createContext<AppContextType | undefined>(undefined);
@@ -157,6 +161,16 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     setMemoryEntries(prev => [entry, ...prev]);
   };
 
+  const [isMobileNavOpen, setIsMobileNavOpen] = useState<boolean>(false);
+
+  const toggleMobileNav = useCallback(() => {
+    setIsMobileNavOpen(prev => !prev);
+  }, []);
+
+  const closeMobileNav = useCallback(() => {
+    setIsMobileNavOpen(false);
+  }, []);
+
   return (
     <AppContext.Provider
       value={{
@@ -178,6 +192,10 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         addMemoryEntry,
         theme,
         toggleTheme,
+        isMobileNavOpen,
+        setIsMobileNavOpen,
+        toggleMobileNav,
+        closeMobileNav,
       }}
     >
       {children}

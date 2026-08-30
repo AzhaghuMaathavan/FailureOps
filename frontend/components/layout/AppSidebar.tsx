@@ -25,7 +25,9 @@ import {
   MessageSquare,
   Stethoscope,
   User,
+  Users,
   LogOut,
+  X,
   type LucideIcon,
 } from 'lucide-react';
 import { useApp } from '@/context/AppContext';
@@ -36,10 +38,38 @@ import { isNavItemActive } from '@/lib/navigation';
 
 export const AppSidebar: React.FC = () => {
   const pathname = usePathname();
-  const { project, user, logout } = useApp();
+  const { project, user, logout, isMobileNavOpen, closeMobileNav } = useApp();
   const pathProjectId = pathname?.match(/\/projects\/([^\/]+)/)?.[1];
   const projectId = pathProjectId || project.id || 'aurora';
   const [activeProject, setActiveProject] = React.useState<any>(project);
+
+  // Close mobile drawer on route change
+  React.useEffect(() => {
+    closeMobileNav();
+  }, [pathname, closeMobileNav]);
+
+  // Handle ESC key to close mobile drawer
+  React.useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape' && isMobileNavOpen) {
+        closeMobileNav();
+      }
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [isMobileNavOpen, closeMobileNav]);
+
+  // Lock body scroll when mobile drawer is open
+  React.useEffect(() => {
+    if (isMobileNavOpen) {
+      document.body.style.overflow = 'hidden';
+    } else {
+      document.body.style.overflow = '';
+    }
+    return () => {
+      document.body.style.overflow = '';
+    };
+  }, [isMobileNavOpen]);
 
   React.useEffect(() => {
     let mounted = true;
@@ -126,32 +156,44 @@ export const AppSidebar: React.FC = () => {
   const chromeLink =
     'cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-sidebar';
 
-  return (
-    <aside className="w-64 shrink-0 bg-sidebar border-r border-sidebar-border flex flex-col h-screen sticky top-0 z-40 select-none">
-      <div className="shrink-0 px-4 pt-4 pb-4">
+  const renderSidebarContent = (isMobile = false) => (
+    <div className="flex flex-col h-full select-none">
+      <div className="shrink-0 px-4 pt-4 pb-4 flex items-center justify-between">
         <BrandLogo size="md" href="/" glow={false} />
+        {isMobile && (
+          <button
+            type="button"
+            onClick={closeMobileNav}
+            aria-label="Close navigation menu"
+            className="p-2 rounded-lg text-muted-foreground hover:text-foreground hover:bg-surface-feed transition-colors cursor-pointer"
+          >
+            <X className="size-5" aria-hidden="true" />
+          </button>
+        )}
       </div>
 
       <div className="shrink-0 px-3 pb-3 space-y-1.5">
         <Link
           href={`/projects/${projectId}/upload`}
-          className={`w-full flex items-center justify-center gap-2 px-3 py-2 rounded-lg bg-surface-feed hover:bg-card border border-border text-[11px] font-semibold text-foreground transition-colors duration-150 ${chromeLink}`}
+          onClick={() => isMobile && closeMobileNav()}
+          className={`w-full flex items-center justify-center gap-2 px-3 py-2.5 rounded-lg bg-surface-feed hover:bg-card border border-border text-xs font-semibold text-foreground transition-colors duration-150 ${chromeLink}`}
         >
-          <UploadCloud className="w-3.5 h-3.5 text-primary" aria-hidden="true" />
+          <UploadCloud className="w-4 h-4 text-primary" aria-hidden="true" />
           <span>Upload Evidence</span>
         </Link>
         <Link
           href="/register"
-          className={`w-full flex items-center justify-center gap-2 px-3 py-1.5 rounded-lg text-muted-foreground hover:text-foreground hover:bg-surface-feed text-[11px] font-medium transition-colors duration-150 ${chromeLink}`}
+          onClick={() => isMobile && closeMobileNav()}
+          className={`w-full flex items-center justify-center gap-2 px-3 py-2 rounded-lg text-muted-foreground hover:text-foreground hover:bg-surface-feed text-xs font-medium transition-colors duration-150 ${chromeLink}`}
         >
-          <PlusCircle className="w-3.5 h-3.5" aria-hidden="true" />
+          <PlusCircle className="w-4 h-4" aria-hidden="true" />
           <span>Register New Product</span>
         </Link>
       </div>
 
       <nav
-        ref={navRef}
-        onScroll={handleScroll}
+        ref={isMobile ? undefined : navRef}
+        onScroll={isMobile ? undefined : handleScroll}
         className="flex-1 min-h-0 overflow-y-auto no-scrollbar px-2 py-1 space-y-4"
         aria-label="Primary"
       >
@@ -169,8 +211,9 @@ export const AppSidebar: React.FC = () => {
                   <Link
                     key={item.name}
                     href={item.href}
+                    onClick={() => isMobile && closeMobileNav()}
                     aria-current={isActive ? 'page' : undefined}
-                    className={`flex items-center justify-between px-2.5 py-[7px] rounded-lg text-[11px] font-medium transition-colors duration-150 border ${chromeLink} ${
+                    className={`flex items-center justify-between px-2.5 py-2 rounded-lg text-xs font-medium transition-colors duration-150 border ${chromeLink} ${
                       isActive
                         ? 'bg-primary/10 text-primary font-bold border-primary/30'
                         : 'text-muted-foreground hover:text-foreground hover:bg-surface-feed border-transparent'
@@ -178,7 +221,7 @@ export const AppSidebar: React.FC = () => {
                   >
                     <div className="flex items-center gap-2.5 truncate min-w-0">
                       <Icon
-                        className={`w-3.5 h-3.5 shrink-0 ${isActive ? 'text-primary' : 'text-muted-foreground'}`}
+                        className={`w-4 h-4 shrink-0 ${isActive ? 'text-primary' : 'text-muted-foreground'}`}
                         aria-hidden="true"
                       />
                       <span className="truncate">{item.name}</span>
@@ -217,6 +260,7 @@ export const AppSidebar: React.FC = () => {
           <PrivacyBadge level={activeProject?.privacyLevel || 'ORGANIZATION'} />
           <Link
             href={`/projects/${projectId}/radar`}
+            onClick={() => isMobile && closeMobileNav()}
             className={`text-[10px] font-semibold text-primary hover:text-primary-hover whitespace-nowrap ${chromeLink} rounded-md`}
           >
             Radar →
@@ -228,16 +272,17 @@ export const AppSidebar: React.FC = () => {
       <div className="shrink-0 p-3 border-t border-sidebar-border bg-sidebar flex items-center justify-between gap-2">
         <Link
           href="/profile"
+          onClick={() => isMobile && closeMobileNav()}
           className="flex items-center gap-2 min-w-0 hover:opacity-85 transition-opacity cursor-pointer"
         >
           <div className="size-7 rounded-lg bg-primary text-primary-foreground font-mono text-[11px] font-bold flex items-center justify-center shrink-0">
             {initials}
           </div>
           <div className="min-w-0 flex flex-col text-left">
-            <span className="text-[11px] font-bold text-foreground truncate max-w-[110px]">
+            <span className="text-xs font-bold text-foreground truncate max-w-[110px]">
               {user?.name || 'Staff Lead'}
             </span>
-            <span className="text-[9px] text-muted-foreground truncate max-w-[110px]">
+            <span className="text-[10px] text-muted-foreground truncate max-w-[110px]">
               {user?.email || 'lead.architect@aurora.tech'}
             </span>
           </div>
@@ -247,11 +292,37 @@ export const AppSidebar: React.FC = () => {
           onClick={logout}
           aria-label="Sign out"
           title="Sign out of FailureOps X"
-          className="p-1.5 rounded-lg text-muted-foreground hover:text-destructive hover:bg-destructive/15 transition-colors cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-destructive"
+          className="p-2 rounded-lg text-muted-foreground hover:text-destructive hover:bg-destructive/15 transition-colors cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-destructive"
         >
           <LogOut className="w-4 h-4" />
         </button>
       </div>
-    </aside>
+    </div>
+  );
+
+  return (
+    <>
+      {/* Desktop Sticky Sidebar */}
+      <aside className="hidden lg:flex w-64 shrink-0 bg-sidebar border-r border-sidebar-border flex-col h-screen sticky top-0 z-40 select-none">
+        {renderSidebarContent(false)}
+      </aside>
+
+      {/* Mobile Drawer Backdrop & Sliding Sheet */}
+      {isMobileNavOpen && (
+        <div className="fixed inset-0 z-50 lg:hidden">
+          {/* Backdrop */}
+          <div
+            className="fixed inset-0 bg-background/80 backdrop-blur-sm transition-opacity duration-300 animate-fade-in"
+            onClick={closeMobileNav}
+            aria-hidden="true"
+          />
+
+          {/* Drawer Sheet */}
+          <div className="fixed inset-y-0 left-0 w-72 max-w-[85vw] bg-sidebar border-r border-sidebar-border shadow-2xl z-50 flex flex-col h-full animate-slide-in">
+            {renderSidebarContent(true)}
+          </div>
+        </div>
+      )}
+    </>
   );
 };

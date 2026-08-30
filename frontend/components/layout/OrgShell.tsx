@@ -20,8 +20,8 @@ export function OrgShell({ children }: { children: React.ReactNode }) {
       <AppSidebar />
       <div className="flex min-w-0 flex-1 flex-col overflow-hidden">
         <TopHeader />
-        <main className="flex-1 overflow-y-auto scroll-pt-16 px-4 pb-10 pt-7 sm:px-6 lg:px-7">
-          <div className="flex w-full flex-col gap-5">{children}</div>
+        <main className="flex-1 overflow-y-auto scroll-pt-16 px-3.5 pb-10 pt-5 sm:px-6 sm:pt-7 lg:px-7">
+          <div className="flex w-full flex-col gap-4 sm:gap-5">{children}</div>
         </main>
       </div>
     </div>

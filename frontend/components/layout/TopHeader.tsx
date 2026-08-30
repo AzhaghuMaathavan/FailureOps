@@ -11,6 +11,7 @@ import {
   Building2,
   ShieldCheck,
   Sparkles,
+  Menu,
 } from 'lucide-react';
 import { useApp } from '@/context/AppContext';
 import { UserProfileDropdown } from '@/components/profile/UserProfileDropdown';
@@ -23,7 +24,7 @@ const iconBtn =
 export const TopHeader: React.FC = () => {
   const router = useRouter();
   const pathname = usePathname();
-  const { project, theme, toggleTheme } = useApp();
+  const { project, theme, toggleTheme, toggleMobileNav } = useApp();
   const onSearchPage = pathname === '/search';
   const [isCommandOpen, setIsCommandOpen] = React.useState(false);
 
@@ -43,22 +44,31 @@ export const TopHeader: React.FC = () => {
 
   return (
     <header
-      className={`sticky top-0 z-30 h-14 w-full min-w-0 bg-background border-b border-border px-4 lg:px-6 grid items-center gap-3 ${
+      className={`sticky top-0 z-30 h-14 w-full min-w-0 bg-background border-b border-border px-3 sm:px-4 lg:px-6 grid items-center gap-2 sm:gap-3 ${
         onSearchPage
           ? 'grid-cols-[minmax(0,1fr)_auto]'
           : 'grid-cols-[minmax(0,1fr)_auto] lg:grid-cols-[minmax(0,1fr)_minmax(0,20rem)_auto]'
       }`}
     >
-      <div className="flex items-center gap-2.5 min-w-0">
+      <div className="flex items-center gap-2 sm:gap-2.5 min-w-0">
+        <button
+          type="button"
+          onClick={toggleMobileNav}
+          aria-label="Open mobile navigation"
+          className="lg:hidden inline-flex items-center justify-center size-8 sm:size-9 rounded-lg bg-surface-feed hover:bg-card border border-border text-foreground hover:text-primary transition-colors duration-150 cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring shrink-0"
+        >
+          <Menu className="w-4 h-4" aria-hidden="true" />
+        </button>
+
         <Link
           href="/dashboard"
-          className="flex items-center gap-2 min-w-0 max-w-full px-2.5 py-1.5 rounded-lg bg-surface-feed hover:bg-card border border-border transition-colors duration-150 text-[11px] font-medium cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+          className="flex items-center gap-1.5 sm:gap-2 min-w-0 max-w-full px-2 sm:px-2.5 py-1.5 rounded-lg bg-surface-feed hover:bg-card border border-border transition-colors duration-150 text-[11px] font-medium cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
         >
           <Building2 className="w-3.5 h-3.5 text-primary shrink-0" aria-hidden="true" />
-          <span className="text-foreground font-semibold truncate">{project.company}</span>
+          <span className="text-foreground font-semibold truncate max-w-[90px] sm:max-w-[150px] md:max-w-none">{project.company}</span>
           <span className="text-subtle shrink-0">/</span>
-          <span className="text-muted-foreground truncate">{project.name}</span>
-          <span className="ml-1 px-1.5 py-0.5 rounded-md bg-surface-feed text-muted-foreground text-[10px] font-mono border border-border shrink-0 whitespace-nowrap">
+          <span className="text-muted-foreground truncate max-w-[70px] sm:max-w-[120px] md:max-w-none">{project.name}</span>
+          <span className="hidden xs:inline-block ml-1 px-1.5 py-0.5 rounded-md bg-surface-feed text-muted-foreground text-[10px] font-mono border border-border shrink-0 whitespace-nowrap">
             {project.stage}
           </span>
         </Link>
