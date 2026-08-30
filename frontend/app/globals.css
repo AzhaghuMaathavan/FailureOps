@@ -20,17 +20,17 @@
     --secondary: #f1f5f9;
     --secondary-foreground: #0f172a;
     --muted: #f1f5f9;
-    --muted-foreground: #475569;
-    --subtle-foreground: #64748b;
+    --muted-foreground: #64748b;
+    --subtle-foreground: #94a3b8;
     --accent: #ff9533;
     --accent-foreground: #0f172a;
     --destructive: #e11d48;
     --destructive-foreground: #ffffff;
     --warning: #ea580c;
     --warning-foreground: #ffffff;
-    --success: #047857;
+    --success: #059669;
     --success-foreground: #ffffff;
-    --info: #0369a1;
+    --info: #0284c7;
     --info-foreground: #ffffff;
     --magic: #7c3aed;
     --magic-foreground: #ffffff;
@@ -56,27 +56,27 @@
   }
 
   .dark {
-    /* 60 canvas / 30 navy structure / 10 ember — not OLED black */
-    --background: #070b14;
-    --foreground: #f4f7fb;
-    --surface-feed: #0c1220;
-    --surface-base: #070b14;
-    --card: #141c2c;
-    --card-foreground: #f4f7fb;
-    --card-hover: #1b2538;
-    --popover: #1b2538;
-    --popover-foreground: #f4f7fb;
+    /* Obsidian Titanium + Cyber Sol Ember Theme (theme.md) */
+    --background: #090b0e;
+    --foreground: #f8fafc;
+    --surface-feed: #0f1319;
+    --surface-base: #090b0e;
+    --card: #161b22;
+    --card-foreground: #f8fafc;
+    --card-hover: #1c232d;
+    --popover: #232b36;
+    --popover-foreground: #f8fafc;
     --primary: #ff7a00;
     --primary-foreground: #090b0e;
     --primary-hover: #ff9533;
-    --primary-muted: #2a1708;
-    --secondary: #1b2538;
-    --secondary-foreground: #f4f7fb;
-    --muted: #0e1624;
-    --muted-foreground: #a8b4c4;
-    --subtle-foreground: #7b8a9c;
+    --primary-muted: #3d1a04;
+    --secondary: #161b22;
+    --secondary-foreground: #f8fafc;
+    --muted: #0f1319;
+    --muted-foreground: #94a3b8;
+    --subtle-foreground: #64748b;
     --accent: #ff9533;
-    --accent-foreground: #f4f7fb;
+    --accent-foreground: #f8fafc;
     --destructive: #fb7185;
     --destructive-foreground: #090b0e;
     --warning: #f97316;
@@ -86,20 +86,20 @@
     --info: #38bdf8;
     --info-foreground: #090b0e;
     --magic: #a855f7;
-    --magic-foreground: #f4f7fb;
-    --border: #334766;
-    --input: #334766;
+    --magic-foreground: #f8fafc;
+    --border: #2e3846;
+    --input: #2e3846;
     --ring: #ff7a00;
-    --shadow-card: 0 1px 0 0 #0d1424, 0 8px 24px -8px rgba(0, 0, 0, 0.35);
+    --shadow-card: 0 1px 0 0 rgba(13, 20, 36, 0.8), 0 8px 24px -8px rgba(0, 0, 0, 0.35);
     --shadow-primary: 0 0 18px -4px rgba(255, 122, 0, 0.35);
 
-    --sidebar: #050810;
-    --sidebar-foreground: #f4f7fb;
+    --sidebar: #0f1319;
+    --sidebar-foreground: #f8fafc;
     --sidebar-primary: #ff7a00;
     --sidebar-primary-foreground: #090b0e;
-    --sidebar-border: #1a2438;
+    --sidebar-border: #2e3846;
 
-    --chart-1: #ff9a2e;
+    --chart-1: #ff7a00;
     --chart-2: #38bdf8;
     --chart-3: #10b981;
     --chart-4: #a855f7;
