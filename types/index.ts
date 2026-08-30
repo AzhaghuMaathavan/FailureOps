@@ -1,4 +1,7 @@
-export type PrivacyLevel = 'PRIVATE' | 'ORGANIZATION' | 'ANONYMOUS_LEARNING' | 'PUBLIC' | 'PUBLIC_CASE_STUDY';
+export * from './contracts';
+export * from './agents';
+
+export type PrivacyLevel = 'PRIVATE' | 'ORGANIZATION' | 'ANONYMOUS_LEARNING' | 'PUBLIC' | 'PUBLIC_CASE_STUDY' | 'GLOBAL_SANITIZED';
 
 
 export type RiskLevel = 'HEALTHY' | 'WARNING' | 'CRITICAL' | 'HIGH' | 'MEDIUM' | 'LOW' | 'AT_RISK';

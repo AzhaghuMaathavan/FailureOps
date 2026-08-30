@@ -1,0 +1,46 @@
+[
+  {
+    "caseId": "hist_atlas_scaling",
+    "name": "Project Atlas Distributed Storage",
+    "companyAlias": "CloudScale Alpha",
+    "industry": "Cloud Infrastructure",
+    "similarityScore": 0.89,
+    "matchingDimensions": ["Technical", "Operational"],
+    "failureOutcome": "Pipeline throughput degraded by 48% under concurrent write spikes causing SLA breach.",
+    "outcomeType": "RECOVERED",
+    "primaryFailurePattern": "Synchronous Write Bottleneck & Buffer Exhaustion",
+    "historicalIntervention": "Decoupled asynchronous chunk write-buffering with adaptive backpressure.",
+    "interventionOutcome": "P99 ingestion latency decreased by 74%, zero cluster halts over 6 months.",
+    "sanitizedEvidenceReferences": [
+      "Incident Postmortem Doc #418 - Chunk queue saturation",
+      "Architecture RFC #19 - Asynchronous ingestion ring buffer"
+    ],
+    "visibilityStatus": "GLOBAL_SANITIZED",
+    "keyLessons": [
+      "Always uncouple streaming ingest network sockets from disk write synchronization.",
+      "Implement adaptive token-bucket rate limiting before scaling tenant worker pools."
+    ]
+  },
+  {
+    "caseId": "hist_pulse_friction",
+    "name": "PulseWear Core Onboarding",
+    "companyAlias": "BioTrack Global",
+    "industry": "Consumer HealthTech",
+    "similarityScore": 0.84,
+    "matchingDimensions": ["Adoption", "Customer"],
+    "failureOutcome": "62% user drop-off in first 48 hours due to complex 7-step mandatory biometric calibration.",
+    "outcomeType": "RECOVERED",
+    "primaryFailurePattern": "Premature Onboarding Friction & High Setup Barrier",
+    "historicalIntervention": "Shifted to progressive calibration: 1-tap baseline setup followed by background passive learning.",
+    "interventionOutcome": "Day-7 active user retention increased from 38% to 81%.",
+    "sanitizedEvidenceReferences": [
+      "Q2 Funnel Analytics Report - Step 3 friction dropoff",
+      "UX Review Study - User calibration abandonment"
+    ],
+    "visibilityStatus": "GLOBAL_SANITIZED",
+    "keyLessons": [
+      "Never mandate full feature configuration during initial user activation.",
+      "Calibrate complex machine learning baselines progressively from passive usage."
+    ]
+  }
+]

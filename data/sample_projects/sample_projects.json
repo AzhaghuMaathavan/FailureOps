@@ -1,0 +1,24 @@
+[
+  {
+    "id": "aurora",
+    "name": "Aurora Cloud Analytics",
+    "codeName": "AURORA-X",
+    "company": "Aurora Technologies Inc.",
+    "industry": "Developer Infrastructure / Cloud Data",
+    "stage": "Growth / Scaling",
+    "description": "Real-time enterprise distributed stream processing engine with automated ingestion and ML analytics.",
+    "privacyLevel": "ORGANIZATION",
+    "expectedLaunchDate": "2026-11-15"
+  },
+  {
+    "id": "fitnesstracker",
+    "name": "PulseHealth Pro Wearable",
+    "codeName": "PULSE-HEALTH",
+    "company": "PulseHealth Corp.",
+    "industry": "HealthTech / IoT Consumer Hardware",
+    "stage": "Early Adopters / Beta",
+    "description": "Continuous biometric monitoring wearable with AI sleep and cardiac anomaly alerts.",
+    "privacyLevel": "PRIVATE",
+    "expectedLaunchDate": "2026-12-01"
+  }
+]

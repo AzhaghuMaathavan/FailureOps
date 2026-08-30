@@ -6,6 +6,7 @@ export const PrivacyLevelSchema = z.enum([
   'ANONYMOUS_LEARNING',
   'PUBLIC',
   'PUBLIC_CASE_STUDY',
+  'GLOBAL_SANITIZED',
 ]);
 
 export const EvidenceSourceTypeSchema = z.enum([

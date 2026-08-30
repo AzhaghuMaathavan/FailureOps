@@ -1,0 +1,13 @@
+Document: Aurora Expense Tracker - Q3 Analytics & Funnel Telemetry
+Organization: Aurora Technologies Inc.
+Confidentiality: PRIVATE
+
+1. Product Adoption & Activation Funnel:
+Over the past two quarters (2026-Q2 to 2026-Q3), user activation rate declined from 52% to 33%.
+Trial signups increased from 1,200 to 1,850 per month, but signup abandonment rose to 43%.
+
+2. Onboarding Gate Drop-off Telemetry:
+Telemetry tracking reveals a 69% drop-off at Step 4 (Mandatory KYC Bank Connection). Users exit the flow before testing core receipt scanning capabilities. Average time-to-value has increased from 4.2 minutes to 18.6 minutes.
+
+3. User Engagement Trends:
+Weekly active users (WAU) declined by 37% among cohort users who failed to complete bank linkage within the first 48 hours.

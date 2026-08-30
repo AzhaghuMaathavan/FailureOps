@@ -42,6 +42,12 @@ export const PrivacyBadge: React.FC<PrivacyBadgeProps> = ({ level, showDescripti
       color: 'bg-surface-feed text-info border-info',
       description: 'Case study explicitly designated as public institutional reference.',
     },
+    GLOBAL_SANITIZED: {
+      label: 'GLOBAL SANITIZED',
+      icon: ShieldAlert,
+      color: 'bg-surface-feed text-magic border-magic',
+      description: 'Abstracted cross-organizational pattern with zero confidential document exposure.',
+    },
   };
 
   const config = configs[level] || configs.PRIVATE;
