@@ -18,8 +18,31 @@ class SignalItem(Base):
     status = Column(String, nullable=False, default="EMERGING")
     severity = Column(String, nullable=False, default="MEDIUM")
     
+    canonical_name = Column(String, nullable=True)
     summary = Column(Text, nullable=False)
     metric_change = Column(String, nullable=True)
+    
+    risk_score = Column(Float, nullable=True)
+    previous_risk_score = Column(Float, nullable=True)
+    baseline_risk_score = Column(Float, nullable=True)
+    risk_change_percent = Column(Float, nullable=True)
+    risk_trend = Column(String, nullable=True)
+    scoring_method = Column(String, nullable=True)
+    benchmark_target = Column(Float, nullable=True)
+    benchmark_critical = Column(Float, nullable=True)
+    unit = Column(String, nullable=True)
+
+    baseline_value = Column(Float, nullable=True)
+    previous_value = Column(Float, nullable=True)
+    current_value = Column(Float, nullable=True)
+    baseline_timestamp = Column(String, nullable=True)
+    previous_timestamp = Column(String, nullable=True)
+    current_timestamp = Column(String, nullable=True)
+    baseline_to_current_change_percent = Column(Float, nullable=True)
+    previous_to_current_change_percent = Column(Float, nullable=True)
+    metric_change_percent = Column(Float, nullable=True)
+    metric_trend = Column(String, nullable=True)
+    explanation = Column(Text, nullable=True)
     
     signal_strength = Column(Float, nullable=False, default=0.85)
     signal_confidence = Column(Float, nullable=False, default=0.90)
@@ -27,6 +50,7 @@ class SignalItem(Base):
     
     supporting_evidence_ids = Column(JSON, nullable=False)
     supporting_relationship_ids = Column(JSON, nullable=True)
+    signal_data = Column(JSON, nullable=True)
     
     created_at = Column(DateTime(timezone=True), server_default=func.now())
 

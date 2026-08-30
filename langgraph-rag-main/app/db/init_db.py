@@ -63,6 +63,38 @@ def _ensure_vector_index(conn) -> None:
     )
 
 
+def _ensure_signal_columns(conn) -> None:
+    cols = [
+        ("canonical_name", "VARCHAR"),
+        ("risk_score", "FLOAT"),
+        ("previous_risk_score", "FLOAT"),
+        ("baseline_risk_score", "FLOAT"),
+        ("risk_change_percent", "FLOAT"),
+        ("risk_trend", "VARCHAR"),
+        ("scoring_method", "VARCHAR"),
+        ("benchmark_target", "FLOAT"),
+        ("benchmark_critical", "FLOAT"),
+        ("unit", "VARCHAR"),
+        ("baseline_value", "FLOAT"),
+        ("previous_value", "FLOAT"),
+        ("current_value", "FLOAT"),
+        ("baseline_timestamp", "VARCHAR"),
+        ("previous_timestamp", "VARCHAR"),
+        ("current_timestamp", "VARCHAR"),
+        ("baseline_to_current_change_percent", "FLOAT"),
+        ("previous_to_current_change_percent", "FLOAT"),
+        ("metric_change_percent", "FLOAT"),
+        ("metric_trend", "VARCHAR"),
+        ("explanation", "TEXT"),
+        ("signal_data", "JSON")
+    ]
+    for col_name, col_type in cols:
+        try:
+            conn.execute(text(f"ALTER TABLE signal_items ADD COLUMN IF NOT EXISTS {col_name} {col_type}"))
+        except Exception:
+            pass
+
+
 def init_db():
     print("Creating FailureOps X database tables...")
     if engine is None:
@@ -79,6 +111,7 @@ def init_db():
             _ensure_vector_index(conn)
         except Exception as exc:
             logger.warning("[DB] vector index creation skipped: %s", exc)
+        _ensure_signal_columns(conn)
 
     print("Database tables initialized successfully!")
 

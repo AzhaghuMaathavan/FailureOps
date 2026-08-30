@@ -12,6 +12,12 @@ function toPercent(value: unknown): number {
   return value <= 1 ? Math.round(value * 100) : Math.round(value);
 }
 
+function parseNum(value: unknown): number | null {
+  if (value === null || value === undefined || value === '') return null;
+  const n = Number(value);
+  return Number.isFinite(n) ? n : null;
+}
+
 export async function GET(req: NextRequest) {
   try {
     const session = requireAuth(req);
@@ -40,8 +46,8 @@ export async function GET(req: NextRequest) {
       direction: s.polarity || s.direction || 'NEGATIVE',
       trend: s.risk_trend || (s.status === 'IMPROVING' ? 'DECREASING' : 'INCREASING'),
       confidence: toPercent(s.signal_confidence ?? s.confidence),
-      metricChange: s.metric_change || (s.current_value !== undefined && s.baseline_value !== undefined
-        ? `${s.baseline_value} -> ${s.current_value}${s.unit ? ' ' + s.unit : ''} (${s.baseline_to_current_change_percent !== undefined ? (s.baseline_to_current_change_percent > 0 ? '+' : '') + s.baseline_to_current_change_percent + '%' : ''})`
+      metricChange: s.metric_change || (s.current_value !== undefined && s.current_value !== null && s.baseline_value !== undefined && s.baseline_value !== null
+        ? `${s.baseline_value} -> ${s.current_value}${s.unit ? ' ' + s.unit : ''} (${s.baseline_to_current_change_percent !== undefined && s.baseline_to_current_change_percent !== null ? (s.baseline_to_current_change_percent > 0 ? '+' : '') + s.baseline_to_current_change_percent + '%' : ''})`
         : 'Observed anomaly'),
       supportingEvidenceIds: s.supporting_evidence_ids || [],
       supportingRelationshipIds: s.supporting_relationship_ids || [],
@@ -50,25 +56,25 @@ export async function GET(req: NextRequest) {
       signalStrength: toPercent(s.signal_strength),
       status: s.status,
       signalType: s.signal_type,
-      riskScore: typeof s.risk_score === 'number' ? s.risk_score : null,
-      previousRiskScore: typeof s.previous_risk_score === 'number' ? s.previous_risk_score : null,
-      baselineRiskScore: typeof s.baseline_risk_score === 'number' ? s.baseline_risk_score : null,
-      riskChangePercent: typeof s.risk_change_percent === 'number' ? s.risk_change_percent : null,
+      riskScore: parseNum(s.risk_score),
+      previousRiskScore: parseNum(s.previous_risk_score),
+      baselineRiskScore: parseNum(s.baseline_risk_score),
+      riskChangePercent: parseNum(s.risk_change_percent),
       riskTrend: s.risk_trend || null,
       scoringMethod: s.scoring_method || null,
       polarity: s.polarity || null,
-      benchmarkTarget: typeof s.benchmark_target === 'number' ? s.benchmark_target : null,
-      benchmarkCritical: typeof s.benchmark_critical === 'number' ? s.benchmark_critical : null,
+      benchmarkTarget: parseNum(s.benchmark_target),
+      benchmarkCritical: parseNum(s.benchmark_critical),
       unit: s.unit || null,
-      baselineValue: typeof s.baseline_value === 'number' ? s.baseline_value : null,
-      previousValue: typeof s.previous_value === 'number' ? s.previous_value : null,
-      currentValue: typeof s.current_value === 'number' ? s.current_value : null,
+      baselineValue: parseNum(s.baseline_value),
+      previousValue: parseNum(s.previous_value),
+      currentValue: parseNum(s.current_value),
       baselineTimestamp: s.baseline_timestamp || null,
       previousTimestamp: s.previous_timestamp || null,
       currentTimestamp: s.current_timestamp || null,
-      baselineToCurrentChangePercent: typeof s.baseline_to_current_change_percent === 'number' ? s.baseline_to_current_change_percent : null,
-      previousToCurrentChangePercent: typeof s.previous_to_current_change_percent === 'number' ? s.previous_to_current_change_percent : null,
-      metricChangePercent: typeof s.metric_change_percent === 'number' ? s.metric_change_percent : null,
+      baselineToCurrentChangePercent: parseNum(s.baseline_to_current_change_percent),
+      previousToCurrentChangePercent: parseNum(s.previous_to_current_change_percent),
+      metricChangePercent: parseNum(s.metric_change_percent),
       metricTrend: s.metric_trend || null,
       explanation: s.explanation || null,
     }));

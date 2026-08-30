@@ -34,6 +34,8 @@ export const SignalCard: React.FC<SignalCardProps> = ({ signal, projectId }) => 
   const prevVal = signal.previousValue;
   const currVal = signal.currentValue;
 
+  const hasTelemetry = baseVal !== null || prevVal !== null || currVal !== null || (signal.metricChangePercent !== null && signal.metricChangePercent !== undefined);
+
   const totalChange = signal.baselineToCurrentChangePercent !== null && signal.baselineToCurrentChangePercent !== undefined
     ? (signal.baselineToCurrentChangePercent > 0 ? `+${signal.baselineToCurrentChangePercent}%` : `${signal.baselineToCurrentChangePercent}%`)
     : signal.metricChangePercent !== null && signal.metricChangePercent !== undefined
@@ -106,96 +108,100 @@ export const SignalCard: React.FC<SignalCardProps> = ({ signal, projectId }) => 
           </p>
         )}
 
-        {/* 1. Raw Telemetry Metric Section */}
-        <div className="mb-3 bg-surface-feed p-3 rounded-lg border border-border/80 space-y-2">
-          <div className="text-[10px] font-mono font-bold text-muted-foreground uppercase tracking-wider flex items-center justify-between">
-            <span>Raw Telemetry Metric</span>
-            <span className="font-semibold text-foreground flex items-center gap-1">
-              {getDirectionIcon(signal.metricTrend || signal.trend)}
-              {signal.metricTrend || signal.trend || 'UNKNOWN'}
-            </span>
-          </div>
+        {/* 1. Raw Telemetry Metric Section (Rendered for metric signals) */}
+        {hasTelemetry ? (
+          <div className="mb-3 bg-surface-feed p-3 rounded-lg border border-border/80 space-y-2">
+            <div className="text-[10px] font-mono font-bold text-muted-foreground uppercase tracking-wider flex items-center justify-between">
+              <span>Raw Telemetry Metric</span>
+              <span className="font-semibold text-foreground flex items-center gap-1">
+                {getDirectionIcon(signal.metricTrend || signal.trend)}
+                {signal.metricTrend || signal.trend || 'UNKNOWN'}
+              </span>
+            </div>
 
-          {/* Chronological Observations Row: Baseline, Previous, Current */}
-          <div className="grid grid-cols-3 gap-2 text-xs pb-2 border-b border-border/50">
-            <div>
-              <span className="text-muted-foreground block text-[9px] font-mono uppercase font-semibold">Baseline:</span>
-              <span className="font-mono font-bold text-foreground truncate block">
-                {baseVal !== null && baseVal !== undefined ? `${baseVal}${signal.unit ? ` ${signal.unit}` : ''}` : 'N/A'}
-              </span>
-              {signal.baselineTimestamp && (
-                <span className="text-[9px] font-mono text-muted-foreground block truncate">{signal.baselineTimestamp}</span>
-              )}
+            {/* Chronological Observations Row: Baseline, Previous, Current */}
+            <div className="grid grid-cols-3 gap-2 text-xs pb-2 border-b border-border/50">
+              <div>
+                <span className="text-muted-foreground block text-[9px] font-mono uppercase font-semibold">Baseline:</span>
+                <span className="font-mono font-bold text-foreground truncate block">
+                  {baseVal !== null && baseVal !== undefined ? `${baseVal}${signal.unit ? ` ${signal.unit}` : ''}` : 'N/A'}
+                </span>
+                {signal.baselineTimestamp && (
+                  <span className="text-[9px] font-mono text-muted-foreground block truncate">{signal.baselineTimestamp}</span>
+                )}
+              </div>
+              <div>
+                <span className="text-muted-foreground block text-[9px] font-mono uppercase font-semibold">Previous:</span>
+                <span className="font-mono font-bold text-foreground truncate block">
+                  {prevVal !== null && prevVal !== undefined ? `${prevVal}${signal.unit ? ` ${signal.unit}` : ''}` : 'N/A'}
+                </span>
+                {signal.previousTimestamp && (
+                  <span className="text-[9px] font-mono text-muted-foreground block truncate">{signal.previousTimestamp}</span>
+                )}
+              </div>
+              <div>
+                <span className="text-muted-foreground block text-[9px] font-mono uppercase font-semibold">Current:</span>
+                <span className="font-mono font-bold text-foreground truncate block">
+                  {currVal !== null && currVal !== undefined ? `${currVal}${signal.unit ? ` ${signal.unit}` : ''}` : 'N/A'}
+                </span>
+                {signal.currentTimestamp && (
+                  <span className="text-[9px] font-mono text-muted-foreground block truncate">{signal.currentTimestamp}</span>
+                )}
+              </div>
             </div>
-            <div>
-              <span className="text-muted-foreground block text-[9px] font-mono uppercase font-semibold">Previous:</span>
-              <span className="font-mono font-bold text-foreground truncate block">
-                {prevVal !== null && prevVal !== undefined ? `${prevVal}${signal.unit ? ` ${signal.unit}` : ''}` : 'N/A'}
-              </span>
-              {signal.previousTimestamp && (
-                <span className="text-[9px] font-mono text-muted-foreground block truncate">{signal.previousTimestamp}</span>
-              )}
-            </div>
-            <div>
-              <span className="text-muted-foreground block text-[9px] font-mono uppercase font-semibold">Current:</span>
-              <span className="font-mono font-bold text-foreground truncate block">
-                {currVal !== null && currVal !== undefined ? `${currVal}${signal.unit ? ` ${signal.unit}` : ''}` : 'N/A'}
-              </span>
-              {signal.currentTimestamp && (
-                <span className="text-[9px] font-mono text-muted-foreground block truncate">{signal.currentTimestamp}</span>
-              )}
-            </div>
-          </div>
 
-          {/* Percentage Changes */}
-          <div className="grid grid-cols-2 gap-2 text-xs pt-0.5">
-            <div>
-              <span className="text-muted-foreground block text-[9px] font-mono uppercase font-medium">Total Change (Baseline):</span>
-              <span className="font-mono font-bold text-foreground">
-                {totalChange}
-              </span>
-            </div>
-            <div>
-              <span className="text-muted-foreground block text-[9px] font-mono uppercase font-medium">Period Change (Previous):</span>
-              <span className="font-mono font-bold text-foreground">
-                {periodChange}
-              </span>
+            {/* Percentage Changes */}
+            <div className="grid grid-cols-2 gap-2 text-xs pt-0.5">
+              <div>
+                <span className="text-muted-foreground block text-[9px] font-mono uppercase font-medium">Total Change (Baseline):</span>
+                <span className="font-mono font-bold text-foreground">
+                  {totalChange}
+                </span>
+              </div>
+              <div>
+                <span className="text-muted-foreground block text-[9px] font-mono uppercase font-medium">Period Change (Previous):</span>
+                <span className="font-mono font-bold text-foreground">
+                  {periodChange}
+                </span>
+              </div>
             </div>
           </div>
-        </div>
+        ) : null}
 
         {/* 2. Normalized Risk Score Movement Section */}
-        <div className="mb-2 bg-card p-3 rounded-lg border border-border space-y-2">
-          <div className="text-[10px] font-mono font-bold text-primary uppercase tracking-wider flex items-center justify-between">
-            <span>Risk Score Movement (0-100)</span>
-            <span className="font-semibold text-foreground">
-              {signal.riskTrend || 'STABLE'}
-            </span>
+        {hasRiskScore && (
+          <div className="mb-2 bg-card p-3 rounded-lg border border-border space-y-2">
+            <div className="text-[10px] font-mono font-bold text-primary uppercase tracking-wider flex items-center justify-between">
+              <span>Risk Score Movement (0-100)</span>
+              <span className="font-semibold text-foreground">
+                {signal.riskTrend || 'STABLE'}
+              </span>
+            </div>
+            <div className="grid grid-cols-3 gap-2 text-xs">
+              <div>
+                <span className="text-muted-foreground block text-[10px] font-mono">Previous Risk:</span>
+                <span className="font-mono font-bold text-foreground">
+                  {signal.previousRiskScore !== null && signal.previousRiskScore !== undefined ? Math.round(signal.previousRiskScore) : 'N/A'}
+                </span>
+              </div>
+              <div>
+                <span className="text-muted-foreground block text-[10px] font-mono">Current Risk:</span>
+                <span className="font-mono font-bold text-foreground">
+                  {signal.riskScore !== null && signal.riskScore !== undefined ? Math.round(signal.riskScore) : 'N/A'}
+                </span>
+              </div>
+              <div>
+                <span className="text-muted-foreground block text-[10px] font-mono">Risk Change:</span>
+                <span className="font-mono font-bold text-foreground flex items-center gap-0.5">
+                  {getDirectionIcon(signal.riskTrend || 'STABLE')}
+                  {signal.riskChangePercent !== null && signal.riskChangePercent !== undefined
+                    ? (signal.riskChangePercent > 0 ? `+${signal.riskChangePercent}%` : `${signal.riskChangePercent}%`)
+                    : '0%'}
+                </span>
+              </div>
+            </div>
           </div>
-          <div className="grid grid-cols-3 gap-2 text-xs">
-            <div>
-              <span className="text-muted-foreground block text-[10px] font-mono">Previous Risk:</span>
-              <span className="font-mono font-bold text-foreground">
-                {signal.previousRiskScore !== null && signal.previousRiskScore !== undefined ? signal.previousRiskScore : 'N/A'}
-              </span>
-            </div>
-            <div>
-              <span className="text-muted-foreground block text-[10px] font-mono">Current Risk:</span>
-              <span className="font-mono font-bold text-foreground">
-                {signal.riskScore !== null && signal.riskScore !== undefined ? Math.round(signal.riskScore) : 'N/A'}
-              </span>
-            </div>
-            <div>
-              <span className="text-muted-foreground block text-[10px] font-mono">Risk Change:</span>
-              <span className="font-mono font-bold text-foreground flex items-center gap-0.5">
-                {getDirectionIcon(signal.riskTrend || 'STABLE')}
-                {signal.riskChangePercent !== null && signal.riskChangePercent !== undefined
-                  ? (signal.riskChangePercent > 0 ? `+${signal.riskChangePercent}%` : `${signal.riskChangePercent}%`)
-                  : '0%'}
-              </span>
-            </div>
-          </div>
-        </div>
+        )}
       </div>
 
       {/* Footer: Confidence & Evidence Drilldown */}

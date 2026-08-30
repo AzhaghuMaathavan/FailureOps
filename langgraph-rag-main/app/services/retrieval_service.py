@@ -252,8 +252,40 @@ def retrieve_bm25_candidates(
                 "bm25_score": float(row.rank_score)
             })
     except Exception as e:
-        logger.error("[BM25] search failed: %s", e)
-        return []
+        logger.debug("[BM25] PostgreSQL tsvector search unavailable, attempting SQLite/generic fallback: %s", e)
+        try:
+            from app.models.chunk import Chunk
+            q = db.query(Chunk)
+            if organization_id:
+                q = q.filter(Chunk.organization_id == organization_id)
+            if project_id:
+                q = q.filter(Chunk.project_id == project_id)
+            if document_ids:
+                q = q.filter(Chunk.document_id.in_(document_ids))
+            
+            # Simple keyword matching fallback
+            words = [w.lower() for w in clean_query.split() if len(w) > 3][:5]
+            rows = q.limit(top_k * 2).all()
+            for r in rows:
+                content_lower = (r.content or "").lower()
+                matches = sum(1 for w in words if w in content_lower)
+                score = matches / max(1, len(words))
+                candidates.append({
+                    "chunk_id": r.id,
+                    "document_id": r.document_id,
+                    "organization_id": r.organization_id,
+                    "project_id": r.project_id,
+                    "chunk_index": r.chunk_index,
+                    "content": r.content,
+                    "headers": r.headers,
+                    "lineage": r.lineage,
+                    "bm25_score": float(score)
+                })
+            candidates.sort(key=lambda x: x["bm25_score"], reverse=True)
+            candidates = candidates[:top_k]
+        except Exception as fallback_err:
+            logger.error("[BM25] Fallback search also failed: %s", fallback_err)
+            return []
     return candidates
 
 def reciprocal_rank_fusion(vector_candidates: List[Dict], bm25_candidates: List[Dict], k: int = 60) -> List[Dict]:

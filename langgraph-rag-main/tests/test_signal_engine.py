@@ -502,3 +502,216 @@ def test_signal_persistence_and_cascade_delete(db_session):
 
     # Verify child signal was deleted
     assert db_session.query(SignalItem).filter(SignalItem.id == "sig_cascade").first() is None
+
+
+# 26. Real Telemetry Time-Series & Risk Movement Retention
+def test_signal_telemetry_and_risk_movement_retention():
+    """
+    Asserts that real numerical telemetry (baseline: 100, previous: 130, current: 160)
+    survives from Evidence Packet -> Signal Agent -> Signal Item Schema with exact
+    mathematical changes, dates, trend, unit, and metric-aware risk movements.
+    """
+    ev_metric = EvidenceItemSchema(
+        id="ev_api_p95",
+        category="TECHNICAL",
+        evidence_type="METRIC",
+        statement="API P95 latency increased from 100ms baseline to 160ms current.",
+        fact_type="METRIC_OBSERVATION",
+        metric_name="API_P95_MS",
+        baseline_value=100.0,
+        previous_value=130.0,
+        current_value=160.0,
+        unit="ms",
+        direction="INCREASING",
+        baseline_timestamp="2026-06-01",
+        previous_timestamp="2026-08-17",
+        current_timestamp="2026-08-24",
+        baseline_to_current_change_percent=60.0,
+        previous_to_current_change_percent=23.08,
+        source=EvidenceSource(
+            document_id="doc_metrics_csv",
+            document_name="engineeringmetrics.csv",
+            page_number=1,
+            block_id="blk_001",
+            content_snippet="API_P95_MS: 100 -> 130 -> 160",
+            lineage={"document_name": "engineeringmetrics.csv"}
+        ),
+        supporting_sources=[],
+        supporting_chunk_ids=["chk_001"],
+        evidence_confidence=0.95,
+        verification_status="VERIFIED",
+        privacy=PrivacyMetadata(visibility="PRIVATE", global_learning_allowed=False)
+    )
+
+    packet = EvidencePacket(
+        organization_id="org_test",
+        project_id="proj_telemetry",
+        analysis_id="anl_telemetry",
+        evidence=[ev_metric],
+        coverage={"TECHNICAL": "HIGH"},
+        metrics=EvidenceMetrics(total_evidence_extracted=1, verified_count=1, rejected_count=0, processing_time_seconds=0.5)
+    )
+
+    context = consume_evidence_packet(packet, "org_test", "proj_telemetry")
+    assert len(context.verified_evidence) == 1
+    v_item = context.verified_evidence[0]
+    assert v_item.baseline_value == 100.0
+    assert v_item.previous_value == 130.0
+    assert v_item.current_value == 160.0
+    assert v_item.baseline_timestamp == "2026-06-01"
+    assert v_item.current_timestamp == "2026-08-24"
+
+    groups = group_verified_evidence(context)
+    trends = detect_trends_from_groups(groups)
+    rels = detect_evidence_relationships(groups, trends)
+    sig_packet = generate_signal_packet(context, groups, trends, rels)
+
+    assert len(sig_packet.signals) >= 1
+    metric_sig = next(s for s in sig_packet.signals if s.canonical_name == "API_P95_MS" or "API" in s.name or "Instability" in s.name)
+    
+    # Assert real telemetry values are preserved
+    assert metric_sig.baseline_value == 100.0
+    assert metric_sig.previous_value == 130.0
+    assert metric_sig.current_value == 160.0
+    assert metric_sig.unit == "ms"
+    assert metric_sig.baseline_timestamp == "2026-06-01"
+    assert metric_sig.previous_timestamp == "2026-08-17"
+    assert metric_sig.current_timestamp == "2026-08-24"
+    assert metric_sig.baseline_to_current_change_percent == 60.0
+    assert metric_sig.previous_to_current_change_percent == 23.08
+    assert metric_sig.metric_trend == "INCREASING"
+
+    # Assert risk movement is calculated
+    assert metric_sig.risk_score is not None
+    assert metric_sig.previous_risk_score is not None
+    assert metric_sig.risk_change_percent is not None
+    assert metric_sig.risk_trend in ["INCREASING", "WORSENING", "ESCALATING", "STABLE"]
+    assert metric_sig.scoring_method is not None
+    assert metric_sig.explanation is not None
+
+
+# 27. Qualitative Negative Test (No Fake Metric Values)
+def test_qualitative_signal_no_fake_metrics():
+    """
+    Asserts that a purely qualitative signal (e.g. user complaint / feedback)
+    does NOT receive synthetic or hallucinated metric numbers.
+    """
+    ev_qual = EvidenceItemSchema(
+        id="ev_feedback",
+        category="CUSTOMER",
+        evidence_type="CUSTOMER_FEEDBACK",
+        statement="Users reported confusion during the workspace invitation step.",
+        fact_type="CUSTOMER_CLAIM",
+        metric_name=None,
+        baseline_value=None,
+        previous_value=None,
+        current_value=None,
+        unit=None,
+        direction="UNKNOWN",
+        source=EvidenceSource(
+            document_id="doc_interviews",
+            document_name="customer_notes.md",
+            page_number=2,
+            block_id="blk_002",
+            content_snippet="Users reported confusion during invitation step.",
+            lineage={"document_name": "customer_notes.md"}
+        ),
+        supporting_sources=[],
+        supporting_chunk_ids=["chk_002"],
+        evidence_confidence=0.88,
+        verification_status="VERIFIED",
+        privacy=PrivacyMetadata(visibility="PRIVATE", global_learning_allowed=False)
+    )
+
+    packet = EvidencePacket(
+        organization_id="org_test",
+        project_id="proj_qual",
+        analysis_id="anl_qual",
+        evidence=[ev_qual],
+        coverage={"CUSTOMER": "MEDIUM"},
+        metrics=EvidenceMetrics(total_evidence_extracted=1, verified_count=1, rejected_count=0, processing_time_seconds=0.2)
+    )
+
+    context = consume_evidence_packet(packet, "org_test", "proj_qual")
+    groups = group_verified_evidence(context)
+    trends = detect_trends_from_groups(groups)
+    rels = detect_evidence_relationships(groups, trends)
+    sig_packet = generate_signal_packet(context, groups, trends, rels)
+
+    assert len(sig_packet.signals) >= 1
+    qual_sig = sig_packet.signals[0]
+    # Assert no fake numbers
+    assert qual_sig.baseline_value is None
+    assert qual_sig.previous_value is None
+    assert qual_sig.current_value is None
+    assert qual_sig.unit is None
+
+
+# 28. Database Persistence with Full Telemetry Schema
+def test_signal_persistence_with_all_telemetry_fields(db_session):
+    """
+    Asserts that SignalItem model in PostgreSQL / SQLite stores and restores
+    all telemetry and risk scoring fields.
+    """
+    sig = SignalItem(
+        id="sig_full_telemetry",
+        analysis_id="anl_1",
+        organization_id="org_1",
+        project_id="proj_1",
+        name="API Latency Spike",
+        canonical_name="API_P95_MS",
+        category="TECHNICAL",
+        signal_type="METRIC_ANOMALY",
+        polarity="NEGATIVE",
+        status="WORSENING",
+        severity="HIGH",
+        summary="P95 escalated by 60%.",
+        metric_change="+60%",
+        risk_score=75.0,
+        previous_risk_score=50.0,
+        baseline_risk_score=25.0,
+        risk_change_percent=50.0,
+        risk_trend="INCREASING",
+        scoring_method="DOMAIN_ARCHETYPE",
+        benchmark_target=200.0,
+        benchmark_critical=500.0,
+        unit="ms",
+        baseline_value=100.0,
+        previous_value=130.0,
+        current_value=160.0,
+        baseline_timestamp="2026-06-01",
+        previous_timestamp="2026-08-17",
+        current_timestamp="2026-08-24",
+        baseline_to_current_change_percent=60.0,
+        previous_to_current_change_percent=23.08,
+        metric_change_percent=60.0,
+        metric_trend="INCREASING",
+        explanation="Latency exceeds standard SLA.",
+        signal_strength=0.95,
+        signal_confidence=0.90,
+        historical_prevalence=80,
+        supporting_evidence_ids=["ev_api_p95"],
+        supporting_relationship_ids=[]
+    )
+    analysis = ProjectAnalysis(
+        id="anl_1",
+        organization_id="org_1",
+        project_id="proj_1",
+        status="COMPLETED"
+    )
+    db_session.add(analysis)
+    db_session.add(sig)
+    db_session.commit()
+
+    loaded = db_session.query(SignalItem).filter(SignalItem.id == "sig_full_telemetry").first()
+    assert loaded is not None
+    assert loaded.canonical_name == "API_P95_MS"
+    assert loaded.baseline_value == 100.0
+    assert loaded.previous_value == 130.0
+    assert loaded.current_value == 160.0
+    assert loaded.risk_score == 75.0
+    assert loaded.previous_risk_score == 50.0
+    assert loaded.risk_change_percent == 50.0
+    assert loaded.metric_trend == "INCREASING"
+    assert loaded.unit == "ms"
+
