@@ -87,7 +87,7 @@ def run_project_analysis_pipeline(
         pending_docs = db.query(Document).filter(
             Document.organization_id == organization_id,
             Document.project_id == project_id,
-            Document.status == "PENDING"
+            Document.status.in_(["PENDING", "FAILED"])
         ).all()
         
         for doc in pending_docs:

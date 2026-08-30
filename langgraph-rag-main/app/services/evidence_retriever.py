@@ -96,7 +96,10 @@ def retrieve_project_evidence_candidates(
     organization_id: str,
     project_id: str,
     document_ids: Optional[List[str]] = None,
-    dimensions: Optional[List[str]] = None
+    dimensions: Optional[List[str]] = None,
+    max_workers: int = 4,
+    timeout_seconds: float = 20.0,
+    **kwargs
 ) -> Tuple[Dict[str, List[Dict[str, Any]]], Dict[str, Any]]:
     """
     Executes targeted hybrid retrieval across all evidence dimensions.
