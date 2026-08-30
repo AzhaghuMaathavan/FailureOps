@@ -13,8 +13,8 @@ import {
   PHASE_LABELS,
 } from './types';
 
-const MAX_INGEST_POLLS = 48;
-const MAX_ANALYSIS_POLLS = 72;
+const MAX_INGEST_POLLS = 120;
+const MAX_ANALYSIS_POLLS = 120;
 const POLL_MS = 2500;
 const MAX_AGENT_ATTEMPTS = 2;
 const GRAPH_RECURSION_LIMIT = 12;
@@ -93,16 +93,31 @@ function stageOf(pipeline: any, key: string) {
   return (pipeline?.stages || []).find((stage: any) => stage.key === key);
 }
 
-function ingestReady(docs: DocumentChunkSnapshot[], uploadedIds: string[]): boolean {
+function ingestReady(docs: DocumentChunkSnapshot[], uploadedIds: string[], pipeline?: any): boolean {
   const relevant = uploadedIds.length
     ? docs.filter((doc) => uploadedIds.includes(doc.id))
     : docs;
   if (relevant.length === 0) return false;
-  return relevant.every(
+
+  const allTerminal = relevant.every(
     (doc) =>
+      doc.status === 'COMPLETED' ||
+      doc.status === 'READY' ||
       doc.status === 'FAILED' ||
-      (doc.status === 'COMPLETED' && doc.embeddedCount > 0)
+      doc.embeddedCount > 0
   );
+  if (allTerminal) return true;
+
+  const embStage = (pipeline?.stages || []).find((s: any) => s.key === 'embedding' || s.key === 'vector');
+  const retStage = (pipeline?.stages || []).find((s: any) => s.key === 'retrieval');
+  if (
+    (embStage && embStage.status === 'COMPLETED' && (embStage.count ?? 0) > 0) ||
+    (retStage && (retStage.status === 'COMPLETED' || (retStage.count ?? 0) > 0))
+  ) {
+    return true;
+  }
+
+  return false;
 }
 
 async function nodeUpload(state: GraphStateType, session: UserSession): Promise<Partial<GraphStateType>> {
@@ -185,7 +200,7 @@ async function nodeWatchRag(state: GraphStateType, session: UserSession): Promis
       );
     }
 
-    if (ingestReady(documents, state.documentIds)) {
+    if (ingestReady(documents, state.documentIds, pipeline)) {
       for (const { ours, theirs } of ragPhases) {
         const stage = stageOf(pipeline, theirs);
         markPhase(state.runId, ours, {

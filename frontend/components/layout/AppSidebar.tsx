@@ -40,11 +40,21 @@ export const AppSidebar: React.FC = () => {
   const projectId = project.id;
   const navRef = React.useRef<HTMLElement>(null);
 
-  React.useEffect(() => {
+  React.useLayoutEffect(() => {
     const saved = sessionStorage.getItem('sidebar_scroll_pos');
     if (saved && navRef.current) {
       navRef.current.scrollTop = parseInt(saved, 10);
     }
+  }, [pathname]);
+
+  React.useEffect(() => {
+    const frame = requestAnimationFrame(() => {
+      const saved = sessionStorage.getItem('sidebar_scroll_pos');
+      if (saved && navRef.current) {
+        navRef.current.scrollTop = parseInt(saved, 10);
+      }
+    });
+    return () => cancelAnimationFrame(frame);
   }, [pathname]);
 
   const handleScroll = (e: React.UIEvent<HTMLElement>) => {

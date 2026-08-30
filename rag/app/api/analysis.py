@@ -656,7 +656,90 @@ def get_project_failure_dna(
     return FailureDNAPacket(**analysis.failure_dna)
 
 
+@router.get("/evidence/{evidence_id}")
+def get_single_evidence(
+    evidence_id: str,
+    org_id: str = Depends(get_tenant_context),
+    db: Session = Depends(get_db)
+):
+    """
+    Retrieves detailed evidence metadata, source coordinates, and citation for a single evidence item.
+    """
+    # 1. Check DB records
+    ev = db.query(EvidenceItem).filter(
+        (EvidenceItem.id == evidence_id) | (EvidenceItem.id.like(f"%{evidence_id}%")),
+        (EvidenceItem.organization_id == org_id) | (EvidenceItem.visibility.in_(["ORGANIZATION", "GLOBAL", "PUBLIC"]))
+    ).first()
+
+    if ev:
+        lineage = ev.source_lineage or {}
+        return {
+            "id": ev.id,
+            "category": ev.category,
+            "statement": ev.statement,
+            "summary": ev.statement,
+            "key_fact": ev.statement,
+            "confidence": ev.evidence_confidence if ev.evidence_confidence <= 1.0 else ev.evidence_confidence / 100.0,
+            "verification_status": ev.verification_status,
+            "location_type": lineage.get("location_type", "PAGE"),
+            "location_value": f"Page {lineage.get('page_number', 1)}" if lineage.get("page_number") else "Section 1",
+            "citation": lineage.get("citation", f"{lineage.get('filename', 'Source')} (Page {lineage.get('page_number', 1)})"),
+            "source_document_id": lineage.get("document_id") or lineage.get("source_document_id") or lineage.get("filename"),
+            "source_document_name": lineage.get("document_name") or lineage.get("filename") or "source.pdf",
+            "project_id": ev.project_id,
+            "visibility": ev.visibility,
+            "normalized_value": ev.normalized_value,
+            "time_period": ev.time_period
+        }
+
+    # 2. Check within latest project analyses
+    analyses = db.query(ProjectAnalysis).filter(
+        ProjectAnalysis.organization_id == org_id,
+        ProjectAnalysis.status == "COMPLETED"
+    ).order_by(ProjectAnalysis.created_at.desc()).limit(10).all()
+
+    for anl in analyses:
+        if anl.evidence_packet and anl.evidence_packet.get("evidence"):
+            for item in anl.evidence_packet["evidence"]:
+                if item.get("id") == evidence_id or item.get("evidence_id") == evidence_id:
+                    lineage = item.get("source_lineage") or {}
+                    return {
+                        "id": item.get("id") or evidence_id,
+                        "category": item.get("category", "OPERATIONAL"),
+                        "statement": item.get("statement", ""),
+                        "summary": item.get("statement", ""),
+                        "key_fact": item.get("statement", ""),
+                        "confidence": item.get("evidence_confidence", 0.85),
+                        "verification_status": item.get("verification_status", "VERIFIED"),
+                        "location_type": lineage.get("location_type", "PAGE"),
+                        "location_value": f"Page {lineage.get('page_number', 1)}" if lineage.get("page_number") else "Section 1",
+                        "citation": lineage.get("citation", f"{lineage.get('filename', 'Source')} (Page {lineage.get('page_number', 1)})"),
+                        "source_document_id": lineage.get("document_id") or lineage.get("source_document_id") or lineage.get("filename"),
+                        "source_document_name": lineage.get("document_name") or lineage.get("filename") or "source.pdf",
+                        "project_id": anl.project_id,
+                        "visibility": item.get("visibility", "PRIVATE")
+                    }
+
+    raise HTTPException(status_code=404, detail=f"Evidence {evidence_id} not found or access denied")
+
+
+@router.get("/documents/{document_id}/open")
+def open_document_stream(
+    document_id: str,
+    page: Optional[int] = None,
+    project_id: Optional[str] = None,
+    org_id: str = Depends(get_tenant_context),
+    db: Session = Depends(get_db)
+):
+    """
+    Direct endpoint to open/download a document with tenant validation.
+    """
+    from app.api.documents import download_document
+    return download_document(document_id, project_id=project_id, org_id=org_id, db=db)
+
+
 @router.get("/projects/{project_id}/failure-chain", response_model=FailureChainPacket)
+@router.get("/projects/{project_id}/causal", response_model=FailureChainPacket)
 def get_project_failure_chain(
     project_id: str,
     org_id: str = Depends(get_tenant_context),
@@ -695,6 +778,7 @@ def get_project_failure_chain(
 
 
 @router.get("/projects/{project_id}/predictions", response_model=FailurePrediction)
+@router.get("/projects/{project_id}/prediction", response_model=FailurePrediction)
 def get_project_failure_prediction(
     project_id: str,
     org_id: str = Depends(get_tenant_context),
@@ -738,6 +822,8 @@ def get_project_historical_matches(
 
 @router.get("/projects/{project_id}/simulate", response_model=SimulationComparisonPacket)
 @router.post("/projects/{project_id}/simulate", response_model=SimulationComparisonPacket)
+@router.get("/projects/{project_id}/simulation/scenarios", response_model=SimulationComparisonPacket)
+@router.post("/projects/{project_id}/simulation/run", response_model=SimulationComparisonPacket)
 def simulate_project_scenarios(
     project_id: str,
     payload: Optional[RunSimulationRequest] = None,

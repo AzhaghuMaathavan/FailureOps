@@ -16,11 +16,13 @@ import {
   insightGridClass,
   kpiGridClass,
 } from '@/components/causal/ActionChrome';
+import { EvidenceModal } from '@/components/evidence/EvidenceModal';
 
 export default function PredictionPage() {
   const params = useParams();
   const projectId = (params?.id as string) || 'aurora';
   const [predictionData, setPredictionData] = useState<any>(null);
+  const [activeEvidenceId, setActiveEvidenceId] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState<boolean>(true);
   const [error, setError] = useState<string | null>(null);
 
@@ -134,13 +136,15 @@ export default function PredictionPage() {
             <InsightCard title="Supporting evidence">
               <div className="flex flex-wrap gap-2">
                 {pred.supporting_evidence_ids.map((evId: string) => (
-                  <Link
+                  <button
                     key={evId}
-                    href={`/projects/${projectId}/evidence#${evId}`}
-                    className="inline-flex items-center gap-1 rounded-lg border border-primary/30 bg-primary/10 px-2.5 py-1 font-mono text-xs font-semibold text-primary hover:bg-primary/20 hover:underline transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary cursor-pointer"
+                    type="button"
+                    onClick={() => setActiveEvidenceId(evId)}
+                    className="inline-flex items-center gap-1 rounded-lg border border-primary/30 bg-primary/10 px-2.5 py-1 font-mono text-xs font-semibold text-primary hover:bg-primary/20 hover:border-primary transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary cursor-pointer"
+                    title={`Inspect evidence citation #${evId}`}
                   >
                     <span>#{evId}</span>
-                  </Link>
+                  </button>
                 ))}
               </div>
             </InsightCard>
@@ -152,6 +156,13 @@ export default function PredictionPage() {
           >
             Open next step
           </Link>
+
+          {/* Evidence Citation Modal */}
+          <EvidenceModal
+            evidenceId={activeEvidenceId}
+            projectId={projectId}
+            onClose={() => setActiveEvidenceId(null)}
+          />
         </>
       )}
     </div>

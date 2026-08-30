@@ -16,6 +16,7 @@ import {
   insightGridClass,
   kpiGridClass,
 } from '@/components/causal/ActionChrome';
+import { EvidenceModal } from '@/components/evidence/EvidenceModal';
 
 interface CausalNodeGraphProps {
   projectId?: string;
@@ -41,6 +42,7 @@ export const CausalNodeGraph: React.FC<CausalNodeGraphProps> = ({
   const [nodes, setNodes] = useState<any[]>([]);
   const [edges, setEdges] = useState<any[]>([]);
   const [selectedNode, setSelectedNode] = useState<any | null>(null);
+  const [activeEvidenceId, setActiveEvidenceId] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState<boolean>(true);
   const [error, setError] = useState<string | null>(null);
 
@@ -240,14 +242,17 @@ export const CausalNodeGraph: React.FC<CausalNodeGraphProps> = ({
               Supporting Evidence References ({selectedNode.evidence_ids?.length || 0})
             </span>
             {selectedNode.evidence_ids && selectedNode.evidence_ids.length > 0 ? (
-              <div className="flex flex-wrap gap-1.5">
+              <div className="flex flex-wrap gap-2 pt-1">
                 {selectedNode.evidence_ids.map((evId: string) => (
-                  <span
+                  <button
                     key={evId}
-                    className="rounded border border-border bg-card px-2 py-0.5 font-mono text-[11px] font-semibold text-foreground"
+                    type="button"
+                    onClick={() => setActiveEvidenceId(evId)}
+                    className="inline-flex items-center gap-1 rounded-lg border border-primary/30 bg-primary/10 px-2.5 py-1 font-mono text-[11px] font-semibold text-primary hover:bg-primary/20 hover:border-primary transition-colors cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary"
+                    title={`Inspect evidence citation #${evId}`}
                   >
-                    {evId}
-                  </span>
+                    <span>#{evId}</span>
+                  </button>
                 ))}
               </div>
             ) : (
@@ -269,6 +274,13 @@ export const CausalNodeGraph: React.FC<CausalNodeGraphProps> = ({
           </div>
         </div>
       </div>
+
+      {/* Grounded Citation Modal */}
+      <EvidenceModal
+        evidenceId={activeEvidenceId}
+        projectId={projectId}
+        onClose={() => setActiveEvidenceId(null)}
+      />
     </div>
   );
 };

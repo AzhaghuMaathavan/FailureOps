@@ -24,9 +24,9 @@ import {
 import { EvidenceSourceType } from '@/types';
 import { apiClient, isRagUnavailable } from '@/lib/api/client';
 import { useApp } from '@/context/AppContext';
-import { RagPipelinePanel } from '@/components/evidence/RagPipelinePanel';
 import { KpiStat } from '@/components/evidence/KpiStat';
-import { LangGraphRunPanel, LangGraphRunView } from '@/components/pipeline/LangGraphRunPanel';
+import { LangGraphRunView } from '@/components/pipeline/LangGraphRunPanel';
+import { PipelineStatusPanel } from '@/components/pipeline/PipelineStatusPanel';
 
 interface PendingFileItem {
   id: string;
@@ -365,6 +365,19 @@ export default function EvidenceUploadPage() {
     }
   };
 
+  const handleRetryReasoning = async () => {
+    try {
+      setIsUploading(true);
+      setUploadError(null);
+      await apiClient.startAnalysis(projectId, 'DEEP');
+      await fetchBackendDocuments(true);
+    } catch (err: any) {
+      setUploadError(err?.message || 'Failed to retry reasoning analysis.');
+    } finally {
+      setIsUploading(false);
+    }
+  };
+
   const handleDeleteBackendDoc = async (docId: string) => {
     try {
       setDeletingDocId(docId);
@@ -636,16 +649,19 @@ export default function EvidenceUploadPage() {
         </div>
       )}
 
-      {langGraphRun && <LangGraphRunPanel run={langGraphRun} />}
-
-      {pipeline && !ragUnavailable && (
-        <RagPipelinePanel
+      {/* Unified LangGraph Pipeline Status Panel — Single Panel replacing dual duplicate panels */}
+      {(langGraphRun || (pipeline && !ragUnavailable)) && (
+        <PipelineStatusPanel
           projectId={projectId}
-          stages={pipeline.stages}
-          reachable
-          database={pipeline.health?.database}
-          rustfsReachable={pipeline.health?.rustfsReachable}
-          rustfsProvider={pipeline.health?.rustfsProvider}
+          run={langGraphRun}
+          pipeline={pipeline}
+          reachable={!ragUnavailable}
+          database={pipeline?.health?.database}
+          rustfsReachable={pipeline?.health?.rustfsReachable}
+          rustfsProvider={pipeline?.health?.rustfsProvider}
+          onRetry={handleRetryReasoning}
+          onCheckStatus={() => fetchBackendDocuments(true)}
+          isChecking={isLoadingDocs}
         />
       )}
 
