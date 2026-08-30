@@ -61,7 +61,7 @@ export async function GET(req: NextRequest) {
     const progress = backendStatus.progress_percent || 0;
     const isDone = backendStatus.status === 'COMPLETED';
     const isFailed = backendStatus.status === 'FAILED';
-    const stages = mapRagAnalysisStages(backendStatus.status, isDone, isFailed);
+    const stages = mapRagAnalysisStages(backendStatus.current_stage || backendStatus.status, isDone, isFailed);
 
     return apiSuccess({
       jobId: backendStatus.analysis_id,

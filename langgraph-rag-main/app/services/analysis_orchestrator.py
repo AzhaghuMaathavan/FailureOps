@@ -337,7 +337,7 @@ def run_project_analysis_pipeline(
 
             for sig in signal_packet.signals:
                 db_sig = SignalItem(
-                    id=sig.signal_id if sig.signal_id else f"sig_{project_id}_{sig.name.lower()}",
+                    id=sig.signal_id if sig.signal_id else f"sig_{project_id}_{uuid.uuid4().hex[:8]}",
                     analysis_id=analysis_id,
                     organization_id=organization_id,
                     project_id=project_id,

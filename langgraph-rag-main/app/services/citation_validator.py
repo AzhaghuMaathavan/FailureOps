@@ -1,4 +1,5 @@
 import re
+import uuid
 import logging
 from typing import List, Dict, Any, Tuple, Optional
 from app.schemas.evidence_packet import (
@@ -153,14 +154,16 @@ def consolidate_duplicates_and_conflicts(
                 if cid not in all_chunk_ids:
                     all_chunk_ids.append(cid)
 
-        # Determine canonical ID based on metric name or deterministic hash
-        m_name = primary.get("metric_name") or (primary.get("normalized_value") or {}).get("metric")
-        if m_name:
-            ev_id = f"ev_{str(m_name).lower().replace(' ', '_')}"
-        elif primary.get("id"):
-            ev_id = primary.get("id")
+        # Preserve existing UUID or generate a collision-safe ID
+        upstream_id = primary.get("evidence_id") or primary.get("id")
+        if upstream_id:
+            ev_id = upstream_id
         else:
-            ev_id = f"ev_{evidence_counter:03d}"
+            m_name = primary.get("metric_name") or (primary.get("normalized_value") or {}).get("metric")
+            if m_name:
+                ev_id = f"ev_{str(m_name).lower().replace(' ', '_')}_{str(uuid.uuid4())[:8]}"
+            else:
+                ev_id = f"ev_{evidence_counter:03d}_{str(uuid.uuid4())[:8]}"
 
         # Average confidence among supporting sources
         avg_conf = round(sum(it.get("evidence_confidence", 0.85) for it in items) / len(items), 3)
