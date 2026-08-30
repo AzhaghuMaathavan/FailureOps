@@ -327,8 +327,24 @@ export const EvidenceDrawer: React.FC<EvidenceDrawerProps> = ({ evidence, onClos
                 })}
               </div>
             ) : (
-              <div className="rounded-lg border border-border bg-surface-feed/60 p-3 text-xs text-muted-foreground">
-                Verified qualitative event/claim backed by source lineage.
+              <div className="rounded-lg border border-border/80 bg-surface-feed p-3.5 space-y-2">
+                <div className="flex items-center justify-between">
+                  <span className={`inline-flex items-center gap-1 rounded px-1.5 py-0.5 font-mono text-[10px] font-bold uppercase ${
+                    factType === 'EVENT'
+                      ? 'border border-amber-500/30 bg-amber-500/10 text-amber-300'
+                      : factType === 'CLAIM'
+                      ? 'border border-sky-500/30 bg-sky-500/10 text-sky-300'
+                      : 'border border-primary/30 bg-primary/10 text-primary'
+                  }`}>
+                    {factType}
+                  </span>
+                  <span className="font-mono text-[10px] text-muted-foreground">
+                    {evidence.timestamp || 'Recent Analysis'}
+                  </span>
+                </div>
+                <p className="text-xs leading-relaxed text-foreground font-medium">
+                  {evidence.statement || evidence.content || 'Document observation verified by source lineage.'}
+                </p>
               </div>
             )}
           </div>

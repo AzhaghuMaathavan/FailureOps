@@ -673,19 +673,29 @@ def get_single_evidence(
 
     if ev:
         lineage = ev.source_lineage or {}
+        norm = ev.normalized_value or {}
         return {
             "id": ev.id,
             "category": ev.category,
+            "evidence_type": ev.evidence_type,
+            "fact_type": "METRIC" if norm.get("metric") or ev.evidence_type == "METRIC" else "EVENT",
             "statement": ev.statement,
             "summary": ev.statement,
             "key_fact": ev.statement,
+            "metric_name": norm.get("metric"),
+            "baseline_value": norm.get("before"),
+            "current_value": norm.get("after"),
+            "unit": norm.get("unit"),
+            "direction": norm.get("direction", "UNKNOWN"),
             "confidence": ev.evidence_confidence if ev.evidence_confidence <= 1.0 else ev.evidence_confidence / 100.0,
             "verification_status": ev.verification_status,
-            "location_type": lineage.get("location_type", "PAGE"),
-            "location_value": f"Page {lineage.get('page_number', 1)}" if lineage.get("page_number") else "Section 1",
-            "citation": lineage.get("citation", f"{lineage.get('filename', 'Source')} (Page {lineage.get('page_number', 1)})"),
+            "location_type": lineage.get("location_type", "ROW" if lineage.get("location_type") == "ROW" else "PAGE"),
+            "location_value": lineage.get("location_value") or (f"Page {lineage.get('page_number', 1)}" if lineage.get("page_number") else "Section 1"),
+            "citation": lineage.get("citation", f"{lineage.get('document_name', lineage.get('filename', 'Source'))}"),
             "source_document_id": lineage.get("document_id") or lineage.get("source_document_id") or lineage.get("filename"),
             "source_document_name": lineage.get("document_name") or lineage.get("filename") or "source.pdf",
+            "supporting_chunk_ids": ev.supporting_chunk_ids or [],
+            "supporting_sources": ev.supporting_sources or [],
             "project_id": ev.project_id,
             "visibility": ev.visibility,
             "normalized_value": ev.normalized_value,
@@ -702,22 +712,39 @@ def get_single_evidence(
         if anl.evidence_packet and anl.evidence_packet.get("evidence"):
             for item in anl.evidence_packet["evidence"]:
                 if item.get("id") == evidence_id or item.get("evidence_id") == evidence_id:
-                    lineage = item.get("source_lineage") or {}
+                    src = item.get("source") or item.get("source_lineage") or {}
                     return {
                         "id": item.get("id") or evidence_id,
-                        "category": item.get("category", "OPERATIONAL"),
+                        "category": item.get("category", "TECHNICAL"),
+                        "evidence_type": item.get("evidence_type", "METRIC"),
+                        "fact_type": item.get("fact_type", "METRIC"),
                         "statement": item.get("statement", ""),
                         "summary": item.get("statement", ""),
                         "key_fact": item.get("statement", ""),
-                        "confidence": item.get("evidence_confidence", 0.85),
+                        "metric_name": item.get("metric_name") or (item.get("normalized_value") or {}).get("metric"),
+                        "baseline_value": item.get("baseline_value"),
+                        "previous_value": item.get("previous_value"),
+                        "current_value": item.get("current_value"),
+                        "unit": item.get("unit"),
+                        "direction": item.get("direction", "UNKNOWN"),
+                        "baseline_timestamp": item.get("baseline_timestamp"),
+                        "previous_timestamp": item.get("previous_timestamp"),
+                        "current_timestamp": item.get("current_timestamp"),
+                        "baseline_to_current_change_percent": item.get("baseline_to_current_change_percent"),
+                        "previous_to_current_change_percent": item.get("previous_to_current_change_percent"),
+                        "confidence": item.get("evidence_confidence", 0.95),
                         "verification_status": item.get("verification_status", "VERIFIED"),
-                        "location_type": lineage.get("location_type", "PAGE"),
-                        "location_value": f"Page {lineage.get('page_number', 1)}" if lineage.get("page_number") else "Section 1",
-                        "citation": lineage.get("citation", f"{lineage.get('filename', 'Source')} (Page {lineage.get('page_number', 1)})"),
-                        "source_document_id": lineage.get("document_id") or lineage.get("source_document_id") or lineage.get("filename"),
-                        "source_document_name": lineage.get("document_name") or lineage.get("filename") or "source.pdf",
+                        "location_type": src.get("location_type", "ROW" if item.get("row_numbers") else "PAGE"),
+                        "location_value": src.get("location_value") or (f"Rows {min(item['row_numbers'])}-{max(item['row_numbers'])}" if item.get("row_numbers") else "1"),
+                        "citation": item.get("citation") or src.get("document_name", "Source"),
+                        "source_document_id": src.get("document_id") or item.get("source_document_id"),
+                        "source_document_name": src.get("document_name") or item.get("source_document_name") or "source.pdf",
+                        "supporting_chunk_ids": item.get("supporting_chunk_ids", []),
+                        "supporting_sources": item.get("supporting_sources", []),
                         "project_id": anl.project_id,
-                        "visibility": item.get("visibility", "PRIVATE")
+                        "visibility": item.get("visibility", "PRIVATE"),
+                        "normalized_value": item.get("normalized_value"),
+                        "time_period": item.get("time_period")
                     }
 
     raise HTTPException(status_code=404, detail=f"Evidence {evidence_id} not found or access denied")

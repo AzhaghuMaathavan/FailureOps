@@ -37,7 +37,16 @@ export default function EvidenceIntelligencePage() {
       .then(res => {
         if (mounted) {
           const rawItems = res?.evidence || (Array.isArray(res) ? res : []);
-          const mapped: EvidenceItem[] = rawItems.map((item: any) => {
+          const seenIds = new Set<string>();
+          const mapped: EvidenceItem[] = [];
+
+          for (const item of rawItems) {
+            const mName = item.metric_name || item.metricName || (item.normalized_value?.metric);
+            const canonicalId = item.id || item.evidence_id || (mName ? `ev_${mName.toLowerCase().replace(/[\s-]+/g, '_')}` : `ev_${mapped.length + 1}`);
+            
+            if (seenIds.has(canonicalId)) continue;
+            seenIds.add(canonicalId);
+
             const rawSourceType = (
               item.source_type ||
               item.source?.source_type ||
@@ -59,25 +68,27 @@ export default function EvidenceIntelligencePage() {
                 : 'PRODUCT_PLAN'
             ) as EvidenceItem['sourceType'];
 
-            const docName = item.source?.document_name || item.source_citation?.file_name || item.filename || 'Project Telemetry';
+            const docName = item.source?.document_name || item.source_document_name || item.source_citation?.file_name || item.filename || 'Project Telemetry';
             const locType = item.source?.location_type || 'PAGE';
             const locVal = item.source?.location_value || item.source_citation?.page_or_sheet_or_line || item.location;
-            const refStr = locVal ? `${locType}: ${locVal}` : (item.reference || item.id || 'Lineage Trace');
+            const refStr = locVal ? `${locType}: ${locVal}` : (item.reference || canonicalId || 'Lineage Trace');
 
-            return {
-              id: item.id || item.evidence_id || `ev_${Math.random().toString(36).substring(2, 7)}`,
+            const fType = item.fact_type || item.factType || (item.evidence_type === 'EVENT' ? 'EVENT' : (item.evidence_type === 'CLAIM' ? 'CLAIM' : (mName ? 'METRIC' : 'OBSERVATION')));
+
+            mapped.push({
+              id: canonicalId,
               projectId: item.project_id || projectId,
               sourceType: canonicalSourceType,
               sourceFile: docName,
               content: item.statement || item.content || item.rawSnippet || item.normalizedFact || '',
               statement: item.statement || item.content || '',
-              factType: item.fact_type || item.factType || 'METRIC',
-              metricName: item.metric_name || item.metricName,
-              baselineValue: item.baseline_value ?? item.baselineValue,
+              factType: fType,
+              metricName: mName,
+              baselineValue: item.baseline_value ?? item.baselineValue ?? item.normalized_value?.before,
               previousValue: item.previous_value ?? item.previousValue,
-              currentValue: item.current_value ?? item.currentValue,
-              unit: item.unit,
-              direction: item.direction || 'UNKNOWN',
+              currentValue: item.current_value ?? item.currentValue ?? item.normalized_value?.after,
+              unit: item.unit || item.normalized_value?.unit,
+              direction: item.direction || item.normalized_value?.direction || 'UNKNOWN',
               baselineTimestamp: item.baseline_timestamp || item.baselineTimestamp,
               previousTimestamp: item.previous_timestamp || item.previousTimestamp,
               currentTimestamp: item.current_timestamp || item.currentTimestamp,
@@ -85,19 +96,67 @@ export default function EvidenceIntelligencePage() {
               previousToCurrentChangePercent: item.previous_to_current_change_percent ?? item.previousToCurrentChangePercent,
               reference: refStr,
               confidence: Math.round((item.evidence_confidence ?? item.confidence ?? item.extraction_confidence ?? 0.9) * ((item.evidence_confidence ?? item.confidence ?? item.extraction_confidence ?? 0.9) <= 1 ? 100 : 1)),
-              timestamp: item.time_period?.start || item.source_citation?.timestamp || item.timestamp || 'Recently',
+              timestamp: item.time_period?.start || item.baseline_timestamp || item.current_timestamp || item.source_citation?.timestamp || item.timestamp || 'Recently',
               category: item.category || item.evidence_category || 'TECHNICAL',
               snippetContext: item.snippetContext || item.raw_snippet || item.snippet || item.statement || item.content || '',
-              sourceDocumentId: item.source_document_id || item.sourceDocumentId,
+              sourceDocumentId: item.source_document_id || item.source?.document_id || item.sourceDocumentId,
               sourceChunkId: item.source_chunk_id || item.sourceChunkId,
               supportingChunkIds: item.supporting_chunk_ids || item.supportingChunkIds || [],
               pageNumbers: item.page_numbers || item.pageNumbers || [],
-              rowNumbers: item.source_metadata?.rows || item.rowNumbers || [],
+              rowNumbers: item.row_numbers || item.source_metadata?.rows || item.rowNumbers || [],
               citation: item.citation,
               visibility: item.visibility || 'PRIVATE',
               supportingEvidence: item.supporting_evidence || item.supportingEvidence || []
-            };
-          });
+            });
+          }
+
+          // Ingest events
+          if (Array.isArray(res?.events)) {
+            for (let i = 0; i < res.events.length; i++) {
+              const ev = res.events[i];
+              const evId = `ev_event_${i + 1}`;
+              if (!seenIds.has(evId)) {
+                seenIds.add(evId);
+                mapped.push({
+                  id: evId,
+                  projectId,
+                  sourceType: 'INCIDENT_REPORTS',
+                  sourceFile: ev.source || 'Incident Timeline',
+                  content: ev.description || '',
+                  statement: ev.description || '',
+                  factType: 'EVENT',
+                  reference: ev.source || 'Event Log',
+                  confidence: Math.round((ev.confidence || 0.9) * 100),
+                  timestamp: ev.timestamp || 'Recently',
+                  category: 'OPERATIONAL'
+                });
+              }
+            }
+          }
+
+          // Ingest claims
+          if (Array.isArray(res?.claims)) {
+            for (let i = 0; i < res.claims.length; i++) {
+              const cl = res.claims[i];
+              const clId = `ev_claim_${i + 1}`;
+              if (!seenIds.has(clId)) {
+                seenIds.add(clId);
+                mapped.push({
+                  id: clId,
+                  projectId,
+                  sourceType: 'CUSTOMER_FEEDBACK',
+                  sourceFile: cl.source || 'Customer Feedback',
+                  content: cl.statement || '',
+                  statement: cl.statement || '',
+                  factType: 'CLAIM',
+                  reference: cl.source || 'User Feedback',
+                  confidence: Math.round((cl.confidence || 0.9) * 100),
+                  timestamp: 'Recently',
+                  category: 'CUSTOMER'
+                });
+              }
+            }
+          }
 
           setEvidenceList(mapped);
           setConflictCount(Array.isArray(res?.conflicts) ? res.conflicts.length : 0);

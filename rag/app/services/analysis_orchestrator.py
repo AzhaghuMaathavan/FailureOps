@@ -289,19 +289,43 @@ def run_project_analysis_pipeline(
             }
             db.commit()
 
-            # Persist individual items for relational querying
-            for item in evidence_packet.evidence:
+            # Clean up stale project relational rows to prevent duplicate accumulation
+            db.query(EvidenceItem).filter(
+                EvidenceItem.organization_id == organization_id,
+                EvidenceItem.project_id == project_id
+            ).delete(synchronize_session=False)
+
+            db.query(SignalItem).filter(
+                SignalItem.organization_id == organization_id,
+                SignalItem.project_id == project_id
+            ).delete(synchronize_session=False)
+
+            # Persist individual canonical items for relational querying
+            for idx, item in enumerate(evidence_packet.evidence):
                 db_item = EvidenceItem(
-                    id=f"{analysis_id}_{item.id}_{uuid.uuid4().hex[:6]}",
+                    id=item.id if item.id else f"ev_{project_id}_{idx:03d}",
                     analysis_id=analysis_id,
                     organization_id=organization_id,
                     project_id=project_id,
                     category=item.category,
                     evidence_type=item.evidence_type,
                     statement=item.statement,
-                    normalized_value=item.normalized_value.model_dump() if item.normalized_value else None,
-                    time_period=item.time_period.model_dump() if item.time_period else None,
-                    source_lineage=item.source.model_dump() if item.source else {},
+                    normalized_value=item.normalized_value.model_dump() if item.normalized_value else ({
+                        "metric": item.metric_name,
+                        "before": item.baseline_value,
+                        "after": item.current_value,
+                        "unit": item.unit,
+                        "direction": item.direction
+                    } if item.metric_name or item.current_value is not None else None),
+                    time_period=item.time_period.model_dump() if item.time_period else ({
+                        "start": item.baseline_timestamp,
+                        "end": item.current_timestamp
+                    } if item.baseline_timestamp or item.current_timestamp else None),
+                    source_lineage=item.source.model_dump() if item.source else {
+                        "document_id": item.source_document_id,
+                        "document_name": item.source_document_name,
+                        "citation": item.citation
+                    },
                     supporting_sources=[s.model_dump() for s in item.supporting_sources] if item.supporting_sources else [],
                     supporting_chunk_ids=item.supporting_chunk_ids or [],
                     evidence_confidence=item.evidence_confidence,
@@ -311,10 +335,9 @@ def run_project_analysis_pipeline(
                 )
                 db.add(db_item)
 
-
             for sig in signal_packet.signals:
                 db_sig = SignalItem(
-                    id=f"{analysis_id}_{sig.signal_id}_{uuid.uuid4().hex[:6]}",
+                    id=sig.signal_id if sig.signal_id else f"sig_{project_id}_{sig.name.lower()}",
                     analysis_id=analysis_id,
                     organization_id=organization_id,
                     project_id=project_id,

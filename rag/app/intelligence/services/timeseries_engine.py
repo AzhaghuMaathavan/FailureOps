@@ -178,9 +178,10 @@ class TabularObservationParser:
         project_id: str
     ) -> List[MetricObservation]:
         content = chunk.get("content", "")
-        doc_id = chunk.get("document_id", "unknown_doc")
-        doc_name = chunk.get("document_name", "Unknown Document")
-        chunk_id = chunk.get("chunk_id", "unknown_chunk")
+        lineage = chunk.get("lineage") or {}
+        doc_id = chunk.get("document_id") or lineage.get("document_id") or "unknown_doc"
+        doc_name = chunk.get("document_name") or lineage.get("document_name") or chunk.get("filename") or lineage.get("filename") or "Unknown Document"
+        chunk_id = chunk.get("chunk_id") or chunk.get("id") or "unknown_chunk"
         
         lines = [l.strip() for l in content.split("\n") if l.strip()]
         observations: List[MetricObservation] = []
