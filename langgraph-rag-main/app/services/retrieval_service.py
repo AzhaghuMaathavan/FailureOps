@@ -303,33 +303,38 @@ def search_knowledge_base(
             bm25_top_k = 10
 
     metrics = {}
-    
-    logger.info("[QUERY EMBEDDING] chars=%s", len(query_text or ""))
+    query_vector = None
     try:
         t0 = time.time()
         query_vector = embed_query(query_text)
         metrics["query_embedding"] = time.time() - t0
         logger.info("[QUERY EMBEDDING] dim=%s elapsed_ms=%s", len(query_vector or []), int(metrics["query_embedding"] * 1000))
     except Exception as e:
-        logger.error("[QUERY EMBEDDING] failed: %s", e)
-        raise RuntimeError(f"Embedding generation failed: {e}") from e
+        logger.warning(f"[QUERY EMBEDDING] embedding failed ({e}), falling back to text search")
+        query_vector = None
+        metrics["query_embedding"] = 0.0
         
-    t0 = time.time()
-    logger.info("[VECTOR SEARCH] top_k=%s project_id=%s", vector_top_k, project_id)
-    vector_candidates = retrieve_candidates(
-        db, 
-        query_vector, 
-        document_ids=document_ids, 
-        top_k=vector_top_k,
-        organization_id=organization_id,
-        project_id=project_id
-    )
-    metrics["vector_search"] = time.time() - t0
-    logger.info("[VECTOR SEARCH] candidates=%s", len(vector_candidates))
+    vector_candidates = []
+    if query_vector:
+        try:
+            t0 = time.time()
+            vector_candidates = retrieve_candidates(
+                db, 
+                query_vector, 
+                document_ids=document_ids, 
+                top_k=vector_top_k,
+                organization_id=organization_id,
+                project_id=project_id
+            )
+            metrics["vector_search"] = time.time() - t0
+            logger.info("[VECTOR SEARCH] candidates=%s", len(vector_candidates))
+        except Exception as e:
+            logger.warning(f"[VECTOR SEARCH] query error ({e}), falling back to text search")
+            vector_candidates = []
     
     candidates = vector_candidates
     
-    if settings.HYBRID_SEARCH_ENABLED:
+    if settings.HYBRID_SEARCH_ENABLED or not vector_candidates:
         t_bm25 = time.time()
         bm25_candidates = retrieve_bm25_candidates(
             db, 
@@ -341,9 +346,12 @@ def search_knowledge_base(
         )
         metrics["bm25_search"] = time.time() - t_bm25
         
-        t_fusion = time.time()
-        candidates = reciprocal_rank_fusion(vector_candidates, bm25_candidates, k=settings.HYBRID_RRF_K)
-        metrics["hybrid_fusion"] = time.time() - t_fusion
+        if vector_candidates and bm25_candidates:
+            t_fusion = time.time()
+            candidates = reciprocal_rank_fusion(vector_candidates, bm25_candidates, k=settings.HYBRID_RRF_K)
+            metrics["hybrid_fusion"] = time.time() - t_fusion
+        else:
+            candidates = bm25_candidates or vector_candidates
         
     try:
         t0 = time.time()
@@ -354,6 +362,7 @@ def search_knowledge_base(
         logger.warning("[RERANK] failed (%s); using retrieval order", e)
         final_evidence = candidates[:rerank_top_k]
         metrics["reranking"] = 0.0
+
         
     return final_evidence, metrics, candidates
 
