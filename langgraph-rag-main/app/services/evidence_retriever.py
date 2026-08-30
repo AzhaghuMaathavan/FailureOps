@@ -1,7 +1,9 @@
 import logging
 import time
 from typing import List, Dict, Any, Optional, Tuple
+from concurrent.futures import ThreadPoolExecutor, as_completed
 from sqlalchemy.orm import Session
+from app.db.database import SessionLocal
 from app.core.config import settings
 from app.services.retrieval_service import search_knowledge_base, expand_chunk_context
 
@@ -91,15 +93,69 @@ EVIDENCE_DIMENSIONS: Dict[str, Dict[str, Any]] = {
     }
 }
 
+
+def _retrieve_single_dimension(
+    dim: str,
+    organization_id: str,
+    project_id: str,
+    document_ids: Optional[List[str]] = None
+) -> Tuple[str, List[Dict[str, Any]], int]:
+    """
+    Executes hybrid retrieval for a single dimension with local DB session and graceful error handling.
+    """
+    dim_info = EVIDENCE_DIMENSIONS.get(dim)
+    if not dim_info:
+        return dim, [], 0
+
+    query_intent = dim_info["intent"]
+    thread_db = SessionLocal()
+    try:
+        final_evidence, metrics, raw_candidates = search_knowledge_base(
+            db=thread_db,
+            query_text=query_intent,
+            document_ids=document_ids,
+            organization_id=organization_id,
+            project_id=project_id,
+            filters={"retrieval_scope": "MULTI_FACT"}
+        )
+
+        expanded = expand_chunk_context(thread_db, final_evidence[:settings.EVIDENCE_FINAL_TOP_K])
+        dim_terms = [t.lower() for t in dim_info.get("bm25_terms", "").split() if len(t) > 2]
+
+        gated_chunks = []
+        for chunk in expanded:
+            content_lower = chunk.get("content", "").lower()
+            rerank_score = chunk.get("rerank_score", 0.0)
+            hybrid_score = chunk.get("hybrid_score", 0.0)
+            bm25_score = chunk.get("bm25_score", 0.0)
+
+            has_term_match = any(t in content_lower for t in dim_terms)
+            meets_rerank = rerank_score >= settings.RETRIEVAL_MIN_RERANK_SCORE
+            meets_hybrid = hybrid_score >= settings.RETRIEVAL_MIN_HYBRID_SCORE
+            meets_bm25 = bm25_score >= settings.RETRIEVAL_MIN_BM25_SCORE
+
+            if (has_term_match and (meets_rerank or meets_hybrid or meets_bm25)) or (rerank_score >= 4.0):
+                gated_chunks.append(chunk)
+
+        return dim, gated_chunks, len(raw_candidates)
+    except Exception as e:
+        logger.warning(f"[evidence_retriever] Dimension '{dim}' retrieval exception: {e}")
+        return dim, [], 0
+    finally:
+        thread_db.close()
+
+
 def retrieve_project_evidence_candidates(
     db: Session,
     organization_id: str,
     project_id: str,
     document_ids: Optional[List[str]] = None,
-    dimensions: Optional[List[str]] = None
+    dimensions: Optional[List[str]] = None,
+    max_workers: int = 4,
+    timeout_seconds: float = 20.0
 ) -> Tuple[Dict[str, List[Dict[str, Any]]], Dict[str, Any]]:
     """
-    Executes targeted hybrid retrieval across all evidence dimensions.
+    Executes concurrent targeted hybrid retrieval across evidence dimensions with timeout protection.
     Enforces strict tenant isolation by organization_id and project_id.
     """
     target_dims = dimensions or list(EVIDENCE_DIMENSIONS.keys())
@@ -107,59 +163,41 @@ def retrieve_project_evidence_candidates(
     
     total_searched = 0
     t0 = time.time()
-    
-    for dim in target_dims:
-        if dim not in EVIDENCE_DIMENSIONS:
-            continue
-            
-        dim_info = EVIDENCE_DIMENSIONS[dim]
-        query_intent = dim_info["intent"]
-        
-        # Hybrid retrieval with tenant filtering
-        final_evidence, metrics, raw_candidates = search_knowledge_base(
-            db=db,
-            query_text=query_intent,
-            document_ids=document_ids,
-            organization_id=organization_id,
-            project_id=project_id,
-            filters={"retrieval_scope": "MULTI_FACT"}
-        )
-        
-        # Clean & expand context
-        expanded = expand_chunk_context(db, final_evidence[:settings.EVIDENCE_FINAL_TOP_K])
-        
-        # Retrieval Acceptance Gate:
-        # Filter out generic/irrelevant chunks that do not meet relevance thresholds or dimension affinity
-        gated_chunks = []
-        dim_terms = [t.lower() for t in dim_info.get("bm25_terms", "").split() if len(t) > 2]
-        
-        for chunk in expanded:
-            content_lower = chunk.get("content", "").lower()
-            rerank_score = chunk.get("rerank_score", 0.0)
-            hybrid_score = chunk.get("hybrid_score", 0.0)
-            bm25_score = chunk.get("bm25_score", 0.0)
-            
-            # Acceptance conditions:
-            # 1. Has direct keyword match with dimension domain terms OR
-            # 2. Strong rerank score exceeding threshold (for deep semantic matches)
-            has_term_match = any(t in content_lower for t in dim_terms)
-            meets_rerank = rerank_score >= settings.RETRIEVAL_MIN_RERANK_SCORE
-            meets_hybrid = hybrid_score >= settings.RETRIEVAL_MIN_HYBRID_SCORE
-            meets_bm25 = bm25_score >= settings.RETRIEVAL_MIN_BM25_SCORE
-            
-            if (has_term_match and (meets_rerank or meets_hybrid or meets_bm25)) or (rerank_score >= 4.0):
-                gated_chunks.append(chunk)
-                
-        results_by_dimension[dim] = gated_chunks
-        total_searched += len(raw_candidates)
-        
+
+    # Run dimension queries concurrently using ThreadPoolExecutor
+    with ThreadPoolExecutor(max_workers=max_workers) as executor:
+        future_to_dim = {
+            executor.submit(_retrieve_single_dimension, dim, organization_id, project_id, document_ids): dim
+            for dim in target_dims
+        }
+
+        try:
+            for future in as_completed(future_to_dim, timeout=timeout_seconds):
+                dim_name = future_to_dim[future]
+                try:
+                    dim, chunks, raw_count = future.result()
+                    results_by_dimension[dim] = chunks
+                    total_searched += raw_count
+                except Exception as exc:
+                    logger.warning(f"[evidence_retriever] Dimension {dim_name} failed with {exc}")
+                    results_by_dimension[dim_name] = []
+        except TimeoutError:
+            logger.warning(f"[evidence_retriever] Retrieval timeout after {timeout_seconds}s; returning partial results")
+            for future, dim_name in future_to_dim.items():
+                if dim_name not in results_by_dimension:
+                    results_by_dimension[dim_name] = []
+
+    # Ensure all target dimensions exist in the results map
+    for d in target_dims:
+        if d not in results_by_dimension:
+            results_by_dimension[d] = []
+
     duration = time.time() - t0
-    
+
     operational_metrics = {
         "dimensions_queried": len(target_dims),
         "total_raw_candidates": total_searched,
         "retrieval_duration_seconds": round(duration, 3)
     }
-    
-    return results_by_dimension, operational_metrics
 
+    return results_by_dimension, operational_metrics

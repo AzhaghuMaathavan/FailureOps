@@ -2,6 +2,7 @@ import json
 import logging
 import re
 from typing import List, Dict, Any, Tuple
+from concurrent.futures import ThreadPoolExecutor, as_completed
 from app.core.config import settings
 from app.services.agent_service import call_llm, extract_json
 from app.services.citation_validator import (
@@ -95,7 +96,7 @@ def extract_evidence_from_dimension_chunks(
             system_prompt=EVIDENCE_EXTRACTION_SYSTEM_PROMPT,
             user_prompt=user_prompt,
             json_mode=True,
-            timeout=45.0,
+            timeout=30.0,
             max_tokens=2048
         )
         parsed = extract_json(raw_resp)
@@ -155,26 +156,27 @@ def heuristic_extract_evidence(dimension: str, chunks: List[Dict[str, Any]]) -> 
         if dim_terms and not any(t in content.lower() for t in dim_terms):
             continue
 
-
         lines = [line.strip() for line in content.split("\n") if len(line.strip()) > 20]
         for line in lines:
-            has_metric_terms = any(term in line.lower() for term in ["%", "rate", "declined", "increased", "dropped", "bottleneck", "delay", "incident", "complaint", "users", "week", "hours", "arr", "mrr", "churn", "retention"])
-            has_dim_terms = not dim_terms or any(t in line.lower() or t in content.lower() for t in dim_terms)
-
-            if has_metric_terms and has_dim_terms:
-                # Extract number
-                nums = re.findall(r'\b\d+(?:\.\d+)?%?\b', line)
-                raw_nums = [float(n.replace('%', '')) for n in nums if re.match(r'^\d+(?:\.\d+)?%?$', n)]
-                before = raw_nums[0] if len(raw_nums) >= 2 else None
-                after = raw_nums[1] if len(raw_nums) >= 2 else (raw_nums[0] if len(raw_nums) == 1 else None)
-                direction = "DECREASE" if any(w in line.lower() for w in ["drop", "decline", "fell", "down", "slow"]) else ("INCREASE" if any(w in line.lower() for w in ["increas", "grew", "surge", "up", "overtime"]) else "STABLE")
-                
-                # Derive descriptive metric name from line
+            raw_nums = re.findall(r'(\d+(?:\.\d+)?%?)', line)
+            if raw_nums or any(w in line.lower() for w in ["delayed", "failed", "increased", "decreased", "issue", "bug", "risk", "bottleneck"]):
                 metric_name = f"{dimension.lower()}_metric"
-                for dt in dim_terms:
-                    if dt in line.lower():
-                        metric_name = dt
-                        break
+                before = None
+                after = None
+                direction = "STABLE"
+
+                if len(raw_nums) >= 2:
+                    try:
+                        before = float(raw_nums[0].replace("%", ""))
+                        after = float(raw_nums[1].replace("%", ""))
+                        direction = "INCREASE" if after > before else ("DECREASE" if after < before else "STABLE")
+                    except Exception:
+                        pass
+                elif len(raw_nums) == 1:
+                    try:
+                        after = float(raw_nums[0].replace("%", ""))
+                    except Exception:
+                        pass
 
                 items.append({
                     "chunk_index": idx,
@@ -194,18 +196,18 @@ def heuristic_extract_evidence(dimension: str, chunks: List[Dict[str, Any]]) -> 
     return items
 
 
-
 def run_evidence_agent(
     organization_id: str,
     project_id: str,
     analysis_id: str,
     dimension_chunks_map: Dict[str, List[Dict[str, Any]]],
     total_docs_count: int = 5,
-    processing_time: float = 0.0
+    processing_time: float = 0.0,
+    max_workers: int = 2
 ) -> EvidencePacket:
     """
     Main orchestration of the Evidence Agent:
-    1. Extracts raw candidates across all dimensions.
+    1. Extracts raw candidates across active dimensions using bounded parallel workers.
     2. Validates citations deterministically.
     3. Consolidates duplicates and extracts conflicts.
     4. Computes coverage matrix.
@@ -216,36 +218,48 @@ def run_evidence_agent(
     total_chunks_count = 0
     coverage_map = {}
 
+    active_dims = {dim: chunks for dim, chunks in dimension_chunks_map.items() if chunks}
     for dim, chunks in dimension_chunks_map.items():
         total_chunks_count += len(chunks)
         if not chunks:
             coverage_map[dim] = "NO_EVIDENCE_FOUND"
-            continue
 
-        raw_dim_items = extract_evidence_from_dimension_chunks(dim, chunks)
-        
-        valid_dim_items = []
-        for it in raw_dim_items:
-            is_valid, confidence, reason = validate_evidence_citation(
-                statement=it.get("statement", ""),
-                chunk_content=it.get("chunk_content", ""),
-                rerank_score=it.get("rerank_score", 5.0),
-                normalized_val=it.get("normalized_value")
-            )
-            it["evidence_confidence"] = confidence
-            if is_valid and confidence >= settings.EVIDENCE_MIN_CONFIDENCE:
-                it["verification_status"] = "VERIFIED"
-                valid_dim_items.append(it)
-            else:
-                it["verification_status"] = "REJECTED"
-                rejected_count += 1
-                logger.info(f"[citation_validator] Rejected item: {it.get('statement')} Reason: {reason}")
+    if active_dims:
+        with ThreadPoolExecutor(max_workers=max_workers) as executor:
+            future_to_dim = {
+                executor.submit(extract_evidence_from_dimension_chunks, dim, chunks): dim
+                for dim, chunks in active_dims.items()
+            }
 
-        if valid_dim_items:
-            coverage_map[dim] = "FOUND"
-            all_raw_items.extend(valid_dim_items)
-        else:
-            coverage_map[dim] = "NO_EVIDENCE_FOUND"
+            for future in as_completed(future_to_dim):
+                dim = future_to_dim[future]
+                try:
+                    raw_dim_items = future.result()
+                except Exception as exc:
+                    logger.warning(f"[evidence_agent] Extraction error on dimension {dim}: {exc}")
+                    raw_dim_items = heuristic_extract_evidence(dim, active_dims[dim])
+
+                valid_dim_items = []
+                for it in raw_dim_items:
+                    is_valid, confidence, reason = validate_evidence_citation(
+                        statement=it.get("statement", ""),
+                        chunk_content=it.get("chunk_content", ""),
+                        rerank_score=it.get("rerank_score", 5.0),
+                        normalized_val=it.get("normalized_value")
+                    )
+                    it["evidence_confidence"] = confidence
+                    if is_valid and confidence >= settings.EVIDENCE_MIN_CONFIDENCE:
+                        it["verification_status"] = "VERIFIED"
+                        valid_dim_items.append(it)
+                    else:
+                        it["verification_status"] = "REJECTED"
+                        rejected_count += 1
+
+                if valid_dim_items:
+                    coverage_map[dim] = "FOUND"
+                    all_raw_items.extend(valid_dim_items)
+                else:
+                    coverage_map[dim] = "NO_EVIDENCE_FOUND"
 
     # Consolidate duplicates and find contradictions
     verified_items, conflicts = consolidate_duplicates_and_conflicts(all_raw_items)
