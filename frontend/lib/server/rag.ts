@@ -72,10 +72,11 @@ export async function ragFetch<T = unknown>(
       cache: 'no-store',
       signal: fetchInit.signal ?? AbortSignal.timeout(timeoutMs ?? 60_000),
     });
-  } catch (cause) {
-    console.error(`[FAILUREOPS] RAG unreachable at ${path}`);
+  } catch (cause: any) {
+    console.error(`[FAILUREOPS] RAG unreachable at ${path}:`, cause?.message || cause, cause?.cause);
     throw new RagUnreachableError(path, cause);
   }
+
 
   if (!resp.ok) {
     const err = await resp.text();
