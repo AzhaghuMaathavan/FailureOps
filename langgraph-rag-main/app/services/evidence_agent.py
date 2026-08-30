@@ -103,13 +103,31 @@ def extract_unified_evidence_from_chunks(
 ) -> List[Dict[str, Any]]:
     """
     Extracts raw evidence candidates across all dimensions in a single dense LLM call.
+    Ensures multi-document diversity across all uploaded project documents.
     """
     if not chunks:
         return []
 
-    # Prepare top high-signal unique candidate chunks
+    # Ensure multi-document representation: group by document and round-robin sample
+    doc_grouped: Dict[str, List[Dict[str, Any]]] = {}
+    for c in chunks:
+        d_id = str(c.get("document_id") or c.get("lineage", {}).get("document_name") or "default")
+        if d_id not in doc_grouped:
+            doc_grouped[d_id] = []
+        doc_grouped[d_id].append(c)
+
+    selected_chunks: List[Dict[str, Any]] = []
+    for round_idx in range(4):
+        for d_id, d_chunks in doc_grouped.items():
+            if round_idx < len(d_chunks) and len(selected_chunks) < 16:
+                selected_chunks.append(d_chunks[round_idx])
+
+    if not selected_chunks:
+        selected_chunks = chunks[:12]
+
+    # Prepare high-signal diverse candidate chunks
     chunk_payloads = []
-    for idx, c in enumerate(chunks[:6]):
+    for idx, c in enumerate(selected_chunks):
         lineage = c.get("lineage", {})
         doc_name = lineage.get("document_name", "Unknown Document")
         meta = lineage.get("source_metadata", {})
@@ -144,16 +162,18 @@ def extract_unified_evidence_from_chunks(
         extracted = []
         from app.services.evidence_retriever import EVIDENCE_DIMENSIONS
         for dim in list(EVIDENCE_DIMENSIONS.keys()):
-            extracted.extend(heuristic_extract_evidence(dim, chunks))
+            extracted.extend(heuristic_extract_evidence(dim, selected_chunks))
 
     # Enrich extracted items with metadata and authoritative source_type
     enriched_items = []
     for it in extracted:
         c_idx = it.get("chunk_index", 0)
-        if isinstance(c_idx, int) and 0 <= c_idx < len(chunks):
-            target_chunk = chunks[c_idx]
-        else:
+        if isinstance(c_idx, int) and 0 <= c_idx < len(selected_chunks):
+            target_chunk = selected_chunks[c_idx]
+        elif chunks:
             target_chunk = chunks[0]
+        else:
+            target_chunk = {}
 
         lineage = target_chunk.get("lineage", {})
         doc_name = lineage.get("document_name", "Unknown Document")
@@ -186,7 +206,7 @@ def extract_unified_evidence_from_chunks(
 def heuristic_extract_evidence(dimension: str, chunks: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
     """
     Deterministic rule-based fallback extractor if LLM is offline or timed out.
-    Enforces dimension keyword affinity to prevent cross-contamination.
+    Enforces dimension keyword affinity to prevent cross-contamination across all candidate chunks.
     """
     from app.services.evidence_retriever import EVIDENCE_DIMENSIONS
     GENERIC_TERMS = {"rate", "user", "test", "time", "date", "team", "error", "code", "data", "week", "first"}
@@ -197,7 +217,8 @@ def heuristic_extract_evidence(dimension: str, chunks: List[Dict[str, Any]]) -> 
     ]
 
     items = []
-    for idx, c in enumerate(chunks[:5]):
+    for idx, c in enumerate(chunks[:20]):
+
         content = c.get("content", "")
         if dim_terms and not any(t in content.lower() for t in dim_terms):
             continue
