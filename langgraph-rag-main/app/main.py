@@ -45,9 +45,11 @@ async def startup_event():
     )
 
     try:
+        from datetime import datetime, timezone, timedelta
         from app.db.database import SessionLocal
         from app.models.analysis import ProjectAnalysis
         db = SessionLocal()
+        threshold = datetime.now(timezone.utc) - timedelta(minutes=10)
         stale_jobs = db.query(ProjectAnalysis).filter(
             ProjectAnalysis.status.in_([
                 "QUEUED", "PARSING_DOCUMENTS", "INDEXING", 
@@ -56,17 +58,19 @@ async def startup_event():
                 "SYNTHESIZING_SIGNALS", "CALCULATING_FAILURE_DNA",
                 "BUILDING_FAILURE_CHAIN", "RUNNING_SIMULATIONS", 
                 "SYNTHESIZING_DECISIONS", "PERSISTING_ANALYSIS"
-            ])
+            ]),
+            ProjectAnalysis.created_at < threshold
         ).all()
         for j in stale_jobs:
             j.status = "FAILED"
-            j.error_message = "Analysis interrupted by server restart. Ready to retry."
+            j.error_message = "Analysis timed out or interrupted across server restarts. Ready to retry."
         db.commit()
         db.close()
         if stale_jobs:
-            logger.info(f"[STARTUP] Cleaned up {len(stale_jobs)} stale in-flight jobs from prior session.")
+            logger.info(f"[STARTUP] Cleaned up {len(stale_jobs)} stale in-flight jobs older than 10m.")
     except Exception as e:
         logger.warning(f"[STARTUP] Stale job cleanup skipped: {e}")
+
 
 
 
