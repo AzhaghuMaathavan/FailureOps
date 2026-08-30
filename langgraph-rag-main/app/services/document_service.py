@@ -33,22 +33,23 @@ def classify_document_source_type(doc: Document) -> str:
     if raw_type in CANONICAL_SOURCE_TYPES and raw_type != "STRING":
         return raw_type
 
-    combined = f"{doc.filename or ''} {doc.title or ''} {doc.description or ''} {' '.join(doc.topics or [])}".lower()
+    combined = f"{doc.filename or ''} {doc.title or ''} {doc.description or ''} {' '.join(doc.topics or [])}".lower().replace("_", "").replace("-", "").replace(" ", "")
     
-    if any(k in combined for k in ["feedback", "survey", "csat", "nps", "interview", "review", "complaint", "customer"]):
+    if any(k in combined for k in ["customerfeedback", "feedback", "survey", "csat", "nps", "interview", "review", "complaint", "customer"]):
         return "CUSTOMER_FEEDBACK"
-    if any(k in combined for k in ["product_metric", "product metric", "activation", "retention", "telemetry", "churn", "conversion", "dau", "mau", "growth"]):
+    if any(k in combined for k in ["productmetric", "telemetry", "activation", "retention", "churn", "conversion", "dau", "mau", "growth", "metric"]):
         return "PRODUCT_METRICS"
-    if any(k in combined for k in ["incident", "postmortem", "outage", "sev1", "sev2", "sev-1", "sev-2", "root_cause", "rollback"]):
+    if any(k in combined for k in ["incidentreport", "incident", "postmortem", "outage", "sev1", "sev2", "rootcause", "rollback"]):
         return "INCIDENT_REPORTS"
-    if any(k in combined for k in ["team", "workload", "sprint", "burnout", "overtime", "internship", "completion", "hr", "operations", "velocity"]):
+    if any(k in combined for k in ["teamoperation", "team", "workload", "sprint", "burnout", "overtime", "internship", "completion", "hr", "velocity", "operation"]):
         return "TEAM_OPERATIONS"
-    if any(k in combined for k in ["engineering", "deploy", "ci/cd", "cicd", "commit", "bug", "mttr", "latency", "architecture", "error_rate", "mlt", "test_report"]):
+    if any(k in combined for k in ["engineeringmetric", "engineering", "deploy", "cicd", "commit", "bug", "mttr", "latency", "architecture", "errorrate", "mlt", "testreport"]):
         return "ENGINEERING_METRICS"
-    if any(k in combined for k in ["prd", "plan", "spec", "roadmap", "feature", "blackbox", "proposal", "requirement"]):
+    if any(k in combined for k in ["productplan", "prd", "plan", "spec", "roadmap", "feature", "blackbox", "proposal", "requirement"]):
         return "PRODUCT_PLAN"
         
     return "PRODUCT_PLAN"
+
 
 
 def extract_document_profile(db: Session, doc: Document):

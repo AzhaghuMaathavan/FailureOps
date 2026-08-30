@@ -68,21 +68,22 @@ def resolve_chunk_source_type(chunk: Dict[str, Any]) -> str:
     ]:
         return source_type.upper()
 
-    doc_name = (lineage.get("document_name") or chunk.get("filename") or "").lower()
-    if any(k in doc_name for k in ["feedback", "survey", "csat", "nps", "interview", "review", "complaint", "customer"]):
+    combined = (lineage.get("document_name") or chunk.get("filename") or "").lower().replace("_", "").replace("-", "").replace(" ", "")
+    if any(k in combined for k in ["customerfeedback", "feedback", "survey", "csat", "nps", "interview", "review", "complaint", "customer"]):
         return "CUSTOMER_FEEDBACK"
-    if any(k in doc_name for k in ["product_metric", "product metric", "metrics.csv", "telemetry", "churn", "activation"]):
+    if any(k in combined for k in ["productmetric", "telemetry", "activation", "retention", "churn", "conversion", "dau", "mau", "growth", "metric"]):
         return "PRODUCT_METRICS"
-    if any(k in doc_name for k in ["incident", "postmortem", "outage", "sev1", "sev2", "sev-1", "sev-2"]):
+    if any(k in combined for k in ["incidentreport", "incident", "postmortem", "outage", "sev1", "sev2", "rootcause", "rollback"]):
         return "INCIDENT_REPORTS"
-    if any(k in doc_name for k in ["team", "workload", "sprint", "burnout", "overtime", "internship", "operation", "hr"]):
+    if any(k in combined for k in ["teamoperation", "team", "workload", "sprint", "burnout", "overtime", "internship", "completion", "hr", "velocity", "operation"]):
         return "TEAM_OPERATIONS"
-    if any(k in doc_name for k in ["engineering", "deploy", "ci/cd", "cicd", "commit", "bug", "mttr", "mlt"]):
+    if any(k in combined for k in ["engineeringmetric", "engineering", "deploy", "cicd", "commit", "bug", "mttr", "latency", "architecture", "errorrate", "mlt", "testreport"]):
         return "ENGINEERING_METRICS"
-    if any(k in doc_name for k in ["prd", "plan", "spec", "roadmap", "feature", "blackbox", "proposal", "requirement"]):
+    if any(k in combined for k in ["productplan", "prd", "plan", "spec", "roadmap", "feature", "blackbox", "proposal", "requirement"]):
         return "PRODUCT_PLAN"
         
     return "PRODUCT_PLAN"
+
 
 
 def extract_unified_evidence_from_chunks(
