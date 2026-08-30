@@ -85,14 +85,44 @@ class EvidencePacketValidator:
                 logger.info(f"[signal_consumer] Evidence {it.id} rejected due to missing source lineage.")
                 continue
 
+            norm = it.normalized_value
+            time_per = it.time_period
+            m_name = it.metric_name or (norm.metric if norm else None)
+            base_v = it.baseline_value if it.baseline_value is not None else (norm.before if norm else None)
+            prev_v = it.previous_value
+            curr_v = it.current_value if it.current_value is not None else (norm.after if norm else None)
+            u = it.unit or (norm.unit if norm else None)
+            d = it.direction or (norm.direction if norm else None)
+            b_ts = it.baseline_timestamp or (time_per.start if time_per else None)
+            p_ts = it.previous_timestamp
+            c_ts = it.current_timestamp or (time_per.end if time_per else None)
+            b_to_c = it.baseline_to_current_change_percent
+            if b_to_c is None and base_v is not None and curr_v is not None and base_v != 0:
+                b_to_c = round(((curr_v - base_v) / base_v) * 100, 2)
+            p_to_c = it.previous_to_current_change_percent
+            if p_to_c is None and prev_v is not None and curr_v is not None and prev_v != 0:
+                p_to_c = round(((curr_v - prev_v) / prev_v) * 100, 2)
+
             verified_items.append(
                 VerifiedEvidenceContextItem(
                     evidence_id=it.id,
                     category=it.category,
                     type=it.evidence_type,
                     statement=it.statement,
-                    normalized_value=it.normalized_value,
-                    time_period=it.time_period,
+                    fact_type=it.fact_type,
+                    metric_name=m_name,
+                    baseline_value=base_v,
+                    previous_value=prev_v,
+                    current_value=curr_v,
+                    unit=u,
+                    direction=d,
+                    baseline_timestamp=b_ts,
+                    previous_timestamp=p_ts,
+                    current_timestamp=c_ts,
+                    baseline_to_current_change_percent=b_to_c,
+                    previous_to_current_change_percent=p_to_c,
+                    normalized_value=norm,
+                    time_period=time_per,
                     source=it.source,
                     supporting_sources=it.supporting_sources,
                     supporting_chunk_ids=it.supporting_chunk_ids,

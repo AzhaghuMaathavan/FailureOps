@@ -37,12 +37,17 @@ venv/
 rag/.venv/
 rag/venv/
 .pytest_cache/
-storage/documents/
-storage/pages/
-storage/*.db
 storage/
 rag/storage/
+langgraph-rag-main/storage/
+langgraph-rag-main/venv/
+langgraph-rag-main/.venv/
 *_pages/
 *.tsbuildinfo
+
+# Hackathon documentation & prompt files
+prompt.md
+report.md
+theme.md
 
 

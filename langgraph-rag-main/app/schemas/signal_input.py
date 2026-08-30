@@ -15,6 +15,18 @@ class VerifiedEvidenceContextItem(BaseModel):
     category: str
     type: str # METRIC, TREND, EVENT, CUSTOMER_FEEDBACK, INCIDENT, etc.
     statement: str
+    fact_type: Optional[str] = None
+    metric_name: Optional[str] = None
+    baseline_value: Optional[float] = None
+    previous_value: Optional[float] = None
+    current_value: Optional[float] = None
+    unit: Optional[str] = None
+    direction: Optional[str] = None
+    baseline_timestamp: Optional[str] = None
+    previous_timestamp: Optional[str] = None
+    current_timestamp: Optional[str] = None
+    baseline_to_current_change_percent: Optional[float] = None
+    previous_to_current_change_percent: Optional[float] = None
     normalized_value: Optional[NormalizedMetric] = None
     time_period: Optional[TimePeriod] = None
     source: EvidenceSource

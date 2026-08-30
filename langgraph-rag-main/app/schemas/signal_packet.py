@@ -8,6 +8,7 @@ class SignalItemSchema(BaseModel):
     analysis_id: str
     organization_id: str
     name: str
+    canonical_name: Optional[str] = None
     category: str # ADOPTION, CUSTOMER, TECHNICAL, OPERATIONAL, FINANCIAL, DELIVERY, QUALITY, RESOURCE, TEAM, etc.
     signal_type: str = "TREND" # TREND, ANOMALY, CROSS_SOURCE_PATTERN, CONSTRAINT, CONCENTRATION, VOLATILITY, IMPROVEMENT, DECLINE, CONFLICT, WEAK_SIGNAL
     polarity: str = "NEGATIVE" # POSITIVE, NEGATIVE, NEUTRAL, MIXED
