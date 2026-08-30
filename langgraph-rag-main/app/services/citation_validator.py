@@ -145,17 +145,23 @@ def consolidate_duplicates_and_conflicts(
         # Average confidence among supporting sources
         avg_conf = round(sum(it.get("evidence_confidence", 0.85) for it in items) / len(items), 3)
 
+        src_dict = dict(primary.get("source", {
+            "document_id": "doc_default",
+            "document_name": "Source Document"
+        }))
+        item_source_type = primary.get("source_type") or src_dict.get("source_type", "PRODUCT_PLAN")
+        src_dict["source_type"] = item_source_type
+
         consolidated_items.append(EvidenceItemSchema(
             id=f"ev_{evidence_counter:03d}",
             category=primary.get("category", "OTHER"),
+            source_type=item_source_type,
+            evidence_category=primary.get("evidence_category") or primary.get("category", "OTHER"),
             evidence_type=primary.get("evidence_type", "OBSERVATION"),
             statement=primary.get("statement", ""),
             normalized_value=primary.get("normalized_value"),
             time_period=primary.get("time_period"),
-            source=EvidenceSource(**primary.get("source", {
-                "document_id": "doc_default",
-                "document_name": "Source Document"
-            })),
+            source=EvidenceSource(**src_dict),
             supporting_sources=supporting_sources,
             supporting_chunk_ids=all_chunk_ids,
             evidence_confidence=avg_conf,
@@ -163,5 +169,6 @@ def consolidate_duplicates_and_conflicts(
             privacy=primary.get("privacy", {"visibility": "PRIVATE", "global_learning_allowed": False})
         ))
         evidence_counter += 1
+
 
     return consolidated_items, conflicts
