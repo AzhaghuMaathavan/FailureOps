@@ -1,4 +1,5 @@
 import re
+import uuid
 import logging
 from typing import List, Dict, Any, Optional, Set
 from datetime import datetime, timezone
@@ -342,7 +343,7 @@ def generate_signal_packet(
         )
 
         sig_item = SignalItemSchema(
-            signal_id=f"sig-{sig_counter:02d}",
+            signal_id=f"sig-{uuid.uuid4().hex[:8]}",
             project_id=context.project_id,
             analysis_id=context.analysis_id,
             organization_id=context.organization_id,
@@ -445,7 +446,7 @@ def generate_signal_packet(
             severity = "CRITICAL" if r_score >= 80 else ("HIGH" if r_score >= 60 else ("MEDIUM" if r_score >= 30 else "LOW"))
 
         sig_item = SignalItemSchema(
-            signal_id=f"sig-{sig_counter:02d}",
+            signal_id=f"sig-{uuid.uuid4().hex[:8]}",
             project_id=context.project_id,
             analysis_id=context.analysis_id,
             organization_id=context.organization_id,
@@ -522,7 +523,7 @@ def generate_signal_packet(
         sig_pol = "POSITIVE" if r_score <= 30 else ("NEGATIVE" if r_score >= 60 else "NEUTRAL")
 
         sig_item = SignalItemSchema(
-            signal_id=f"sig-{sig_counter:02d}",
+            signal_id=f"sig-{uuid.uuid4().hex[:8]}",
             project_id=context.project_id,
             analysis_id=context.analysis_id,
             organization_id=context.organization_id,
