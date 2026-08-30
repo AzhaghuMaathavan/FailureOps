@@ -17,6 +17,7 @@ import {
   insightGridClass,
   kpiGridClass,
 } from '@/components/causal/ActionChrome';
+import { EvidenceModal } from '@/components/evidence/EvidenceModal';
 
 export default function WhatIfSimulationPage() {
   const params = useParams();
@@ -24,6 +25,7 @@ export default function WhatIfSimulationPage() {
 
   const [simulationData, setSimulationData] = useState<any>(null);
   const [selectedScenarioId, setSelectedScenarioId] = useState<string | null>(null);
+  const [activeEvidenceId, setActiveEvidenceId] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState<boolean>(true);
   const [isSimulating, setIsSimulating] = useState<boolean>(false);
   const [error, setError] = useState<string | null>(null);
@@ -206,6 +208,37 @@ export default function WhatIfSimulationPage() {
                   </li>
                 ))}
               </ol>
+              {activeScenario.target_signals?.length > 0 && (
+                <div className="flex flex-wrap items-center gap-2 pt-1 border-t border-border/40">
+                  <span className="font-mono text-xs text-muted-foreground">Target signals:</span>
+                  {activeScenario.target_signals.map((sig: string) => (
+                    <span
+                      key={sig}
+                      className="rounded-lg border border-primary/30 bg-primary/10 px-2 py-0.5 font-mono text-[11px] font-semibold text-primary"
+                    >
+                      {sig}
+                    </span>
+                  ))}
+                </div>
+              )}
+
+              {(activeScenario.supporting_evidence_ids?.length > 0 || activeScenario.evidence_ids?.length > 0) && (
+                <div className="flex flex-wrap items-center gap-2 pt-2 border-t border-border/40">
+                  <span className="font-mono text-xs text-muted-foreground">Corroborating evidence:</span>
+                  {(activeScenario.supporting_evidence_ids || activeScenario.evidence_ids).map((evId: string) => (
+                    <button
+                      key={evId}
+                      type="button"
+                      onClick={() => setActiveEvidenceId(evId)}
+                      className="inline-flex items-center gap-1 rounded-lg border border-primary/30 bg-primary/10 px-2.5 py-0.5 font-mono text-xs font-semibold text-primary hover:bg-primary/20 hover:border-primary transition-colors cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary"
+                      title={`Inspect grounded evidence #${evId}`}
+                    >
+                      <span>#{evId}</span>
+                    </button>
+                  ))}
+                </div>
+              )}
+
               {activeScenario.affected_dimensions?.length > 0 && (
                 <div className="flex flex-wrap items-center gap-2 pt-1">
                   <span className="font-mono text-xs text-muted-foreground">Affected dimensions:</span>
@@ -221,6 +254,13 @@ export default function WhatIfSimulationPage() {
               )}
             </div>
           )}
+
+          {/* Grounded Citation Modal */}
+          <EvidenceModal
+            evidenceId={activeEvidenceId}
+            projectId={projectId}
+            onClose={() => setActiveEvidenceId(null)}
+          />
         </>
       )}
     </div>

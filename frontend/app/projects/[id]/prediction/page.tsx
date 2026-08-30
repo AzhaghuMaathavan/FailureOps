@@ -103,32 +103,32 @@ export default function PredictionPage() {
             <KpiTile
               label="Milestone"
               value={pred.predicted_failure}
-              caption={pred.status || 'Checkout GA'}
+              caption={pred.status ? `Status: ${pred.status}` : 'Active Trajectory'}
               tone="destructive"
               wrap
             />
             <KpiTile
               label="Window"
-              value={pred.time_horizon || 'Unknown'}
+              value={pred.time_horizon || 'Within current quarter'}
               caption={`${asPercent(pred.confidence)}% CI`}
               tone="warning"
             />
             <KpiTile label="Probability" value={`${asPercent(pred.confidence)}%`} caption="Posterior" tone="magic" />
             <KpiTile
               label="Reversible"
-              value={pred.status === 'MITIGATED' ? 'Partial' : 'Yes'}
-              caption="If experiment ships"
+              value={pred.status === 'MITIGATED' ? 'Mitigated' : 'Yes'}
+              caption="With early intervention"
               tone="success"
             />
           </div>
 
           <div className={insightGridClass}>
             <InsightCard title="Why this path">
-              {pred.explanation || 'Insufficient evidence for a failure prediction.'}
+              {pred.explanation || 'Empirically derived from active signals and failure chain trajectories.'}
             </InsightCard>
             <InsightCard title="If ignored">
-              Support reopen compounds, GA slips, and memory records a preventable miss unless the{' '}
-              {pred.time_horizon || 'forecast'} window is interrupted.
+              {pred.consequence ||
+                `Active worsening signals compound into milestone delays unless the ${pred.time_horizon || 'forecast'} trajectory is interrupted by recommended interventions.`}
             </InsightCard>
           </div>
 

@@ -139,7 +139,7 @@ export const CausalNodeGraph: React.FC<CausalNodeGraphProps> = ({
         <InsightCard title="Leverage point">
           {chainData?.explanation ||
             (bottleneck
-              ? `Protect ${bottleneck.label} before merge. Historical twins recovered when this bottleneck was gated.`
+              ? `Isolate and prioritize remediation for ${bottleneck.label} to arrest downstream failure cascade.`
               : 'Insufficient evidence for a leverage recommendation.')}
         </InsightCard>
       </div>
