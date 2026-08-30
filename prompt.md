@@ -1,1693 +1,1282 @@
-MASTER PROMPT — FIX REAL DOCUMENT → RAG → LANGGRAPH → PGVECTOR/DB → EVIDENCE + SIGNALS
+MASTER PROMPT — FIX LANGGRAPH SIGNAL VALUES SHOWING N/A IN SIGNAL EXPLORER
 
 PROJECT:
 FAILUREOPS X — Project Failure Intelligence
 
-CRITICAL CURRENT PROBLEM
-========================
+CURRENT BUG
+===========
 
-The frontend project currently does NOT reliably show real intelligence from
-the documents uploaded by the user.
+In the FailureOps frontend:
 
-Observed behavior:
+/projects/{projectId}/signals
 
-- User uploads documents from the project frontend.
-- The document may appear as uploaded/ready.
-- But the uploaded document's actual content is not reliably reaching the
-  real RAG retrieval pipeline.
-- Evidence Intelligence does not consistently show evidence extracted from
-  the uploaded files.
-- Signal Explorer does not consistently show signals generated from the
-  uploaded files.
-- Some screens show stale/duplicate/mock-looking data.
-- We need the REAL uploaded document content to flow through the complete
-  ingestion + RAG + LangGraph pipeline and be persisted in PostgreSQL and
-  pgvector.
-- The frontend must then read the real persisted results.
+the Signal Explorer cards show real-looking signal names, risk badges,
+confidence, and evidence counts, BUT the telemetry section shows:
 
-IMPORTANT:
-DO NOT TRUST THE PREVIOUS AUDIT REPORT.
-DO NOT ASSUME THE RAG WORKS JUST BECAUSE AN ENDPOINT EXISTS.
-DO NOT ASSUME "READY", "RAG REACHABLE", "LANGGRAPH COMPLETE", OR
-"EMBEDDED" MEANS THE CURRENT USER UPLOAD ACTUALLY REACHED THAT PIPELINE.
+Baseline: N/A
+Previous: N/A
+Current: N/A
 
-THIS TASK MUST PROVE THE REAL LIVE PROJECT FLOW.
+Total Change (Baseline): N/A
+Period Change (Previous): N/A
 
-============================================================
-1. REQUIRED TARGET ARCHITECTURE
-============================================================
+Risk Score Movement:
+Previous Risk: N/A
+Current Risk: N/A
+Risk Change: 0%
 
-The final working architecture must be:
+This indicates that the frontend is receiving signal objects, but the
+structured metric/time-series fields are either:
 
-USER
- ↓
-FRONTEND
- ↓
-BACKEND API
- ↓
-DOCUMENT INGESTION
- ↓
-RUSTFS / OBJECT STORAGE
- ↓
-PARSER
- ↓
-DOCUMENT BLOCKS
- ↓
-CHUNKING
- ↓
-EMBEDDING
- ↓
-POSTGRESQL + PGVECTOR
- ↓
-REAL RETRIEVAL
- ↓
-BM25 + DENSE + RRF + RERANK
- ↓
-LANGGRAPH
- ↓
-EVIDENCE AGENT
- ↓
-VALIDATED EVIDENCE
- ↓
-SIGNAL AGENT
- ↓
-VALIDATED SIGNALS
- ↓
-PERSIST TO DB
- ↓
-FRONTEND API
- ↓
-EVIDENCE INTELLIGENCE
- ↓
-SIGNAL EXPLORER
+1. not being produced by LangGraph,
+2. being dropped during persistence,
+3. being dropped by the API,
+4. being renamed/mapped incorrectly,
+5. or the frontend is reading the wrong fields.
 
-DO NOT bypass this chain.
+DO NOT hardcode values.
 
-============================================================
-2. FIRST — FORENSIC AUDIT ONLY
-============================================================
+DO NOT fill N/A with guessed values.
 
-Before changing code, inspect the complete repository.
+DO NOT create fake telemetry.
 
-Trace the REAL runtime path for a project upload.
+DO NOT redesign the Signal Explorer first.
 
-Inspect:
+FIX THE REAL DATA CONTRACT:
 
-FRONTEND
-- upload page
-- file picker
-- upload API client
-- project ID handling
-- organization ID handling
-- metadata handling
-- upload request payload
-- upload response handling
-- polling/status logic
-
-BACKEND
-- document upload endpoint
-- ingest service
-- parser
-- chunker
-- embedding service
-- retrieval service
-- LangGraph entrypoint
-- Evidence Agent
-- Signal Agent
-- persistence
-
-DATABASE
-- documents
-- document_blocks
-- chunks
-- embeddings / vector column
-- evidence
-- signals
-- analysis
-- jobs
-- provenance
-
-RUSTFS
-- object upload
-- storage key/path
-- document original path
-
-Do NOT modify code yet.
-
-============================================================
-3. FIND THE EXACT BREAK
-============================================================
-
-We need to identify where this chain currently breaks:
-
-UPLOAD
-→ DATABASE
-→ RUSTFS
-→ PARSER
-→ CHUNKS
-→ PGVECTOR
-→ RETRIEVAL
+DOCUMENT
+→ RAG
 → LANGGRAPH
-→ EVIDENCE
-→ SIGNAL
+→ SIGNAL AGENT
+→ SIGNAL SCHEMA
 → DATABASE
+→ API
 → FRONTEND
 
-For every arrow report:
+============================================================
+1. FIRST — FORENSIC AUDIT
+============================================================
+
+Do not immediately modify the UI.
+
+Trace one REAL signal from its origin to the browser.
+
+Choose an actual metric signal from a real uploaded document.
+
+Example:
+
+API_P95_MS
+
+or whatever real metric currently exists in the project.
+
+Trace:
+
+Source document
+→ parsed metric
+→ chunk
+→ retrieval
+→ LangGraph state
+→ Evidence Agent
+→ Signal Agent
+→ signal schema
+→ persistence
+→ GET /api/signals
+→ frontend API client
+→ SignalCard
+
+For each stage write:
 
 PASS / FAIL
 
+Also identify exactly where the following fields disappear:
+
+baseline
+previous
+current
+baseline_date
+previous_date
+current_date
+baseline_change
+period_change
+previous_risk
+current_risk
+risk_change
+trend
+
+============================================================
+2. INSPECT THE REAL LANGGRAPH OUTPUT
+============================================================
+
+Inspect the actual output of the current LangGraph graph.
+
+Do not infer it from the frontend.
+
+Inspect:
+
+FailureOpsGraphState
+
+EvidenceAgent output
+
+SignalAgent output
+
+SignalPacket
+
+Signal item schema
+
+ProjectAnalysis.signal_packet
+
+For one real metric signal, print/log a SAFE STRUCTURED OBJECT
+(without secrets).
+
+Example shape:
+
+{
+  "canonical_name": "...",
+  "current_value": ...,
+  "previous_value": ...,
+  "baseline_value": ...,
+  "current_date": "...",
+  "previous_date": "...",
+  "baseline_date": "...",
+  "period_change_pct": ...,
+  "baseline_change_pct": ...,
+  "risk_score": ...,
+  "previous_risk_score": ...,
+  "risk_change_pct": ...,
+  "trend": "..."
+}
+
+The real field names may differ.
+
+DO NOT invent this schema.
+
+Use the actual schema.
+
+============================================================
+3. IDENTIFY THE TRUE SOURCE OF METRIC VALUES
+============================================================
+
+For metric signals, values should originate from the real extracted telemetry.
+
+Trace:
+
+document
+→ Evidence Agent metric
+→ normalized time-series representation
+→ Signal Agent
+→ risk calculation
+
+Make sure the Signal Agent has access to:
+
+current value
+previous value
+baseline value
+dates
+metric name
+unit
+trend
+
+If these values exist in evidence but not in the signal:
+THE SIGNAL AGENT MAPPING IS BROKEN.
+
+If they do not exist in evidence:
+THE EVIDENCE EXTRACTION / TIME-SERIES STAGE IS BROKEN.
+
+If they exist in signal but disappear after persistence:
+THE PERSISTENCE SERIALIZATION IS BROKEN.
+
+If they exist in API but display N/A:
+THE FRONTEND MAPPING IS BROKEN.
+
+============================================================
+4. IMPORTANT — USE EXISTING TIME-SERIES ENGINE
+============================================================
+
+The project already has a deterministic time-series engine.
+
+DO NOT recreate it.
+
+Reuse the existing canonical implementation for:
+
+baseline
+previous
+current
+baseline change
+period change
+trend
+
+The Signal Agent must consume the canonical normalized time-series data.
+
+Do NOT recalculate these values differently in the frontend.
+
+============================================================
+5. METRIC SIGNAL CONTRACT
+============================================================
+
+A metric signal returned by the backend should expose enough structured
+information for the UI to display:
+
+METRIC
+
+canonical metric name
+
+current value
+
+previous value
+
+baseline value
+
+unit
+
+current date
+
+previous date
+
+baseline date
+
+trend
+
+baseline change %
+
+period change %
+
+current risk
+
+previous risk
+
+risk change %
+
+severity
+
+confidence
+
+supporting evidence IDs
+
+source document references
+
+Use the actual existing project naming conventions.
+
+Do not introduce duplicate names like:
+
+current_value
+currentValue
+currentMetricValue
+
+Choose one canonical backend contract and map it once.
+
+============================================================
+6. FIX LANGGRAPH → SIGNAL CONTRACT
+============================================================
+
+Inspect the Evidence Agent result.
+
+Example conceptual structure:
+
+{
+  "metric": {
+    "canonical_name": "API_P95_MS",
+    "baseline_value": 318,
+    "previous_value": 365,
+    "current_value": 370,
+    "baseline_date": "2026-06-01",
+    "previous_date": "2026-08-17",
+    "current_date": "2026-08-24"
+  }
+}
+
+Then the Signal Agent should preserve the structured metric.
+
+Do NOT convert the metric into only:
+
+"Observed technical observations..."
+
+and lose the numerical fields.
+
+============================================================
+7. FIX SIGNAL SCHEMA
+============================================================
+
+Inspect:
+
+rag/app/schemas/signal_packet.py
+
+and related Signal schemas.
+
+Make sure metric information is represented structurally.
+
+Do NOT use a giant string for numerical information.
+
+BAD:
+
+{
+  "statement":
+  "baseline 318 previous 365 current 370 ..."
+}
+
+GOOD:
+
+{
+  "metric_name": "...",
+  "baseline_value": 318,
+  "previous_value": 365,
+  "current_value": 370,
+  ...
+}
+
+Use the actual existing architecture.
+
+============================================================
+8. FIX SIGNAL AGENT
+============================================================
+
+Inspect:
+
+signal_agent.py
+
+and every function that builds a signal.
+
+The Signal Agent must preserve:
+
+- metric identity
+- values
+- dates
+- changes
+- trend
+- risk
+- evidence links
+
+Do not replace missing fields with:
+
+None
+
+unless the source genuinely has no value.
+
+============================================================
+9. NULL VS NOT-APPLICABLE
+============================================================
+
+This distinction is IMPORTANT.
+
+For a qualitative signal:
+
+Baseline:
+N/A
+
+may be correct.
+
+For a metric signal:
+
+API_P95_MS
+
+if the backend has real:
+
+318
+365
+370
+
+then returning:
+
+N/A
+
+is WRONG.
+
+The frontend should only show N/A when the metric truly has no corresponding
+value.
+
+============================================================
+10. FIX DATABASE PERSISTENCE
+============================================================
+
+Inspect how signals are persisted.
+
+Check:
+
+signal_items
+
+ProjectAnalysis.signal_packet
+
+any JSON/JSONB fields
+
+ORM/Pydantic serialization
+
+Confirm the following survive persistence:
+
+baseline_value
+previous_value
+current_value
+
+baseline_date
+previous_date
+current_date
+
+baseline_change
+period_change
+
+trend
+
+risk score fields
+
+If the database currently stores only:
+
+title
+statement
+risk
+
+then preserve the complete structured signal packet.
+
+Do not store critical metric information only in frontend state.
+
+============================================================
+11. FIX API SERIALIZATION
+============================================================
+
+Inspect:
+
+GET /api/signals
+
+including:
+
+FastAPI route
+response model
+Next.js BFF
+TypeScript client
+
+Verify the API JSON actually contains the metric values.
+
+For one real signal, the response should contain the real values.
+
+Example only:
+
+{
+  "canonical_name": "API_P95_MS",
+  "baseline_value": 318,
+  "previous_value": 365,
+  "current_value": 370,
+  ...
+}
+
+Do not copy these example values into code.
+
+Use actual database values.
+
+============================================================
+12. CHECK Pydantic SERIALIZATION
+============================================================
+
+A common failure is:
+
+backend object contains fields
+
+BUT
+
+response model excludes them.
+
+Inspect all response models.
+
+Make sure fields are not silently removed by:
+
+response_model
+
+model_dump()
+
+dict conversion
+
+custom serializer
+
+JSON transformation
+
+Next.js BFF mapping
+
+============================================================
+13. FIX NEXT.JS BFF MAPPING
+============================================================
+
+Inspect:
+
+frontend/app/api/signals/route.ts
+
+and:
+
+frontend/lib/api/client.ts
+
+Check whether the backend returns:
+
+snake_case
+
+while frontend expects:
+
+camelCase
+
 Example:
 
-Upload → Document row        PASS
-Document → RustFS            PASS
-Document → Parser            FAIL
-Parser → Chunks              PASS
-Chunks → pgvector            FAIL
-pgvector → Retrieval        FAIL
-Retrieval → LangGraph        PASS
-LangGraph → Evidence        PASS
-Evidence → DB               FAIL
-DB → Evidence UI            PASS
+Backend:
 
-Do not proceed without finding the actual break.
+baseline_value
 
-============================================================
-4. USE A BRAND-NEW UNIQUE TEST DOCUMENT
-============================================================
+Frontend:
 
-Create a fresh file through the USER-FACING PROJECT UPLOAD UI.
+baselineValue
 
-Do not reuse existing database records.
+If required, create ONE explicit mapping.
 
-Create:
+Do NOT support random combinations everywhere.
 
-failureops_live_rag_test.txt
+Canonical flow:
 
-with this exact unique content:
-
-FAILUREOPS_LIVE_RAG_TOKEN_928374
-
-Project incident:
-The Atlas billing service experienced exactly 23 payment timeout failures
-on 2026-08-31 after release version LIVE-RAG-23.
-
-This exact token and incident do not exist anywhere else.
-
-IMPORTANT:
-
-The test MUST use the frontend upload flow.
-
-Do not insert directly into PostgreSQL.
-
-Do not manually create chunks.
-
-Do not manually create embeddings.
-
-Do not insert evidence manually.
-
-We are testing the real application.
+Backend schema
+→ BFF mapping
+→ frontend TypeScript type
 
 ============================================================
-5. VERIFY DOCUMENT CREATION
+14. FIX TYPESCRIPT SIGNAL TYPE
 ============================================================
 
-After frontend upload:
-
-verify database:
-
-documents
-
-Must contain:
-
-document_id
-project_id
-organization_id
-filename
-size
-status
-storage reference
-metadata
-
-Confirm the project_id is the current project.
-
-Confirm organization_id is correct.
-
-============================================================
-6. VERIFY RUSTFS
-============================================================
-
-Verify the actual uploaded file exists in RustFS/object storage.
-
-Confirm:
-
-document_id
-→ storage object
-→ correct uploaded file
-
-Download/view the object through the backend authorization path.
-
-The object must contain:
-
-FAILUREOPS_LIVE_RAG_TOKEN_928374
-
-If not:
-
-UPLOAD/STORAGE IS BROKEN.
-
-============================================================
-7. VERIFY PARSER
-============================================================
-
-Find actual parser output.
-
-Verify:
-
-failureops_live_rag_test.txt
-
-was parsed.
-
-Search parsed content for:
-
-FAILUREOPS_LIVE_RAG_TOKEN_928374
-
-This exact token MUST exist.
-
-If it does not:
-
-PARSER/INGESTION IS BROKEN.
-
-Do not continue by faking the text.
-
-============================================================
-8. VERIFY DOCUMENT BLOCKS
-============================================================
-
-Inspect document_blocks or equivalent parsed representation.
-
-Confirm:
-
-document_id
-text
-page/location
-ordering
-
-and verify the unique token exists.
-
-============================================================
-9. VERIFY CHUNKING
-============================================================
-
-Inspect chunks table.
-
-Confirm at least one chunk belongs to:
-
-failureops_live_rag_test.txt
-
-and contains:
-
-FAILUREOPS_LIVE_RAG_TOKEN_928374
-
-Record:
-
-chunk_id
-document_id
-content
-chunk_index
-metadata
-
-============================================================
-10. VERIFY PGVECTOR EMBEDDING
-============================================================
-
-Confirm the chunk has a REAL vector embedding.
-
-Verify:
-
-embedding is not NULL
-dimension is correct
-vector belongs to correct chunk
-chunk belongs to correct document
-document belongs to correct project
-
-If current configured dimension is 2048:
-
-verify actual vector dimension is 2048.
-
-Do NOT merely rely on a frontend "Embedded" status.
-
-Inspect PostgreSQL directly through the application's normal database layer.
-
-============================================================
-11. VERIFY VECTOR SEARCH
-============================================================
-
-Now ask through the REAL application query interface:
-
-"What happened to the Atlas billing service after release LIVE-RAG-23?"
-
-Run this through the normal user-facing question flow.
-
-Inspect backend retrieval.
-
-The test chunk MUST appear.
-
-Record:
-
-query
-document_id
-chunk_id
-retrieval score
-rank
-
-If the chunk is not retrieved:
-
-RAG retrieval is broken.
-
-============================================================
-12. VERIFY PROJECT FILTERING
-============================================================
-
-The retrieval query MUST include project scope.
-
-At minimum:
-
-organization_id
-project_id
-
-Do not allow:
-
-SELECT chunks
-without tenant/project filtering.
-
-Ensure private project documents cannot be retrieved by another project.
-
-============================================================
-13. VERIFY DENSE RETRIEVAL
-============================================================
-
-Confirm the actual query embedding is generated.
-
-Confirm pgvector search is executed.
-
-Confirm the unique test chunk is among candidates.
-
-============================================================
-14. VERIFY BM25
-============================================================
-
-If BM25 is part of the existing RAG architecture:
-
-verify the exact test document can be found through lexical retrieval.
-
-============================================================
-15. VERIFY RRF
-============================================================
-
-If RRF is used:
-
-verify:
-
-dense results
-+
-BM25 results
-↓
-RRF
-↓
-final candidate ranking
-
-Do not label the system "hybrid" unless this actually occurs at runtime.
-
-============================================================
-16. VERIFY RERANKER
-============================================================
-
-If reranking is configured:
-
-verify real candidates reach the reranker.
-
-Verify final ranking.
-
-Do not create another reranking implementation.
-
-============================================================
-17. VERIFY LANGGRAPH ENTRY
-============================================================
-
-The retrieved test chunk must enter the LangGraph state.
-
-Inspect actual graph state/job.
-
-The graph must receive:
-
-query
-project_id
-organization_id
-retrieved_chunks
-
-The retrieved chunk must contain:
-
-FAILUREOPS_LIVE_RAG_TOKEN_928374
-
-============================================================
-18. VERIFY EVERY LANGGRAPH NODE
-============================================================
-
-Verify the real execution of the existing graph.
-
-At minimum:
-
-validate_request
-retrieve_evidence
-evidence_agent
-validate_evidence
-signal_agent
-validate_signals
-finalize_output
-
-Record:
-
-node name
-status
-execution time
-input/output summary
-
-Do not use frontend progress animations as evidence.
-
-============================================================
-19. VERIFY EVIDENCE AGENT
-============================================================
-
-The Evidence Agent must extract the real incident.
-
-Expected information:
-
-Event:
-Atlas billing service experienced 23 payment timeout failures.
-
-Date:
-2026-08-31
-
-Release:
-LIVE-RAG-23
-
-Token:
-FAILUREOPS_LIVE_RAG_TOKEN_928374
-
-The exact values must come from the uploaded document.
-
-============================================================
-20. VERIFY EVIDENCE VALIDATION
-============================================================
-
-The evidence validation stage must retain:
-
-evidence_id
-document_id
-chunk_id
-source_document_name
-location
-confidence
-statement
-
-The source must be:
-
-failureops_live_rag_test.txt
-
-NOT some older fintech/demo document.
-
-============================================================
-21. VERIFY SIGNAL AGENT
-============================================================
-
-The Signal Agent must process the real evidence.
-
-Inspect the created signals.
-
-Every signal must reference the proper evidence.
-
-Example relationship:
+Inspect the existing:
 
 Signal
- ↓
-Evidence ID
- ↓
-Chunk ID
- ↓
-Document ID
- ↓
-failureops_live_rag_test.txt
+SignalItem
+SignalPacket
+Metric
+Risk
+
+interfaces/types.
+
+Make the types accurately match the backend.
+
+Do not use:
+
+any
+
+to hide the mismatch.
+
+Do not do:
+
+signal.currentValue || "N/A"
+
+until you know the correct source field.
 
 ============================================================
-22. VERIFY PERSISTENCE
+15. FIX SIGNAL CARD MAPPING
 ============================================================
 
-After analysis, inspect the real database.
+Inspect:
 
-Confirm records exist for:
+frontend/components/signals/SignalCard.tsx
 
-analysis
-evidence
-events where applicable
-claims where applicable
-metrics where applicable
-signals
-provenance
+and the Signal Explorer page.
 
-All records must have correct:
+Find where these are currently rendered:
 
-organization_id
-project_id
+Baseline
+Previous
+Current
+Total Change
+Period Change
+Previous Risk
+Current Risk
+Risk Change
 
-============================================================
-23. VERIFY FRONTEND EVIDENCE INTELLIGENCE
-============================================================
+Determine exactly which fields are read.
 
-Now open:
+Example BAD:
 
-/projects/{project_id}/evidence
+signal.rawTelemetry?.baseline
 
-The UI MUST show evidence from:
+when backend actually returns:
 
-failureops_live_rag_test.txt
+signal.baseline_value
 
-It must not show only older seeded/demo records.
+Fix the mapping.
 
-Display:
-
-CORE FINDING
-Atlas billing service experienced 23 payment timeout failures after
-release LIVE-RAG-23.
-
-SOURCE
-failureops_live_rag_test.txt
-
-LOCATION
-<actual location>
-
-CONFIDENCE
-<real backend value>
-
-EVIDENCE ID
-<real ID>
-
-SUPPORTING CHUNK
-<real chunk relationship>
-
-No mock fallback.
+DO NOT put calculations in the card if the backend already calculates them.
 
 ============================================================
-24. VERIFY SIGNAL EXPLORER
+16. RISK MOVEMENT
 ============================================================
 
-Open:
+The card currently shows:
 
-/projects/{project_id}/signals
+Previous Risk: N/A
+Current Risk: N/A
+Risk Change: 0%
 
-Signals generated from the new document MUST appear.
+The backend must expose:
 
-Each signal should show:
+previous risk score
 
-signal title
-dimension/category
-severity/risk
-trend if applicable
-strength/confidence
-supporting evidence
-source
+current risk score
 
-The new signal must reference the same evidence created by LangGraph.
+risk change
+
+for metric signals where those values are available.
+
+Use the canonical deterministic risk calculation.
+
+Do not derive a fake risk movement from the UI.
 
 ============================================================
-25. IMPORTANT — FRONTEND MUST NOT INVENT DATA
+17. TREND
 ============================================================
 
-Search frontend for:
+If the backend identifies:
 
-mock
-demo
-sample
-fixture
-hardcoded
-fallback
-seed
+INCREASING
 
-Especially:
+the card should show:
 
-Evidence Intelligence
-Signal Explorer
+INCREASING
 
-If API fails, do NOT populate the screen using demo data.
+If:
 
-Show:
+DECREASING
 
-Unable to load evidence
+show:
+
+DECREASING
+
+If:
+
+STABLE
+
+show:
+
+STABLE
+
+Do not infer trend independently in React.
+
+Use the canonical backend signal.
+
+============================================================
+18. EVIDENCE LINKS
+============================================================
+
+Every metric signal must retain:
+
+supporting evidence IDs
+
+source document IDs
+
+source names
+
+location metadata
+
+The UI should allow:
+
+Signal
+→ Supporting Evidence
+→ Evidence Detail
+→ Original Source
+
+Do not lose provenance while fixing metric fields.
+
+============================================================
+19. REAL EXAMPLE TRACE
+============================================================
+
+Choose one REAL metric signal.
+
+For example:
+
+API_P95_MS
+
+Trace exactly:
+
+Source:
+engineeringmetrics.csv
+
+↓
+
+Extracted metric:
+baseline = real value
+previous = real value
+current = real value
+
+↓
+
+LangGraph Evidence Agent
+
+↓
+
+Signal Agent
+
+↓
+
+SignalPacket
+
+↓
+
+PostgreSQL
+
+↓
+
+GET /api/signals
+
+↓
+
+frontend
+
+↓
+
+SignalCard
+
+Return a before/after field table:
+
+| Field | LangGraph | DB | API | Frontend |
+|---|---|---|---|---|
+| metric name | | | | |
+| baseline | | | | |
+| previous | | | | |
+| current | | | | |
+| dates | | | | |
+| baseline change | | | | |
+| period change | | | | |
+| trend | | | | |
+| previous risk | | | | |
+| current risk | | | | |
+| risk change | | | | |
+
+Every important field must survive.
+
+============================================================
+20. QUALITATIVE SIGNALS
+============================================================
+
+Do NOT force metric fields onto qualitative signals.
+
+For a qualitative signal:
+
+show the meaningful qualitative statement.
+
+For a metric signal:
+
+show the numeric time-series panel.
+
+The UI should choose the appropriate rendering based on actual signal type.
+
+============================================================
+21. NO HARDCODED DEMO VALUES
+============================================================
+
+Absolutely forbidden:
+
+if metric == "API_P95_MS":
+    baseline = 318
+    current = 370
 
 or:
 
-No verified evidence available.
+const demoSignal = ...
 
-Do not silently use stale sample data.
+or:
+
+if (!value) value = 365
+
+Use actual backend data.
 
 ============================================================
-26. FIX DUPLICATE EVIDENCE ROOT CAUSE
+22. NO FAKE FALLBACKS
 ============================================================
 
-Current issue:
+Do NOT do:
 
-The same evidence appears multiple times.
+signal.current_value ?? 0
+
+signal.current_value ?? 100
+
+signal.current_value ?? mockValue
+
+Do NOT convert missing data into fake numerical values.
+
+Correct:
+
+if data exists:
+    display data
+
+if data genuinely does not exist:
+    display "N/A"
+
+============================================================
+23. VERIFY REAL DATABASE DATA
+============================================================
+
+After analysis, query the DB through the application's normal data layer.
+
+Find one metric signal.
+
+Confirm actual values exist.
+
+If they do not:
+
+trace backward.
+
+Do not fix UI before fixing persistence.
+
+============================================================
+24. VERIFY PGVECTOR RELATIONSHIP
+============================================================
+
+Confirm the signal ultimately originated from a document that was:
+
+parsed
+→ chunked
+→ embedded
+→ stored in pgvector
+→ retrieved
+
+The signal must not originate from static seeded data.
+
+============================================================
+25. VERIFY REAL DOCUMENT PROVENANCE
+============================================================
+
+For the chosen metric:
+
+show:
+
+document_id
+chunk_id
+source document
+source location
+metric value
+
+The Signal Explorer should be connected to real evidence.
+
+============================================================
+26. REMOVE DUPLICATE TRANSFORMATION LOGIC
+============================================================
+
+Search for multiple places calculating:
+
+baseline
+previous
+current
+risk change
+trend
+
+There should be one canonical backend calculation.
+
+Frontend should display.
+
+Do not have:
+
+LangGraph calculation
++
+API calculation
++
+React calculation
+
+for the same metric.
+
+============================================================
+27. PRESERVE EXISTING RISK ENGINE
+============================================================
+
+Do NOT replace the current metric-aware risk engine.
+
+The risk score must come from the existing canonical risk calculation.
+
+Signal Explorer should display the resulting values.
+
+============================================================
+28. PERFORMANCE
+============================================================
+
+Do NOT call LangGraph or the LLM every time Signal Explorer renders.
+
+Correct flow:
+
+Analysis
+→ LangGraph runs once
+→ signals persisted
+→ Signal Explorer reads persisted signals
+
+No repeated LLM calls from React.
+
+============================================================
+29. CACHE / STALE DATA
+============================================================
+
+Verify that Signal Explorer is loading the latest completed analysis.
+
+Avoid showing an old signal packet after a new analysis.
+
+Ensure cache invalidation/revalidation is correct after analysis completion.
+
+============================================================
+30. TEST WITH A REAL UPLOADED DOCUMENT
+============================================================
+
+Use a fresh telemetry document.
+
+Example content:
+
+metric_name: API_P95_MS
+baseline: 100
+previous: 130
+current: 160
+
+Also include dates.
+
+Upload through the real frontend.
+
+Run analysis.
+
+Expected Signal Explorer:
+
+BASELINE
+100
+
+PREVIOUS
+130
+
+CURRENT
+160
+
+TOTAL CHANGE
++60%
+
+PERIOD CHANGE
++23.08%
+
+These numbers are TEST DATA ONLY.
+
+Do not hardcode them.
+
+The real values shown by the UI must come from the uploaded document.
+
+============================================================
+31. NEGATIVE TEST
+============================================================
+
+Create a qualitative signal with no numeric time-series data.
+
+Verify it does NOT display fake metric values.
 
 Example:
 
-"9. Current Product Assumptions"
-fintech.pdf
-Page 5
+Baseline:
+N/A
 
-appears repeatedly.
-
-Find the actual root cause.
-
-Possible:
-
-duplicate DB inserts
-bad SQL join
-repeated LangGraph persistence
-multiple chunks mapped to one evidence item
-frontend duplication
-repeated API requests
-
-Fix at the correct layer.
-
-Canonical evidence identity should remain stable.
-
-Do NOT simply hide duplicates using CSS.
-
-Do NOT deduplicate by filename only.
-
-Do NOT deduplicate by title only.
+only because the source genuinely has no metric.
 
 ============================================================
-27. PRESERVE DISTINCT EVIDENCE
+32. API CONTRACT TEST
 ============================================================
 
-Two separate facts from the same document/page may be legitimate.
+Add a backend integration test that asserts:
 
-Therefore:
-
-same filename ≠ same evidence
-
-same page ≠ same evidence
-
-Use authoritative evidence_id or deterministic canonical identity.
-
-============================================================
-28. FULL DATA CONTRACT
-============================================================
-
-Do not reduce backend evidence to:
-
-title
-+
-filename
-+
-page
-
-Preserve all useful structured fields.
-
-At minimum, where available:
-
-evidence_id
-analysis_id
-project_id
-organization_id
-
-type
-category
-
-statement
-summary
-details
-
-metric
-canonical_name
-value
-unit
+a real metric signal includes:
 
 baseline
 previous
 current
 dates
-
 trend
-changes
+risk information
 
-risk
-severity
-confidence
-
-source_document_id
-source_document_name
-
-page_numbers
-row_numbers
-sheet_name
-section_name
-
-chunk_ids
-supporting_excerpt
-
-citation
-
-Do not invent fields that do not exist.
+when those values exist.
 
 ============================================================
-29. METRIC EVIDENCE
+33. FRONTEND CONTRACT TEST
 ============================================================
 
-For telemetry documents, preserve:
+Add a frontend test that feeds a real API-shaped signal object into SignalCard
+and verifies:
+
+baseline appears
+
+previous appears
+
+current appears
+
+changes appear
+
+risk movement appears
+
+trend appears
+
+No "N/A" is rendered for fields supplied by the API.
+
+============================================================
+34. END-TO-END TEST
+============================================================
+
+Create/update the golden test:
+
+UPLOAD
+→ PARSE
+→ CHUNK
+→ EMBED
+→ PGVECTOR
+→ RETRIEVE
+→ LANGGRAPH
+→ EVIDENCE
+→ SIGNAL
+→ DB
+→ API
+→ SIGNAL EXPLORER
+
+Assert:
+
+real metric value reaches the final rendered signal.
+
+============================================================
+35. BROWSER DEVTOOLS PROOF
+============================================================
+
+After fixing:
+
+Open Signal Explorer.
+
+Open DevTools → Network.
+
+Inspect:
+
+GET /api/signals?projectId=...
+
+Verify the JSON contains real:
 
 baseline
 previous
 current
-total change
-period change
-trend
 risk
-severity
+trend
 
-Do not render the entire CSV row as one giant string.
+Then compare the browser display.
 
-============================================================
-30. EVENTS
-============================================================
-
-For real events:
-
-show:
-
-event type
-description
-date/time
-entity
-source
-location
-confidence
-
-Only if actually extracted.
+The UI must exactly correspond to the API.
 
 ============================================================
-31. CLAIMS
+36. IMPORTANT — CHECK ALL SIGNAL TYPES
 ============================================================
 
-For claims:
+Do not fix only API_P95_MS.
 
-show:
+Test:
 
-statement
-claim type
-entity/speaker if available
-source
-location
-confidence
+- technical metric
+- operational metric
+- adoption metric
+- qualitative customer signal
+- other supported signal types
 
-Only if actually available.
-
-============================================================
-32. SOURCE PROVENANCE
-============================================================
-
-Every evidence item must be traceable:
-
-Evidence ID
- ↓
-Chunk ID
- ↓
-Document ID
- ↓
-Source file
- ↓
-Page/row/sheet/location
-
-The user must be able to prove where the answer came from.
+Each should render correctly according to its actual data type.
 
 ============================================================
-33. OPEN SOURCE
+37. DO NOT BREAK EVIDENCE INTELLIGENCE
 ============================================================
 
-"Open Source" must resolve:
+Signal Explorer and Evidence Intelligence should share canonical evidence.
 
-document_id
- ↓
-authorized backend download/stream endpoint
- ↓
-RustFS
- ↓
-actual uploaded document
-
-Do not construct URLs from filenames.
-
-Do not expose RustFS credentials.
-
-Test with the new:
-
-failureops_live_rag_test.txt
-
-file.
-
-============================================================
-34. EVIDENCE DETAIL DRAWER
-============================================================
-
-Click one evidence card.
-
-The drawer must display real structured detail.
-
-Example:
-
-CORE FINDING
-
-Atlas billing service experienced exactly 23 payment timeout failures
-after release LIVE-RAG-23.
-
-KEY FACTS
-
-23 timeout failures
-2026-08-31
-Release: LIVE-RAG-23
-
-SOURCE
-
-failureops_live_rag_test.txt
-
-LOCATION
-
-<actual>
-
-CONFIDENCE
-
-<actual>
-
-SUPPORTING EXCERPT
-
-<actual retrieved text>
-
-TECHNICAL DETAILS ▼
-
-Evidence ID
-Analysis ID
-Document ID
-Chunk ID
-
-[Open Source]
-
-Do not show generic filler text if actual evidence exists.
-
-============================================================
-35. SIGNAL → EVIDENCE
-============================================================
-
-Clicking a signal should allow:
-
-Signal
- ↓
-Supporting evidence
- ↓
-Evidence detail
- ↓
-Actual source document
-
-This relationship must use IDs, not copied strings.
-
-============================================================
-36. NO STALE DATA
-============================================================
-
-After uploading the unique test document:
-
-refresh the page.
-
-The evidence MUST still exist.
-
-Run another query.
-
-The new evidence MUST remain available.
-
-Restart backend if practical.
-
-Data must remain persisted in PostgreSQL.
-
-Do not depend on frontend memory.
-
-============================================================
-37. NO MOCK FALLBACK
-============================================================
-
-Critical rule:
-
-If the real backend returns:
-
-0 evidence
-
-the UI must show:
-
-No verified evidence found.
-
-It must NOT display:
-
-fintech.pdf
-old demo evidence
-seeded signals
-sample predictions
-
-============================================================
-38. ANALYSIS SCOPING
-============================================================
-
-Every analysis must identify:
-
-organization_id
-project_id
-
-Every retrieval query must enforce them.
-
-Every persisted evidence/signal record must contain them.
-
-============================================================
-39. PRIVACY
-============================================================
-
-Private project:
-
-only authorized project users can retrieve its evidence.
-
-Global/opt-in knowledge:
-
-only approved anonymized global information can participate.
-
-Never use another company's private document to answer.
-
-This rule applies to:
-
-retrieval
-LangGraph
-evidence
-signals
-frontend
-
-============================================================
-40. MULTI-DOCUMENT UPLOAD
-============================================================
-
-The application must support uploading multiple documents.
-
-Do not create:
-
-one LangGraph request per tiny chunk.
-
-Do not create uncontrolled parallel LLM calls.
-
-Use the existing ingestion pipeline.
-
-Process documents/chunks in controlled batches.
-
-============================================================
-41. RATE LIMITING
-============================================================
-
-Earlier we experienced HTTP 429.
-
-Inspect:
-
-LLM concurrency
-embedding concurrency
-reranking concurrency
-retry behavior
-
-Do not use unlimited Promise.all / gather for LLM calls.
-
-Use controlled concurrency.
-
-Reuse the existing KeyRotationManager/rate-limit strategy if present.
-
-Do not add needless LLM calls for frontend rendering.
-
-============================================================
-42. ANALYSIS JOB BEHAVIOR
-============================================================
-
-One user analysis should produce one canonical analysis job.
-
-Do not rerun LangGraph whenever:
-
-Evidence page opens
-Signal page opens
-DNA page opens
-Radar page opens
-Prediction page opens
-
-Downstream screens should read persisted results.
-
-============================================================
-43. DATABASE AS SOURCE OF TRUTH
-============================================================
-
-After LangGraph completes:
-
-persist the canonical intelligence result.
-
-Frontend must retrieve persisted data.
-
-Do not make frontend directly call the LLM.
-
-Do not make frontend directly query pgvector.
-
-============================================================
-44. PGVECTOR AS SOURCE OF RETRIEVAL
-============================================================
-
-Uploaded document chunks MUST be persisted with embeddings.
-
-Retrieval MUST query pgvector for the current project/tenant.
-
-Do not use only in-memory arrays.
-
-Do not use static JSON.
-
-Do not use frontend memory.
-
-============================================================
-45. TEST WITH A COMPLETELY NEW FACT
-============================================================
-
-The strongest test is:
-
-Upload:
-
-failureops_live_rag_test.txt
-
-Then ask:
-
-"What happened to the Atlas billing service after release LIVE-RAG-23?"
-
-The answer must mention:
-
-23 payment timeout failures
-2026-08-31
-LIVE-RAG-23
-
-Then ask:
-
-"What is FAILUREOPS_LIVE_RAG_TOKEN_928374?"
-
-The answer must identify the unique token.
-
-Then perform a query from another project.
-
-It must NOT retrieve the document.
-
-============================================================
-46. NEGATIVE TEST
-============================================================
-
-Remove the test document from retrieval scope.
-
-Ask:
-
-"What happened to the Atlas billing service after release LIVE-RAG-23?"
-
-Expected:
-
-No relevant evidence found.
-
-NOT:
-
-the previous answer from cache/mock data.
-
-This proves retrieval is the actual source of the answer.
-
-============================================================
-47. FRONTEND NETWORK VERIFICATION
-============================================================
-
-Open browser DevTools.
-
-For:
+Fixing Signal Explorer must not break:
 
 Evidence Intelligence
-
-record:
-
-request URL
-response status
-response JSON
-
-For:
-
-Signal Explorer
-
-record:
-
-request URL
-response status
-response JSON
-
-Verify the response contains:
-
-document_id
-evidence_id
-source
-signals
-
-and is NOT static frontend data.
-
-============================================================
-48. DATA COMPARISON
-============================================================
-
-Compare:
-
-LANGGRAPH OUTPUT
-vs
-DB
-vs
-API
-vs
-FRONTEND
-
-Use this table:
-
-| Field | LangGraph | DB | API | UI |
-|---|---|---|---|---|
-| Document | | | | |
-| Document ID | | | | |
-| Chunk | | | | |
-| Evidence ID | | | | |
-| Statement | | | | |
-| Source | | | | |
-| Location | | | | |
-| Confidence | | | | |
-| Signal | | | | |
-| Risk | | | | |
-
-Every important field must survive the chain.
-
-============================================================
-49. IF RAG IS ALREADY FUNCTIONAL
-============================================================
-
-If the backend RAG works correctly but the project's frontend is not
-connected:
-
-DO NOT rewrite RAG.
-
-Fix:
-
-frontend upload contract
-backend integration
-API mapping
-persistence
-frontend consumption
-
-Use the existing RAG/LangGraph implementation.
-
-============================================================
-50. IF UPLOAD BYPASSES RAG
-============================================================
-
-If the project's upload route currently stores files but does not call the
-real ingestion service:
-
-FIX IT.
-
-Correct:
-
-Frontend
-→ /api/documents/upload
-→ actual ingest_upload
-→ RustFS
-→ parser
-→ chunks
-→ embeddings
-→ pgvector
-
-Do not create a second ingestion pipeline.
-
-============================================================
-51. IF ANALYSIS BYPASSES LANGGRAPH
-============================================================
-
-If project analysis currently generates data without calling the real graph:
-
-FIX IT.
-
-The analysis flow must call the existing canonical LangGraph workflow.
-
-Do not reproduce LangGraph logic in another service.
-
-============================================================
-52. IF FRONTEND USES MOCK DATA
-============================================================
-
-Remove production use of the mock data.
-
-Keep legitimate test fixtures in test-only locations.
-
-Production pages must consume the live APIs.
-
-============================================================
-53. IF DB IS NOT SAVING EVIDENCE
-============================================================
-
-Implement proper persistence using the existing database architecture.
-
-Do not store critical intelligence only in memory.
-
-Use:
-
-analysis
-evidence
-signals
+Evidence Detail
+Open Source
 provenance
-
-and existing models where available.
-
-============================================================
-54. IF PGVECTOR IS NOT RECEIVING CHUNKS
-============================================================
-
-Fix the embedding persistence path.
-
-Confirm:
-
-chunk
-→ embedding
-→ pgvector
-
-Do not make retrieval read raw documents directly as a replacement.
+document links
 
 ============================================================
-55. DO NOT BREAK EXISTING WORKING RAG
+38. DO NOT DUPLICATE BACKEND LOGIC
 ============================================================
 
-Preserve:
+Reuse the existing:
 
-- parser
-- chunking
-- embeddings
-- pgvector
-- BM25
-- RRF
-- reranking
-- LangGraph
-- Evidence Agent
-- Signal Agent
+Evidence Agent
+Signal Agent
+TimeSeriesEngine
+Risk Engine
+SignalPacket
+Evidence models
 
-Reuse existing services.
+Do NOT create:
 
-Do not create:
+SignalServiceV2
+MetricEngineV2
+RiskEngineV2
 
-RAGV2
-LangGraphV2
-EvidenceServiceV2
-
-unless the audit proves an existing implementation is unusable.
+unless the audit proves the existing implementation is unusable.
 
 ============================================================
-56. TEST SUITE
+39. FINAL ACCEPTANCE CRITERIA
 ============================================================
 
-Add integration tests for:
+The fix is complete only when:
 
-1. frontend/backend upload contract
-2. document persistence
-3. parser
-4. chunks
-5. embeddings
-6. pgvector retrieval
-7. BM25 retrieval
-8. hybrid retrieval
-9. LangGraph execution
-10. evidence extraction
-11. evidence persistence
-12. signal generation
-13. signal persistence
-14. frontend evidence API
-15. frontend signal API
-16. provenance
-17. source opening
-18. project isolation
-19. tenant isolation
-20. no-mock production behavior
+✓ Real uploaded telemetry reaches LangGraph.
 
-============================================================
-57. GOLDEN END-TO-END TEST
-============================================================
+✓ Evidence Agent extracts the metric.
 
-Create an automated golden test equivalent to:
+✓ Time-Series Engine creates baseline/previous/current.
 
-UPLOAD
-↓
-PARSE
-↓
-CHUNK
-↓
-EMBED
-↓
-PGVECTOR
-↓
-RETRIEVE
-↓
-LANGGRAPH
-↓
-EVIDENCE
-↓
-SIGNAL
-↓
-PERSIST
-↓
-API
-↓
-UI
+✓ Signal Agent receives those values.
 
-Use the unique token:
+✓ Signal schema preserves those values.
 
-FAILUREOPS_LIVE_RAG_TOKEN_928374
+✓ PostgreSQL persists those values.
 
-The test must fail if any stage does not work.
+✓ API returns those values.
+
+✓ BFF preserves those values.
+
+✓ TypeScript types represent those values.
+
+✓ SignalCard reads the correct fields.
+
+✓ Baseline displays correctly.
+
+✓ Previous displays correctly.
+
+✓ Current displays correctly.
+
+✓ Total Change displays correctly.
+
+✓ Period Change displays correctly.
+
+✓ Previous Risk displays correctly when available.
+
+✓ Current Risk displays correctly when available.
+
+✓ Risk Change displays correctly when available.
+
+✓ Trend displays correctly.
+
+✓ Qualitative signals do not receive fake metrics.
+
+✓ No hardcoded numbers.
+
+✓ No mock fallback.
+
+✓ No unnecessary LLM calls.
+
+✓ Evidence links still work.
+
+✓ Source provenance remains intact.
 
 ============================================================
-58. FINAL ACCEPTANCE CRITERIA
+40. FINAL REPORT
 ============================================================
 
-The fix is complete ONLY if all are true:
+Return:
 
-✓ User uploads a NEW document from the frontend
+1. EXACT ROOT CAUSE
 
-✓ Document is persisted in DB
+Was the issue in:
 
-✓ Document is stored in RustFS
+LangGraph?
+Evidence Agent?
+Signal Agent?
+Schema?
+Persistence?
+API?
+BFF?
+TypeScript?
+SignalCard?
 
-✓ Parser extracts the real content
+2. DATA PATH BEFORE
 
-✓ Chunks contain the real content
+<where values disappeared>
 
-✓ Embeddings are persisted in pgvector
+3. DATA PATH AFTER
 
-✓ Retrieval finds the uploaded chunk
+<how values now travel>
 
-✓ Project/tenant filtering is enforced
-
-✓ LangGraph receives retrieved chunks
-
-✓ Evidence Agent extracts the real fact
-
-✓ Signal Agent generates signals from real evidence
-
-✓ Evidence is persisted
-
-✓ Signals are persisted
-
-✓ Evidence Intelligence displays the uploaded document's evidence
-
-✓ Signal Explorer displays signals from that evidence
-
-✓ Evidence links use real evidence IDs
-
-✓ Source links open the real uploaded file
-
-✓ Duplicate evidence is not created/rendered
-
-✓ No production mock fallback is used
-
-✓ Data survives page refresh
-
-✓ Data survives backend restart where persistence is expected
-
-✓ No cross-project leakage
-
-✓ No API keys/secrets are exposed
-
-✓ No uncontrolled LLM parallelism
-
-✓ No unnecessary repeated LangGraph executions
-
-============================================================
-59. REQUIRED FINAL REPORT
-============================================================
-
-Return a detailed report:
-
-====================================================
-FAILUREOPS X — LIVE RAG/LANGGRAPH INTEGRATION REPORT
-====================================================
-
-1. EXECUTIVE VERDICT
-
-Real frontend → RAG:
-PASS/FAIL
-
-Real RAG → LangGraph:
-PASS/FAIL
-
-Real LangGraph → Evidence:
-PASS/FAIL
-
-Real Evidence → Signals:
-PASS/FAIL
-
-Real persistence:
-PASS/FAIL
-
-Frontend live data:
-PASS/FAIL
-
-Overall:
-PASS/PARTIAL/FAIL
-
-----------------------------------------------------
-
-2. EXACT ROOT CAUSE
-
-<precise cause>
-
-----------------------------------------------------
-
-3. PIPELINE TRACE
-
-Upload:
-...
-
-RustFS:
-...
-
-Parser:
-...
-
-Chunks:
-...
-
-Embedding:
-...
-
-PGVector:
-...
-
-Dense retrieval:
-...
-
-BM25:
-...
-
-RRF:
-...
-
-Reranker:
-...
-
-LangGraph:
-...
-
-Evidence:
-...
-
-Signals:
-...
-
-DB persistence:
-...
-
-Frontend:
-...
-
-----------------------------------------------------
-
-4. UNIQUE TEST PROOF
+4. REAL EXAMPLE
 
 Document:
-failureops_live_rag_test.txt
-
-Token:
-FAILUREOPS_LIVE_RAG_TOKEN_928374
-
-Document ID:
 ...
 
-Chunk ID:
+Metric:
 ...
 
-Vector:
+Baseline:
 ...
 
-Retrieved:
-YES/NO
-
-LangGraph:
-YES/NO
-
-Evidence ID:
+Previous:
 ...
 
-Signal ID:
+Current:
 ...
 
-Frontend:
-YES/NO
+Total Change:
+...
 
-Source:
-HTTP ...
+Period Change:
+...
 
-----------------------------------------------------
+Trend:
+...
 
-5. DUPLICATION ROOT CAUSE
+Previous Risk:
+...
+
+Current Risk:
+...
+
+Risk Change:
+...
+
+5. FILES CHANGED
 
 ...
 
-----------------------------------------------------
+6. DATABASE CHANGES
 
-6. MOCK DATA AUDIT
+...
 
-Evidence Intelligence:
-REAL/MOCK/MIXED
+7. API CHANGES
+
+...
+
+8. LANGGRAPH CHANGES
+
+...
+
+9. FRONTEND CHANGES
+
+...
+
+10. TESTS
+
+...
+
+11. TEST RESULTS
+
+...
+
+12. BROWSER NETWORK VERIFICATION
+
+GET /api/signals:
+PASS/FAIL
+
+13. FINAL VERDICT
 
 Signal Explorer:
-REAL/MOCK/MIXED
-
-----------------------------------------------------
-
-7. FILES CHANGED
-
-...
-
-----------------------------------------------------
-
-8. DATABASE CHANGES
-
-...
-
-----------------------------------------------------
-
-9. API CHANGES
-
-...
-
-----------------------------------------------------
-
-10. LANGGRAPH CHANGES
-
-...
-
-----------------------------------------------------
-
-11. TESTS
-
-...
-
-----------------------------------------------------
-
-12. SECURITY
-
-Project isolation:
-PASS/FAIL
-
-Tenant isolation:
-PASS/FAIL
-
-Source authorization:
-PASS/FAIL
-
-----------------------------------------------------
-
-13. PERFORMANCE
-
-LLM calls:
-...
-
-Embedding calls:
-...
-
-Retrieval latency:
-...
-
-Rate-limit protection:
-...
-
-----------------------------------------------------
-
-14. LIVE BROWSER RESULT
-
-Upload:
-PASS/FAIL
-
-Evidence Intelligence:
-PASS/FAIL
-
-Signal Explorer:
-PASS/FAIL
-
-Evidence detail:
-PASS/FAIL
-
-Open Source:
-PASS/FAIL
-
-----------------------------------------------------
-
-15. REMAINING LIMITATIONS
-
-...
+REAL DATA / PARTIAL / FAIL
 
 ============================================================
-FINAL RULE
+MOST IMPORTANT RULE
 ============================================================
 
-DO NOT SAY "RAG WORKS" BECAUSE AN ENDPOINT EXISTS.
+DO NOT FIX THE N/A DISPLAY BY PUTTING VALUES INTO REACT.
 
-PROVE:
+The correct chain is:
 
-REAL USER UPLOAD
-→ REAL STORAGE
-→ REAL PARSING
-→ REAL CHUNKS
-→ REAL PGVECTOR
-→ REAL RETRIEVAL
-→ REAL LANGGRAPH
+REAL DOCUMENT
+→ REAL PARSED METRIC
+→ REAL CHUNK
+→ REAL EMBEDDING
+→ REAL PGVECTOR RETRIEVAL
+→ REAL LANGGRAPH STATE
 → REAL EVIDENCE
-→ REAL SIGNALS
+→ REAL TIME SERIES
+→ REAL SIGNAL
 → REAL DATABASE
+→ REAL API
 → REAL FRONTEND
 
-The uploaded document itself must be the source of the displayed evidence.
+Every value shown in Signal Explorer must originate from that chain.
 
-No mock values.
-No seeded fallback.
-No fake citations.
-No fabricated evidence.
-No hardcoded signals.
-
-FIRST AUDIT THE ACTUAL LIVE PATH.
-THEN FIX ONLY THE BROKEN PARTS.
-THEN RUN THE UNIQUE-TOKEN END-TO-END TEST.
-THEN REPORT THE PROOF.
-
-DO NOT START BY REDESIGNING THE UI.
-DO NOT REWRITE THE RAG ENGINE UNTIL THE AUDIT PROVES IT IS BROKEN.
+START WITH FORENSIC AUDIT.
+IDENTIFY THE FIRST POINT WHERE THE REAL VALUES DISAPPEAR.
+THEN FIX THAT POINT AND PROPAGATE THE CANONICAL DATA CONTRACT.
