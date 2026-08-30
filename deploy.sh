@@ -42,7 +42,8 @@ npm install --no-audit --prefer-offline --quiet
 # Kill any orphaned next build processes and remove stale locks before starting fresh build
 pkill -f "next-build" || true
 pkill -f "next build" || true
-rm -rf $APP_DIR/frontend/.next/lock $APP_DIR/.next/lock
+rm -rf $APP_DIR/.next
+find $APP_DIR -name 'lock' -type f -delete || true
 sleep 1
 
 npm run build
