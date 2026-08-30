@@ -74,7 +74,7 @@ export default function IntelligencePage() {
       num: '08',
       name: 'Predicted Next Failure',
       role: 'Builds explainable causal reasoning chains that forecast the upcoming milestone obstacle.',
-      metric: 'Predictive DAG',
+      metric: 'Predictive RAG',
     },
     {
       num: '09',

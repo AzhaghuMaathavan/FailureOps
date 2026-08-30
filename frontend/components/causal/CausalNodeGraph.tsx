@@ -95,7 +95,7 @@ export const CausalNodeGraph: React.FC<CausalNodeGraphProps> = ({
       <ActionEmpty
         icon={GitFork}
         title="No sufficiently supported failure chain detected."
-        description="Upload project documents and run analysis to synthesize empirical causal DAG chains from grounded evidence citations."
+        description="Upload project documents and run analysis to synthesize empirical causal RAG chains from grounded evidence citations."
         actionLabel="Run Project Analysis"
         actionHref={`/projects/${projectId}/analysis`}
       />
@@ -149,7 +149,7 @@ export const CausalNodeGraph: React.FC<CausalNodeGraphProps> = ({
           <div className="mb-4 flex items-center justify-between border-b border-border pb-3">
             <div className="flex items-center gap-2">
               <GitFork className="h-4 w-4 text-primary" aria-hidden="true" />
-              <h3 className="text-xs font-bold uppercase tracking-wider text-foreground">Grounded Causal DAG</h3>
+              <h3 className="text-xs font-bold uppercase tracking-wider text-foreground">Grounded Causal RAG</h3>
             </div>
             <span className="font-mono text-[11px] text-muted-foreground">
               {nodes.length} Nodes • {edges.length} Causal Links
