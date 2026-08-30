@@ -149,35 +149,63 @@ export default function AnalysisProcessingPage() {
           </p>
         </div>
 
-        {isFinished ? (
+        <div className="flex flex-wrap items-center gap-2">
           <button
             type="button"
-            onClick={() => router.push(`/projects/${projectId}/overview`)}
-            className="inline-flex cursor-pointer items-center gap-2 rounded-[10px] bg-primary px-4 py-2.5 text-xs font-bold text-primary-foreground shadow-[0_0_18px_-4px_rgba(255,122,0,0.35)] transition-colors hover:bg-primary-hover focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+            onClick={async () => {
+              try {
+                setLogs((prev) => [...prev, `[${new Date().toISOString().slice(11, 19)}] Triggering simulated intelligence fixture...`]);
+                const simRes = await apiClient.simulateIntelligence(projectId);
+                setLogs((prev) => [
+                  ...prev,
+                  `[${new Date().toISOString().slice(11, 19)}] Simulated analysis complete: ${simRes.analysisId}`,
+                  `  → Fixture: ${simRes.fixtureVersion} · Evidence: ${simRes.metrics?.total_evidence_extracted ?? 5} · Signals: ${simRes.metrics?.total_signals ?? 5}`
+                ]);
+                setIsFinished(true);
+                setAnalysisCompleted(true);
+                setStages((prev) => prev.map((s) => ({ ...s, status: 'COMPLETED' })));
+                setProgressPercent(100);
+              } catch (err: any) {
+                setAnalysisError(err.message || 'Simulated execution failed');
+              }
+            }}
+            className="inline-flex cursor-pointer items-center gap-2 rounded-[10px] border border-amber-500/30 bg-amber-500/10 px-4 py-2.5 text-xs font-bold text-amber-300 transition-colors hover:bg-amber-500/20 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-amber-400"
+            title="Run simulated upstream LangGraph fixture through real downstream FailureOps backend"
           >
-            <Sparkles className="h-4 w-4" aria-hidden="true" />
-            Open briefing
-            <ArrowRight className="h-4 w-4" aria-hidden="true" />
+            <span>Simulate Intelligence</span>
           </button>
-        ) : analysisError ? (
-          <button
-            type="button"
-            onClick={() => router.push(`/projects/${projectId}/pipeline`)}
-            className="inline-flex cursor-pointer items-center gap-2 rounded-[10px] border border-border bg-card px-4 py-2.5 text-xs font-bold text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
-          >
-            Inspect RAG Pipeline
-          </button>
-        ) : (
-          <button
-            type="button"
-            disabled
-            className="inline-flex cursor-not-allowed items-center gap-2 rounded-[10px] bg-primary px-4 py-2.5 text-xs font-bold text-primary-foreground opacity-80 shadow-[0_0_18px_-4px_rgba(255,122,0,0.35)]"
-          >
-            <Loader2 className="h-4 w-4 animate-spin motion-reduce:animate-none" aria-hidden="true" />
-            Pipeline running
-          </button>
-        )}
+
+          {isFinished ? (
+            <button
+              type="button"
+              onClick={() => router.push(`/projects/${projectId}/overview`)}
+              className="inline-flex cursor-pointer items-center gap-2 rounded-[10px] bg-primary px-4 py-2.5 text-xs font-bold text-primary-foreground shadow-[0_0_18px_-4px_rgba(255,122,0,0.35)] transition-colors hover:bg-primary-hover focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+            >
+              <Sparkles className="h-4 w-4" aria-hidden="true" />
+              Open briefing
+              <ArrowRight className="h-4 w-4" aria-hidden="true" />
+            </button>
+          ) : analysisError ? (
+            <button
+              type="button"
+              onClick={() => router.push(`/projects/${projectId}/overview`)}
+              className="inline-flex cursor-pointer items-center gap-2 rounded-[10px] border border-border bg-card px-4 py-2.5 text-xs font-bold text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+            >
+              Back to Overview
+            </button>
+          ) : (
+            <button
+              type="button"
+              disabled
+              className="inline-flex cursor-not-allowed items-center gap-2 rounded-[10px] bg-primary px-4 py-2.5 text-xs font-bold text-primary-foreground opacity-80 shadow-[0_0_18px_-4px_rgba(255,122,0,0.35)]"
+            >
+              <Loader2 className="h-4 w-4 animate-spin motion-reduce:animate-none" aria-hidden="true" />
+              Pipeline running
+            </button>
+          )}
+        </div>
       </div>
+
 
       {analysisError && (
         <div

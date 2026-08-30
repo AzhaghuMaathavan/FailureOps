@@ -181,13 +181,29 @@ export const apiClient = {
     };
   },
 
-  // Analysis
   async startAnalysis(projectId: string, reasoningDepth: string = 'DEEP') {
     return request<{ jobId: string; analysisId: string; status: string; message?: string }>('/api/analysis', {
       method: 'POST',
       body: JSON.stringify({ projectId, reasoningDepth }),
     });
   },
+
+  async simulateIntelligence(projectId: string, fixtureVersion: string = '1.0') {
+    return request<{
+      analysisId: string;
+      projectId: string;
+      isSimulated: boolean;
+      source: string;
+      fixtureVersion: string;
+      status: string;
+      message: string;
+      metrics?: any;
+    }>('/api/analysis/simulate', {
+      method: 'POST',
+      body: JSON.stringify({ projectId, fixtureVersion }),
+    });
+  },
+
 
   async getAnalysisStatus(jobId: string, projectId: string = 'aurora') {
     return request<{

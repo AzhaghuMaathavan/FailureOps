@@ -369,3 +369,186 @@ def run_project_analysis_pipeline(
         db.close()
 
 
+def run_simulated_intelligence_pipeline(
+    analysis_id: str,
+    organization_id: str,
+    project_id: str,
+    fixture_version: str = "1.0"
+):
+    """
+    Executes the FailureOps Intelligence lifecycle using the upstream FixtureProvider
+    (simulating RAG + Evidence Agent + Signal Agent) while executing ALL REAL downstream
+    engines (Failure DNA, Causal Chains, Prediction, Historical Memory, Simulations, Interventions, Radar).
+    """
+    from app.services.intelligence_provider import FixtureProvider
+    from app.models.project import Project
+    from app.services.dna_engine import calculate_failure_dna
+    from app.services.failure_chain_engine import generate_failure_chain_and_prediction
+    from app.services.memory_engine import search_historical_failure_cases
+    from app.services.simulation_engine import run_what_if_simulations
+    from app.services.intervention_engine import generate_intervention_plan
+    from app.services.experiment_engine import generate_initial_experiments_from_plan
+    from app.services.outcome_engine import verify_all_project_experiments
+    from app.services.radar_engine import synthesize_failure_radar_snapshot
+
+    db: Session = SessionLocal()
+    t_start = time.time()
+
+    try:
+        # Step 1: Upstream Intelligence Generation via Fixture Provider
+        update_analysis_stage(db, analysis_id, "EXTRACTING_EVIDENCE", "Generating simulated evidence from LangGraph fixture...", 50)
+        fixture_provider = FixtureProvider(fixture_version=fixture_version)
+        intel_result = fixture_provider.get_intelligence_result(
+            project_id=project_id,
+            organization_id=organization_id,
+            analysis_id=analysis_id
+        )
+        evidence_packet = intel_result.evidence_packet
+        signal_packet = intel_result.signal_packet
+
+        # Step 2: Real Downstream Engine Execution
+        update_analysis_stage(db, analysis_id, "CALCULATING_FAILURE_DNA", "Computing multi-dimensional Failure DNA & Health...", 70)
+        dna_packet = calculate_failure_dna(
+            signal_packet=signal_packet,
+            evidence_packet=evidence_packet
+        )
+
+        update_analysis_stage(db, analysis_id, "BUILDING_FAILURE_CHAIN", "Modeling causal failure trajectory & predictions...", 85)
+        chain_packet = generate_failure_chain_and_prediction(
+            signal_packet=signal_packet,
+            dna_packet=dna_packet
+        )
+
+        update_analysis_stage(db, analysis_id, "RUNNING_SIMULATIONS", "Matching historical memory & simulating what-if scenarios...", 92)
+        memory_packet = search_historical_failure_cases(
+            project_id=project_id,
+            organization_id=organization_id,
+            signal_packet=signal_packet,
+            dna_packet=dna_packet
+        )
+        simulation_packet = run_what_if_simulations(
+            project_id=project_id,
+            organization_id=organization_id,
+            signal_packet=signal_packet,
+            dna_packet=dna_packet
+        )
+
+        update_analysis_stage(db, analysis_id, "SYNTHESIZING_DECISIONS", "Formulating prioritized interventions & failure radar...", 96)
+        intervention_plan = generate_intervention_plan(
+            signal_packet=signal_packet,
+            dna_packet=dna_packet,
+            chain_packet=chain_packet,
+            memory_packet=memory_packet,
+            simulation_packet=simulation_packet
+        )
+        experiment_list = generate_initial_experiments_from_plan(intervention_plan)
+        outcome_packet = verify_all_project_experiments(experiment_list.experiments)
+        radar_snapshot = synthesize_failure_radar_snapshot(
+            signal_packet=signal_packet,
+            dna_packet=dna_packet,
+            chain_packet=chain_packet,
+            intervention_plan=intervention_plan,
+            experiment_list=experiment_list,
+            memory_packet=memory_packet
+        )
+
+        # Step 3: Relational Persistence
+        update_analysis_stage(db, analysis_id, "PERSISTING_ANALYSIS", "Persisting Intelligence & Decision Packets...", 99)
+        analysis = db.query(ProjectAnalysis).filter(ProjectAnalysis.id == analysis_id).first()
+        if analysis:
+            analysis.evidence_packet = evidence_packet.model_dump()
+            analysis.signal_packet = signal_packet.model_dump()
+            analysis.failure_dna = dna_packet.model_dump()
+            analysis.failure_chain = chain_packet.model_dump()
+            analysis.historical_matches = memory_packet.model_dump()
+            analysis.simulations = simulation_packet.model_dump()
+            analysis.interventions = intervention_plan.model_dump()
+            analysis.experiments = experiment_list.model_dump()
+            analysis.outcomes = outcome_packet.model_dump()
+            analysis.radar_snapshot = radar_snapshot.model_dump()
+            analysis.metrics = {
+                "is_simulated": True,
+                "source": "INTELLIGENCE_FIXTURE",
+                "fixture_version": fixture_version,
+                "total_documents_analyzed": 1,
+                "total_chunks_searched": len(evidence_packet.evidence),
+                "total_evidence_extracted": len(evidence_packet.evidence),
+                "total_signals": len(signal_packet.signals),
+                "processing_time_seconds": round(time.time() - t_start, 3)
+            }
+
+            # Clear any existing items for this analysis_id
+            db.query(EvidenceItem).filter(EvidenceItem.analysis_id == analysis_id).delete()
+            db.query(EvidenceConflict).filter(EvidenceConflict.analysis_id == analysis_id).delete()
+            db.query(SignalItem).filter(SignalItem.analysis_id == analysis_id).delete()
+            db.flush()
+
+            for item in evidence_packet.evidence:
+                db_item = EvidenceItem(
+                    id=f"{analysis_id}_{item.id}_{uuid.uuid4().hex[:6]}",
+                    analysis_id=analysis_id,
+                    organization_id=organization_id,
+                    project_id=project_id,
+                    category=item.category,
+                    evidence_type=item.evidence_type,
+                    statement=item.statement,
+                    normalized_value=item.normalized_value.model_dump() if item.normalized_value else None,
+                    time_period=item.time_period.model_dump() if item.time_period else None,
+                    source_lineage=item.source.model_dump(),
+                    supporting_sources=[s.model_dump() for s in item.supporting_sources],
+                    supporting_chunk_ids=item.supporting_chunk_ids,
+                    evidence_confidence=item.evidence_confidence,
+                    verification_status=item.verification_status,
+                    visibility=item.privacy.visibility,
+                    global_learning_allowed=item.privacy.global_learning_allowed
+                )
+                db.add(db_item)
+
+            for sig in signal_packet.signals:
+                db_sig = SignalItem(
+                    id=f"{analysis_id}_{sig.signal_id}_{uuid.uuid4().hex[:6]}",
+                    analysis_id=analysis_id,
+                    organization_id=organization_id,
+                    project_id=project_id,
+                    name=sig.name,
+                    category=sig.category,
+                    signal_type=sig.signal_type,
+                    polarity=sig.polarity,
+                    status=sig.status,
+                    severity=sig.severity,
+                    summary=sig.summary,
+                    metric_change=sig.metric_change,
+                    signal_strength=sig.signal_strength,
+                    signal_confidence=sig.signal_confidence,
+                    historical_prevalence=sig.historical_prevalence,
+                    supporting_evidence_ids=sig.supporting_evidence_ids,
+                    supporting_relationship_ids=sig.supporting_relationship_ids
+                )
+                db.add(db_sig)
+
+            # Update Project overview cache
+            project = db.query(Project).filter(Project.id == project_id).first()
+            if project:
+                project.failure_risk = dna_packet.overall.risk_score
+                project.predicted_next_failure = chain_packet.prediction.predicted_failure
+                project.prediction_confidence = int(chain_packet.prediction.confidence * 100) if isinstance(chain_packet.prediction.confidence, float) else chain_packet.prediction.confidence
+                project.health = "CRITICAL" if dna_packet.overall.risk_score >= 70 else ("AT_RISK" if dna_packet.overall.risk_score >= 40 else "HEALTHY")
+                project.risk_trend = f"+{dna_packet.overall.risk_score}% elevated (Simulated)"
+
+            db.commit()
+
+        update_analysis_stage(db, analysis_id, "COMPLETED", "Simulated Intelligence Pipeline Complete", 100)
+        logger.info(f"[analysis_orchestrator] Simulated analysis {analysis_id} completed successfully in {round(time.time() - t_start, 2)}s.")
+
+    except Exception as e:
+        logger.error(f"[analysis_orchestrator] Simulated analysis {analysis_id} failed: {e}", exc_info=True)
+        try:
+            db.rollback()
+            update_analysis_stage(db, analysis_id, "FAILED", "Simulation encountered an error", 0, error_msg=str(e))
+        except Exception as update_err:
+            logger.error(f"[analysis_orchestrator] Failed to record failure state for simulated analysis {analysis_id}: {update_err}")
+    finally:
+        db.close()
+
+
+

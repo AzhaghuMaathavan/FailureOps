@@ -80,8 +80,43 @@ export default function ProjectOverviewPage() {
       ? `Investigate ${predictedFailure}. Historical similarity ${project.historicalSimilarity ?? project.historical_similarity ?? 'n/a'}%.`
       : 'Run analysis to rank the next intervention.');
 
+  const [isSimulating, setIsSimulating] = React.useState<boolean>(false);
+  const [simulationMeta, setSimulationMeta] = React.useState<any>(null);
+
+  const handleSimulateIntelligence = async () => {
+    try {
+      setIsSimulating(true);
+      const res = await apiClient.simulateIntelligence(projectId);
+      setSimulationMeta(res);
+      window.location.reload();
+    } catch (err: any) {
+      alert(err.message || 'Simulated intelligence execution failed');
+      setIsSimulating(false);
+    }
+  };
+
+  const isSimulatedActive = Boolean(
+    project?.risk_trend?.includes('Simulated') ||
+    project?.riskTrend?.includes('Simulated') ||
+    simulationMeta?.isSimulated
+  );
+
   return (
     <div className="space-y-5">
+      {isSimulatedActive && (
+        <div className="p-3.5 rounded-xl bg-amber-500/10 border border-amber-500/30 flex items-center justify-between text-xs text-amber-300">
+          <div className="flex items-center gap-2.5">
+            <span className="w-2 h-2 rounded-full bg-amber-400 animate-pulse" />
+            <span>
+              <strong>TEST / SIMULATED INTELLIGENCE ACTIVE</strong> — Source: LangGraph Fixture v1.0 (All downstream FailureOps engines executed live)
+            </span>
+          </div>
+          <span className="px-2 py-0.5 rounded bg-amber-500/20 text-amber-200 font-mono text-[10px] font-bold">
+            FIXTURE MODE
+          </span>
+        </div>
+      )}
+
       <div className="flex flex-col lg:flex-row lg:items-start justify-between gap-4">
         <div className="space-y-1.5 min-w-0">
           <p className="text-[11px] font-mono font-bold uppercase tracking-[0.66px] text-primary">
@@ -100,6 +135,14 @@ export default function ProjectOverviewPage() {
         </div>
 
         <div className="flex flex-wrap items-center gap-2">
+          <button
+            onClick={handleSimulateIntelligence}
+            disabled={isSimulating}
+            className="inline-flex items-center justify-center gap-1.5 min-h-[44px] px-4 py-2.5 rounded-[10px] bg-amber-500/10 hover:bg-amber-500/20 border border-amber-500/30 text-amber-300 text-xs font-bold transition-all duration-200 cursor-pointer disabled:opacity-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-amber-400"
+            title="Run upstream LangGraph fixture through real downstream FailureOps engines"
+          >
+            <span>{isSimulating ? 'Simulating...' : 'Simulate Intelligence'}</span>
+          </button>
           <Link
             href={`/projects/${projectId}/radar`}
             className="inline-flex items-center justify-center gap-1.5 min-h-[44px] px-4 py-2.5 rounded-[10px] bg-surface-feed hover:bg-card border border-border text-xs font-bold text-foreground transition-all duration-200 cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary"
@@ -114,6 +157,7 @@ export default function ProjectOverviewPage() {
           </Link>
         </div>
       </div>
+
 
       <IntelligencePipeline currentStage="overview" projectId={projectId} />
 

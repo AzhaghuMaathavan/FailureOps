@@ -331,6 +331,104 @@ def get_analysis_status(
     )
 
 
+class SimulateIntelligenceRequest(BaseModel):
+    project_id: str
+    company_id: Optional[str] = None
+    fixture_version: Optional[str] = "1.0"
+
+
+class SimulateIntelligenceResponse(BaseModel):
+    success: bool = True
+    analysis_id: str
+    project_id: str
+    organization_id: str
+    is_simulated: bool = True
+    source: str = "INTELLIGENCE_FIXTURE"
+    fixture_version: str = "1.0"
+    status: str = "COMPLETED"
+    message: str
+    metrics: Dict[str, Any]
+
+
+@router.post("/test/intelligence/fixture", response_model=SimulateIntelligenceResponse)
+def execute_test_intelligence_fixture(
+    payload: SimulateIntelligenceRequest,
+    org_id: str = Depends(get_tenant_context),
+    db: Session = Depends(get_db)
+):
+    """
+    Temporary test endpoint executing simulated upstream intelligence (LangGraph fixture)
+    against the real downstream FailureOps backend engines (DNA, Chains, Prediction, Memory, Interventions, Radar).
+    Guarded by INTELLIGENCE_FIXTURE_ENABLED setting.
+    """
+    if not getattr(settings, "INTELLIGENCE_FIXTURE_ENABLED", True):
+        raise HTTPException(
+            status_code=403,
+            detail="Simulated intelligence fixture endpoint is disabled in this environment."
+        )
+
+    # Multi-tenant and IDOR Verification
+    project = db.query(Project).filter(
+        Project.id == payload.project_id,
+        (Project.organization_id == org_id) | (Project.privacy_level.in_(["PUBLIC", "PUBLIC_CASE_STUDY"]))
+    ).first()
+
+    if not project:
+        raise HTTPException(status_code=404, detail="Project not found or unauthorized")
+
+    from app.services.analysis_orchestrator import run_simulated_intelligence_pipeline
+
+    analysis_id = f"anl_sim_{uuid.uuid4().hex[:10]}"
+    db_analysis = ProjectAnalysis(
+        id=analysis_id,
+        organization_id=org_id,
+        project_id=payload.project_id,
+        status="PROCESSING",
+        current_stage="STARTING_SIMULATION",
+        progress_percent=10
+    )
+    db.add(db_analysis)
+    db.commit()
+
+    # Synchronously execute the full downstream pipeline with fixture input
+    fixture_ver = payload.fixture_version or "1.0"
+    run_simulated_intelligence_pipeline(
+        analysis_id=analysis_id,
+        organization_id=org_id,
+        project_id=payload.project_id,
+        fixture_version=fixture_ver
+    )
+
+    db.refresh(db_analysis)
+
+    return SimulateIntelligenceResponse(
+        success=True,
+        analysis_id=analysis_id,
+        project_id=payload.project_id,
+        organization_id=org_id,
+        is_simulated=True,
+        source="INTELLIGENCE_FIXTURE",
+        fixture_version=fixture_ver,
+        status=db_analysis.status,
+        message="Simulated intelligence processed through real downstream FailureOps engines.",
+        metrics=db_analysis.metrics or {}
+    )
+
+
+@router.post("/projects/{project_id}/simulate-intelligence", response_model=SimulateIntelligenceResponse)
+def execute_project_simulate_intelligence(
+    project_id: str,
+    org_id: str = Depends(get_tenant_context),
+    db: Session = Depends(get_db)
+):
+    """
+    Project-scoped route to trigger simulated intelligence fixture and execute real downstream analysis.
+    """
+    req = SimulateIntelligenceRequest(project_id=project_id, fixture_version="1.0")
+    return execute_test_intelligence_fixture(payload=req, org_id=org_id, db=db)
+
+
+
 @router.get("/projects/{project_id}/analysis/{analysis_id}/evidence", response_model=EvidencePacket)
 def get_analysis_evidence_packet(
     project_id: str,

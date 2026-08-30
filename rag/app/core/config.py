@@ -48,6 +48,11 @@ class Settings(BaseSettings):
     BACKEND_URL: str = os.getenv("BACKEND_URL", "http://localhost:8000")
     APP_ENV: str = os.getenv("APP_ENV", "development")
 
+    # Intelligence Source Configuration (langgraph | fixture)
+    INTELLIGENCE_SOURCE: str = os.getenv("INTELLIGENCE_SOURCE", "langgraph")
+    INTELLIGENCE_FIXTURE_ENABLED: bool = os.getenv("INTELLIGENCE_FIXTURE_ENABLED", "true").lower() == "true"
+
+
     # Database — PostgreSQL + pgvector only (no SQLite fallback)
     DATABASE_URL: str = os.getenv(
         "DATABASE_URL",
