@@ -1,11 +1,10 @@
+export const dynamic = 'force-dynamic';
 import { NextResponse } from 'next/server';
-
-
-const BACKEND_URL = process.env.NEXT_PUBLIC_BACKEND_URL || 'http://localhost:8000';
+import { serverConfig } from '@/lib/server/config';
 
 export async function GET() {
   try {
-    const res = await fetch(`${BACKEND_URL}/api/email/status`, {
+    const res = await fetch(`${serverConfig.backendInternalUrl}/api/email/status`, {
       method: 'GET',
       headers: { 'Content-Type': 'application/json' },
       cache: 'no-store',
