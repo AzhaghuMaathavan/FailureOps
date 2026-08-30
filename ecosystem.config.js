@@ -15,8 +15,8 @@ module.exports = {
     {
       name: 'failureops-frontend',
       cwd: '/home/ubuntu/failureops/frontend',
-      script: 'node_modules/next/dist/bin/next',
-      args: 'start -p 3000',
+      script: 'npm',
+      args: 'run start',
       env: {
         NODE_ENV: 'production',
         PORT: '3000',
@@ -24,5 +24,6 @@ module.exports = {
       restart_delay: 2000,
       max_restarts: 10,
     },
+
   ],
 };
