@@ -35,20 +35,32 @@ def classify_document_source_type(doc: Document) -> str:
 
     combined = f"{doc.filename or ''} {doc.title or ''} {doc.description or ''} {' '.join(doc.topics or [])}".lower().replace("_", "").replace("-", "").replace(" ", "")
     
-    if any(k in combined for k in ["customerfeedback", "feedback", "survey", "csat", "nps", "interview", "review", "complaint", "customer"]):
-        return "CUSTOMER_FEEDBACK"
-    if any(k in combined for k in ["productmetric", "telemetry", "activation", "retention", "churn", "conversion", "dau", "mau", "growth", "metric"]):
-        return "PRODUCT_METRICS"
-    if any(k in combined for k in ["incidentreport", "incident", "postmortem", "outage", "sev1", "sev2", "rootcause", "rollback"]):
-        return "INCIDENT_REPORTS"
-    if any(k in combined for k in ["teamoperation", "team", "workload", "sprint", "burnout", "overtime", "internship", "completion", "hr", "velocity", "operation"]):
-        return "TEAM_OPERATIONS"
+    # 1. Engineering metrics (check before generic 'metric')
     if any(k in combined for k in ["engineeringmetric", "engineering", "deploy", "cicd", "commit", "bug", "mttr", "latency", "architecture", "errorrate", "mlt", "testreport"]):
         return "ENGINEERING_METRICS"
+
+    # 2. Team operations
+    if any(k in combined for k in ["teamoperation", "team", "workload", "sprint", "burnout", "overtime", "internship", "completion", "hr", "velocity", "operation"]):
+        return "TEAM_OPERATIONS"
+
+    # 3. Incident reports
+    if any(k in combined for k in ["incidentreport", "incident", "postmortem", "outage", "sev1", "sev2", "rootcause", "rollback"]):
+        return "INCIDENT_REPORTS"
+
+    # 4. Customer feedback
+    if any(k in combined for k in ["customerfeedback", "feedback", "survey", "csat", "nps", "interview", "review", "complaint", "customer"]):
+        return "CUSTOMER_FEEDBACK"
+
+    # 5. Product metrics / Telemetry
+    if any(k in combined for k in ["productmetric", "telemetry", "activation", "retention", "churn", "conversion", "dau", "mau", "growth", "metric"]):
+        return "PRODUCT_METRICS"
+
+    # 6. Product plan / Specs
     if any(k in combined for k in ["productplan", "prd", "plan", "spec", "roadmap", "feature", "blackbox", "proposal", "requirement"]):
         return "PRODUCT_PLAN"
         
     return "PRODUCT_PLAN"
+
 
 
 
