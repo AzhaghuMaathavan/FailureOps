@@ -193,7 +193,11 @@ export default function AnalysisProcessingPage() {
         </div>
         <div className="rounded-[14px] border border-border bg-card p-[18px] shadow-[0_1px_0_0_rgba(13,20,36,0.8),0_8px_24px_-8px_rgba(0,0,0,0.35)]">
           <p className="text-sm font-semibold text-foreground">Active analysis job</p>
-          <p className="mt-2 font-mono text-xs text-primary">{analysisId || 'Starting background worker...'}</p>
+          <p className="mt-2 font-mono text-xs text-primary">
+            {analysisId && analysisId !== 'latest' && analysisId !== 'idle'
+              ? analysisId
+              : (isPolling ? 'Registering analysis worker...' : 'Ready to start')}
+          </p>
         </div>
       </div>
 

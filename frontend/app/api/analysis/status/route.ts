@@ -41,13 +41,13 @@ export async function GET(req: NextRequest) {
     if (!backendStatus) {
       // Return clean idle/not-started state instead of hard failing
       return apiSuccess({
-        jobId: jobId || 'idle',
-        analysisId: jobId || 'idle',
+        jobId: null,
+        analysisId: null,
         projectId,
-        status: 'QUEUED',
+        status: 'IDLE',
         currentStage: 'NOT_STARTED',
         progressPercent: 0,
-        stages: mapRagAnalysisStages('QUEUED', false, false),
+        stages: mapRagAnalysisStages('NOT_STARTED', false, false),
         completedAt: null,
         errorMessage: null,
         resultSummary: null,

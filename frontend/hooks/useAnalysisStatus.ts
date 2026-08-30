@@ -149,7 +149,8 @@ export function useAnalysisStatus({
         const current = await apiClient.getAnalysisStatus('latest', projectId).catch(() => null);
         if (isCancelledRef.current) return;
 
-        if (current && (current.status === 'RUNNING' || current.status === 'QUEUED')) {
+        const hasRealRunningJob = current && (current.status === 'RUNNING' || current.status === 'QUEUED') && current.analysisId && current.analysisId !== 'latest' && current.analysisId !== 'idle';
+        if (hasRealRunningJob) {
           const anlId = current.analysisId || current.jobId;
           setAnalysisId(anlId);
           setStatus(current.status);
