@@ -39,8 +39,10 @@ echo "⚛️ Installing Node dependencies & Building Next.js Frontend..."
 cd $APP_DIR/frontend
 npm install --no-audit --prefer-offline --quiet
 
-# Kill any orphaned next build processes before starting fresh build
+# Kill any orphaned next build processes and remove stale locks before starting fresh build
+pkill -f "next-build" || true
 pkill -f "next build" || true
+rm -rf $APP_DIR/frontend/.next/lock $APP_DIR/.next/lock
 sleep 1
 
 npm run build
