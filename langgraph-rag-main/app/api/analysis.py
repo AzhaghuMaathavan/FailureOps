@@ -619,7 +619,24 @@ def get_latest_project_signals(
             signals=signal_schemas
         )
 
-    return SignalPacket(**latest_analysis.signal_packet)
+    packet_dict = dict(latest_analysis.signal_packet)
+    if "risk_dimensions" not in packet_dict or not packet_dict.get("risk_dimensions"):
+        if latest_analysis.failure_dna and "dimensions" in latest_analysis.failure_dna:
+            dims = []
+            for d in latest_analysis.failure_dna["dimensions"]:
+                if d.get("risk_score") is not None:
+                    dims.append({
+                        "dimension": d.get("dimension", "").upper(),
+                        "risk_score": d.get("risk_score"),
+                        "severity": d.get("severity") or d.get("status") or "MEDIUM",
+                        "trend": d.get("trend") or "STABLE",
+                        "change_percent": d.get("change_percent") or d.get("risk_change_percent"),
+                        "evidence_count": d.get("evidence_count") or len(d.get("evidence_ids") or []),
+                        "confidence": d.get("confidence") or 0.85,
+                        "why_explanation": d.get("why_explanation")
+                    })
+            packet_dict["risk_dimensions"] = dims
+    return SignalPacket(**packet_dict)
 
 
 @router.get("/projects/{project_id}/failure-dna", response_model=FailureDNAPacket)
@@ -656,7 +673,117 @@ def get_project_failure_dna(
     return FailureDNAPacket(**analysis.failure_dna)
 
 
+@router.get("/evidence/{evidence_id}")
+def get_single_evidence(
+    evidence_id: str,
+    org_id: str = Depends(get_tenant_context),
+    db: Session = Depends(get_db)
+):
+    """
+    Retrieves detailed evidence metadata, source coordinates, and citation for a single evidence item.
+    """
+    # 1. Check DB records
+    ev = db.query(EvidenceItem).filter(
+        (EvidenceItem.id == evidence_id) | (EvidenceItem.id.like(f"%{evidence_id}%")),
+        (EvidenceItem.organization_id == org_id) | (EvidenceItem.visibility.in_(["ORGANIZATION", "GLOBAL", "PUBLIC"]))
+    ).first()
+
+    if ev:
+        lineage = ev.source_lineage or {}
+        norm = ev.normalized_value or {}
+        return {
+            "id": ev.id,
+            "category": ev.category,
+            "evidence_type": ev.evidence_type,
+            "fact_type": "METRIC" if norm.get("metric") or ev.evidence_type == "METRIC" else "EVENT",
+            "statement": ev.statement,
+            "summary": ev.statement,
+            "key_fact": ev.statement,
+            "metric_name": norm.get("metric"),
+            "baseline_value": norm.get("before"),
+            "current_value": norm.get("after"),
+            "unit": norm.get("unit"),
+            "direction": norm.get("direction", "UNKNOWN"),
+            "confidence": ev.evidence_confidence if ev.evidence_confidence <= 1.0 else ev.evidence_confidence / 100.0,
+            "verification_status": ev.verification_status,
+            "location_type": lineage.get("location_type", "ROW" if lineage.get("location_type") == "ROW" else "PAGE"),
+            "location_value": lineage.get("location_value") or (f"Page {lineage.get('page_number', 1)}" if lineage.get("page_number") else "Section 1"),
+            "citation": lineage.get("citation", f"{lineage.get('document_name', lineage.get('filename', 'Source'))}"),
+            "source_document_id": lineage.get("document_id") or lineage.get("source_document_id") or lineage.get("filename"),
+            "source_document_name": lineage.get("document_name") or lineage.get("filename") or "source.pdf",
+            "supporting_chunk_ids": ev.supporting_chunk_ids or [],
+            "supporting_sources": ev.supporting_sources or [],
+            "project_id": ev.project_id,
+            "visibility": ev.visibility,
+            "normalized_value": ev.normalized_value,
+            "time_period": ev.time_period
+        }
+
+    # 2. Check within latest project analyses
+    analyses = db.query(ProjectAnalysis).filter(
+        ProjectAnalysis.organization_id == org_id,
+        ProjectAnalysis.status == "COMPLETED"
+    ).order_by(ProjectAnalysis.created_at.desc()).limit(10).all()
+
+    for anl in analyses:
+        if anl.evidence_packet and anl.evidence_packet.get("evidence"):
+            for item in anl.evidence_packet["evidence"]:
+                if item.get("id") == evidence_id or item.get("evidence_id") == evidence_id:
+                    src = item.get("source") or item.get("source_lineage") or {}
+                    return {
+                        "id": item.get("id") or evidence_id,
+                        "category": item.get("category", "TECHNICAL"),
+                        "evidence_type": item.get("evidence_type", "METRIC"),
+                        "fact_type": item.get("fact_type", "METRIC"),
+                        "statement": item.get("statement", ""),
+                        "summary": item.get("statement", ""),
+                        "key_fact": item.get("statement", ""),
+                        "metric_name": item.get("metric_name") or (item.get("normalized_value") or {}).get("metric"),
+                        "baseline_value": item.get("baseline_value"),
+                        "previous_value": item.get("previous_value"),
+                        "current_value": item.get("current_value"),
+                        "unit": item.get("unit"),
+                        "direction": item.get("direction", "UNKNOWN"),
+                        "baseline_timestamp": item.get("baseline_timestamp"),
+                        "previous_timestamp": item.get("previous_timestamp"),
+                        "current_timestamp": item.get("current_timestamp"),
+                        "baseline_to_current_change_percent": item.get("baseline_to_current_change_percent"),
+                        "previous_to_current_change_percent": item.get("previous_to_current_change_percent"),
+                        "confidence": item.get("evidence_confidence", 0.95),
+                        "verification_status": item.get("verification_status", "VERIFIED"),
+                        "location_type": src.get("location_type", "ROW" if item.get("row_numbers") else "PAGE"),
+                        "location_value": src.get("location_value") or (f"Rows {min(item['row_numbers'])}-{max(item['row_numbers'])}" if item.get("row_numbers") else "1"),
+                        "citation": item.get("citation") or src.get("document_name", "Source"),
+                        "source_document_id": src.get("document_id") or item.get("source_document_id"),
+                        "source_document_name": src.get("document_name") or item.get("source_document_name") or "source.pdf",
+                        "supporting_chunk_ids": item.get("supporting_chunk_ids", []),
+                        "supporting_sources": item.get("supporting_sources", []),
+                        "project_id": anl.project_id,
+                        "visibility": item.get("visibility", "PRIVATE"),
+                        "normalized_value": item.get("normalized_value"),
+                        "time_period": item.get("time_period")
+                    }
+
+    raise HTTPException(status_code=404, detail=f"Evidence {evidence_id} not found or access denied")
+
+
+@router.get("/documents/{document_id}/open")
+def open_document_stream(
+    document_id: str,
+    page: Optional[int] = None,
+    project_id: Optional[str] = None,
+    org_id: str = Depends(get_tenant_context),
+    db: Session = Depends(get_db)
+):
+    """
+    Direct endpoint to open/download a document with tenant validation.
+    """
+    from app.api.documents import download_document
+    return download_document(document_id, project_id=project_id, org_id=org_id, db=db)
+
+
 @router.get("/projects/{project_id}/failure-chain", response_model=FailureChainPacket)
+@router.get("/projects/{project_id}/causal", response_model=FailureChainPacket)
 def get_project_failure_chain(
     project_id: str,
     org_id: str = Depends(get_tenant_context),
@@ -695,6 +822,7 @@ def get_project_failure_chain(
 
 
 @router.get("/projects/{project_id}/predictions", response_model=FailurePrediction)
+@router.get("/projects/{project_id}/prediction", response_model=FailurePrediction)
 def get_project_failure_prediction(
     project_id: str,
     org_id: str = Depends(get_tenant_context),
@@ -738,6 +866,8 @@ def get_project_historical_matches(
 
 @router.get("/projects/{project_id}/simulate", response_model=SimulationComparisonPacket)
 @router.post("/projects/{project_id}/simulate", response_model=SimulationComparisonPacket)
+@router.get("/projects/{project_id}/simulation/scenarios", response_model=SimulationComparisonPacket)
+@router.post("/projects/{project_id}/simulation/run", response_model=SimulationComparisonPacket)
 def simulate_project_scenarios(
     project_id: str,
     payload: Optional[RunSimulationRequest] = None,
@@ -1060,6 +1190,20 @@ def get_project_interventions(
     if analysis and analysis.interventions:
         return analysis.interventions
 
+    # If analysis exists or baseline signals exist, synthesize dynamically
+    latest_signals = get_latest_project_signals(project_id, org_id, db)
+    if latest_signals and latest_signals.signals:
+        from app.services.intervention_engine import generate_intervention_plan
+        dna = get_project_failure_dna(project_id, org_id, db)
+        chain = get_project_failure_chain(project_id, org_id, db)
+        plan = generate_intervention_plan(latest_signals, dna_packet=dna, chain_packet=chain)
+        if analysis:
+            from sqlalchemy.orm.attributes import flag_modified
+            analysis.interventions = plan.model_dump()
+            flag_modified(analysis, "interventions")
+            db.commit()
+        return plan.model_dump()
+
     from app.schemas.intervention import InterventionPlanPacket
     return InterventionPlanPacket(
         project_id=project_id,
@@ -1068,6 +1212,151 @@ def get_project_interventions(
         interventions=[],
         recommended_primary_intervention="Insufficient evidence for a recommended action",
     ).model_dump()
+
+
+class ToggleActionItemRequest(BaseModel):
+    completed: Optional[bool] = None
+
+
+@router.post("/projects/{project_id}/interventions/{intervention_id}/promote")
+def promote_intervention_to_experiment(
+    project_id: str,
+    intervention_id: str,
+    org_id: str = Depends(get_tenant_context),
+    db: Session = Depends(get_db)
+):
+    """
+    Promotes a ranked intervention playbook into a live measurable A/B experiment record.
+    """
+    analysis = db.query(ProjectAnalysis).filter(
+        ProjectAnalysis.organization_id == org_id,
+        ProjectAnalysis.project_id == project_id,
+        ProjectAnalysis.status == "COMPLETED"
+    ).order_by(ProjectAnalysis.created_at.desc()).first()
+
+    plan_dict = get_project_interventions(project_id, org_id, db)
+    interventions_list = plan_dict.get("interventions", [])
+    target_int = next((i for i in interventions_list if i.get("intervention_id") == intervention_id or i.get("id") == intervention_id), None)
+    if not target_int and interventions_list:
+        target_int = interventions_list[0]
+    if not target_int:
+        raise HTTPException(status_code=404, detail="Intervention not found for this project.")
+
+    from app.schemas.experiment import ExperimentItem, ExperimentBaselineSnapshot, ExperimentTargetMetric
+    from sqlalchemy.orm.attributes import flag_modified
+    import uuid
+
+    exp_id = f"exp_{project_id}_{uuid.uuid4().hex[:6]}"
+    title = f"Validation Cohort: {target_int.get('title', 'Intervention Playbook')}"
+    hypothesis = target_int.get("expected_effect") or f"Applying {target_int.get('title')} reduces project failure risk by {target_int.get('expected_risk_reduction', 20)} pts."
+    target_sigs = target_int.get("target_signals", [])
+
+    target_metrics = []
+    base_metrics = {}
+    for sig in target_sigs:
+        is_decrease = any(term in sig.upper() for term in ["FAILURE", "LATENCY", "ERROR", "DROP", "RISK", "TIME", "OVERLOAD"])
+        dir_str = "DECREASE" if is_decrease else "INCREASE"
+        base_val = 50.0 if is_decrease else 30.0
+        tgt_val = 15.0 if is_decrease else 80.0
+        target_metrics.append(ExperimentTargetMetric(
+            metric_name=sig,
+            baseline_value=base_val,
+            target_value=tgt_val,
+            desired_direction=dir_str,
+            unit="%"
+        ))
+        base_metrics[sig] = base_val
+    if not target_metrics:
+        target_metrics.append(ExperimentTargetMetric(
+            metric_name="FailureRisk",
+            baseline_value=75.0,
+            target_value=35.0,
+            desired_direction="DECREASE",
+            unit="pts"
+        ))
+        base_metrics["FailureRisk"] = 75.0
+
+    new_exp = ExperimentItem(
+        experiment_id=exp_id,
+        project_id=project_id,
+        organization_id=org_id,
+        intervention_id=intervention_id,
+        target_signal_ids=target_sigs,
+        title=title,
+        experiment_type="TECHNICAL_FIX",
+        hypothesis=hypothesis,
+        baseline_snapshot=ExperimentBaselineSnapshot(
+            snapshot_id=f"snap_{exp_id}",
+            metrics=base_metrics
+        ),
+        target_metrics=target_metrics,
+        observation_period_days=14,
+        success_criteria=[f"Empirical improvement on {target_metrics[0].metric_name}"],
+        status="PLANNED",
+        progress_percent=0
+    )
+
+    if analysis:
+        curr_experiments = (analysis.experiments or {}).get("experiments", []) if isinstance(analysis.experiments, dict) else []
+        curr_experiments.insert(0, new_exp.model_dump())
+        analysis.experiments = {
+            "project_id": project_id,
+            "organization_id": org_id,
+            "experiments": curr_experiments,
+            "active_experiment_count": len(curr_experiments)
+        }
+        flag_modified(analysis, "experiments")
+        db.commit()
+
+    return new_exp.model_dump()
+
+
+@router.patch("/projects/{project_id}/interventions/{intervention_id}/action-items/{item_id}")
+def toggle_intervention_action_item(
+    project_id: str,
+    intervention_id: str,
+    item_id: str,
+    payload: Optional[ToggleActionItemRequest] = None,
+    org_id: str = Depends(get_tenant_context),
+    db: Session = Depends(get_db)
+):
+    """
+    Persistently toggles an action item step in an intervention plan.
+    """
+    analysis = db.query(ProjectAnalysis).filter(
+        ProjectAnalysis.organization_id == org_id,
+        ProjectAnalysis.project_id == project_id,
+        ProjectAnalysis.status == "COMPLETED"
+    ).order_by(ProjectAnalysis.created_at.desc()).first()
+
+    plan_dict = get_project_interventions(project_id, org_id, db)
+    interventions_list = plan_dict.get("interventions", [])
+    target_int = next((i for i in interventions_list if i.get("intervention_id") == intervention_id or i.get("id") == intervention_id), None)
+    if not target_int:
+        raise HTTPException(status_code=404, detail="Intervention not found")
+
+    completed_items = target_int.get("completed_action_items", [])
+    new_state = payload.completed if (payload and payload.completed is not None) else (item_id not in completed_items)
+
+    if new_state and item_id not in completed_items:
+        completed_items.append(item_id)
+    elif not new_state and item_id in completed_items:
+        completed_items.remove(item_id)
+
+    target_int["completed_action_items"] = completed_items
+
+    if analysis:
+        from sqlalchemy.orm.attributes import flag_modified
+        analysis.interventions = plan_dict
+        flag_modified(analysis, "interventions")
+        db.commit()
+
+    return {
+        "intervention_id": intervention_id,
+        "item_id": item_id,
+        "completed": new_state,
+        "completed_action_items": completed_items
+    }
 
 
 @router.get("/projects/{project_id}/experiments", response_model=Dict[str, Any])
@@ -1085,8 +1374,32 @@ def get_project_experiments(
         ProjectAnalysis.status == "COMPLETED"
     ).order_by(ProjectAnalysis.created_at.desc()).first()
 
-    if analysis and analysis.experiments:
+    if analysis and analysis.experiments and analysis.experiments.get("experiments"):
         return analysis.experiments
+
+    # If experiments not yet generated, synthesize from interventions
+    plan_dict = get_project_interventions(project_id, org_id, db)
+    interventions = plan_dict.get("interventions", [])
+    if interventions:
+        from app.services.experiment_tracker import synthesize_experiments_from_interventions
+        from app.schemas.intervention import InterventionItem, InterventionPlanPacket
+        int_items = [InterventionItem.model_validate(i) for i in interventions]
+        int_packet = InterventionPlanPacket(
+            project_id=project_id,
+            analysis_id=analysis.id if analysis else f"anl_{project_id}",
+            organization_id=org_id,
+            interventions=int_items,
+            recommended_primary_intervention=plan_dict.get("recommended_primary_intervention", "Primary")
+        )
+        latest_signals = get_latest_project_signals(project_id, org_id, db)
+        dna = get_project_failure_dna(project_id, org_id, db)
+        exp_list = synthesize_experiments_from_interventions(int_packet, latest_signals, dna_packet=dna)
+        if analysis:
+            from sqlalchemy.orm.attributes import flag_modified
+            analysis.experiments = exp_list.model_dump()
+            flag_modified(analysis, "experiments")
+            db.commit()
+        return exp_list.model_dump()
 
     from app.schemas.experiment import ExperimentListPacket
     return ExperimentListPacket(
@@ -1095,6 +1408,29 @@ def get_project_experiments(
         experiments=[],
         active_experiment_count=0,
     ).model_dump()
+
+
+@router.get("/projects/{project_id}/experiments/{experiment_id}")
+def get_single_project_experiment(
+    project_id: str,
+    experiment_id: str,
+    org_id: str = Depends(get_tenant_context),
+    db: Session = Depends(get_db)
+):
+    """
+    Retrieves a single experiment by ID with tenant security.
+    """
+    analysis = db.query(ProjectAnalysis).filter(
+        ProjectAnalysis.organization_id == org_id,
+        ProjectAnalysis.project_id == project_id,
+        ProjectAnalysis.status == "COMPLETED"
+    ).order_by(ProjectAnalysis.created_at.desc()).first()
+
+    experiments = (analysis.experiments or {}).get("experiments", []) if (analysis and isinstance(analysis.experiments, dict)) else []
+    match = next((e for e in experiments if e.get("experiment_id") == experiment_id or e.get("id") == experiment_id), None)
+    if not match:
+        raise HTTPException(status_code=404, detail="Experiment not found")
+    return match
 
 
 @router.post("/projects/{project_id}/experiments/{experiment_id}/start")

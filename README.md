@@ -72,12 +72,10 @@ Teams ship with fragmented artifacts: PRDs, support tickets, CI telemetry, custo
 Browser
    │
    ▼
-Next.js 16  (frontend/)          :3000     UI + /api/* BFF (server-only)
-   │  HTTP only — no DATABASE_URL
-   ├── LangGraph SDK (in-process)           multi-node orchestration graphs
-   │
-   ▼
-FastAPI     (rag/)                :8000     ingest · embed · retrieve · agents
+Next.js BFF (frontend/app/api/)   :3000     auth · rate limits · tenant context
+                                          │
+                                          ▼  HTTP
+FastAPI     (langgraph-rag-main/) :8000     ingest · embed · retrieve · agents
    │
    ├── PostgreSQL 16 + pgvector            :5432     metadata + 2048-dim embeddings + BM25
    └── RustFS (S3-compatible)              :9000     original document storage

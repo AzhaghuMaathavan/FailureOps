@@ -42,9 +42,10 @@ jobs:
             --exclude 'frontend/node_modules' \
             --exclude 'frontend/.next' \
             --exclude '.next' \
-            --exclude 'rag/venv' \
-            --exclude 'rag/.venv' \
-            --exclude 'rag/storage' \
+            --exclude 'langgraph-rag-main/venv' \
+            --exclude 'langgraph-rag-main/.venv' \
+            --exclude 'langgraph-rag-main/storage' \
+            --exclude 'rag' \
             --exclude '.env*' \
             --exclude 'missing.pem' \
             ./ "$VPS_USER@$VPS_HOST:/home/ubuntu/failureops/"

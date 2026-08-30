@@ -6,8 +6,7 @@ from fastapi import FastAPI, Depends
 from fastapi.middleware.cors import CORSMiddleware
 from sqlalchemy.orm import Session
 from app.core.config import settings
-from app.api import health, documents, retrieval, chat, conversations, analysis, foundation, email
-from app.intelligence.api import intelligence_router
+from app.api import health, documents, retrieval, chat, conversations, analysis, foundation
 from app.db.database import get_db
 from app.api.health import probe_database
 
@@ -71,9 +70,6 @@ async def startup_event():
     except Exception as e:
         logger.warning(f"[STARTUP] Stale job cleanup skipped: {e}")
 
-
-
-
 cors_origins = [origin.strip() for origin in (settings.FRONTEND_URL or "").split(",") if origin.strip()]
 for origin in ("http://localhost:3000", "http://127.0.0.1:3000"):
     if origin not in cors_origins:
@@ -86,6 +82,9 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+from app.api import health, documents, retrieval, chat, conversations, analysis, foundation, email
+from app.intelligence.api import intelligence_router
 
 # Foundation & SMTP Endpoints
 app.include_router(foundation.router, prefix="/api", tags=["foundation"])

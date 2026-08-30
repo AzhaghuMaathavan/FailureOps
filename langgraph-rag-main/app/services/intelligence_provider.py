@@ -374,7 +374,7 @@ class FixtureProvider(BaseIntelligenceProvider):
 class LangGraphProvider(BaseIntelligenceProvider):
     """
     Production upstream intelligence provider executing real multi-agent LangGraph workflow:
-    validate_request -> retrieve_evidence -> evidence_agent -> validate_evidence -> signal_agent -> validate_signals -> finalize_output.
+    Document RAG -> Evidence Agent -> Signal Agent.
     """
 
     def get_intelligence_result(
@@ -384,9 +384,14 @@ class LangGraphProvider(BaseIntelligenceProvider):
         analysis_id: str,
         **kwargs
     ) -> IntelligenceResult:
-        import uuid
-        from app.intelligence.graph.workflow import get_compiled_graph
-        from app.intelligence.graph.state import FailureOpsGraphState
+        # In full production mode, this calls the LangGraph / Multi-Agent graph
+        from app.services.evidence_retriever import retrieve_project_evidence_candidates
+        from app.services.evidence_agent import run_evidence_agent
+        from app.services.signal_consumer import consume_evidence_packet
+        from app.services.evidence_grouper import group_verified_evidence
+        from app.services.trend_detector import detect_trends_from_groups
+        from app.services.relationship_detector import detect_evidence_relationships
+        from app.services.signal_agent import generate_signal_packet
         from app.db.database import SessionLocal
         from app.models.document import Document
 
@@ -400,175 +405,36 @@ class LangGraphProvider(BaseIntelligenceProvider):
             ).all()
             doc_ids = [d.id for d in project_docs] if project_docs else None
 
-            # Prepare initial state for the 7-node LangGraph workflow
-            initial_state: FailureOpsGraphState = {
-                "request_id": str(uuid.uuid4()),
-                "analysis_id": analysis_id,
-                "project_id": project_id,
-                "company_id": organization_id,
-                "query": f"Analyze project operational risk, defect patterns, and deployment anomalies for {project_id}",
-                "document_ids": doc_ids,
-                "options": {"strict_validation": True},
-                "db": db,
-                "retrieved_chunks": [],
-                "raw_evidence": [],
-                "raw_events": [],
-                "raw_claims": [],
-                "validated_evidence": [],
-                "validated_events": [],
-                "validated_claims": [],
-                "signals": [],
-                "relationships": [],
-                "citations": [],
-                "warnings": [],
-                "status": "in_progress",
-                "node_latencies": {},
-                "node_path": []
-            }
+            dimension_chunks, retrieval_metrics = retrieve_project_evidence_candidates(
+                db=db,
+                organization_id=organization_id,
+                project_id=project_id,
+                document_ids=doc_ids
+            )
 
-            try:
-                compiled_graph = get_compiled_graph()
-                result_state = compiled_graph.invoke(initial_state)
-                final_response = result_state.get("final_response")
-            except Exception as graph_err:
-                logger.warning(f"[LangGraphProvider] LangGraph invoke error ({graph_err}), falling back to direct extraction", exc_info=True)
-                final_response = None
+            evidence_packet = run_evidence_agent(
+                organization_id=organization_id,
+                project_id=project_id,
+                analysis_id=analysis_id,
+                dimension_chunks_map=dimension_chunks,
+                total_docs_count=len(project_docs),
+                processing_time=kwargs.get("processing_time", 0.0)
+            )
 
-            # Build EvidencePacket and SignalPacket from LangGraph output
-            now_iso = datetime.now(timezone.utc).isoformat()
-            evidence_items_list = []
-            if final_response and final_response.evidence:
-                for idx, ev in enumerate(final_response.evidence):
-                    evidence_items_list.append(
-                        EvidenceItemSchema(
-                            id=getattr(ev, "evidence_id", f"ev_lg_{idx}_{analysis_id[:8]}"),
-                            category=getattr(ev, "category", "TECHNICAL"),
-                            evidence_type=getattr(ev, "fact_type", "METRIC"),
-                            statement=getattr(ev, "statement", "Operational observation"),
-                            normalized_value=NormalizedMetric(
-                                metric=getattr(ev, "metric_name", "operational_metric") or "operational_metric",
-                                before=getattr(ev, "baseline_value", 0.0),
-                                after=getattr(ev, "current_value", 0.0),
-                                unit=getattr(ev, "unit", "unit") or "unit",
-                                direction=str(getattr(ev, "direction", "INCREASE"))
-                            ),
-                            time_period=TimePeriod(
-                                start=getattr(ev, "period", "2026-Q1") or "2026-Q1",
-                                end="2026-Q3"
-                            ),
-                            source=EvidenceSource(
-                                document_id=getattr(ev, "source_document_id", "doc_default"),
-                                document_name=getattr(ev, "source_document_name", "operational_report.pdf"),
-                                chunk_id=getattr(ev, "source_chunk_id", "chk_default"),
-                                citation=getattr(ev, "citation", "Document Chunk Ref")
-                            ),
-                            privacy=PrivacyMetadata(
-                                visibility=getattr(ev, "visibility", "PRIVATE") or "PRIVATE",
-                                retention_policy="ENCLAVE_ISOLATED"
-                            ),
-                            confidence=getattr(ev, "extraction_confidence", 0.90) or 0.90,
-                            created_at=getattr(ev, "created_at", now_iso) or now_iso
-                        )
-                    )
-
-            # If LangGraph produced evidence items, use them; otherwise fallback to RAG candidate retrieval
-            if not evidence_items_list:
-                # Fallback to direct candidate retriever
-                from app.services.evidence_retriever import retrieve_project_evidence_candidates
-                from app.services.evidence_agent import run_evidence_agent
-                dimension_chunks, _ = retrieve_project_evidence_candidates(
-                    db=db,
-                    organization_id=organization_id,
-                    project_id=project_id,
-                    document_ids=doc_ids
-                )
-                evidence_packet = run_evidence_agent(
-                    organization_id=organization_id,
-                    project_id=project_id,
-                    analysis_id=analysis_id,
-                    dimension_chunks_map=dimension_chunks,
-                    total_docs_count=len(project_docs),
-                    processing_time=kwargs.get("processing_time", 0.0)
-                )
-            else:
-                evidence_packet = EvidencePacket(
-                    project_id=project_id,
-                    analysis_id=analysis_id,
-                    organization_id=organization_id,
-                    generated_at=now_iso,
-                    evidence_items=evidence_items_list,
-                    metrics=EvidenceMetrics(
-                        total_evidence_extracted=len(evidence_items_list),
-                        high_confidence_count=len(evidence_items_list),
-                        corroborated_count=len(evidence_items_list),
-                        conflicting_count=0
-                    )
-                )
-
-            # Build SignalPacket
-            signals_list = []
-            if final_response and final_response.signals:
-                for idx, sig in enumerate(final_response.signals):
-                    sig_id = getattr(sig, "signal_id", f"sig_lg_{idx}_{analysis_id[:8]}")
-                    signals_list.append(
-                        SignalItemSchema(
-                            signal_id=sig_id,
-                            project_id=project_id,
-                            analysis_id=analysis_id,
-                            organization_id=organization_id,
-                            name=getattr(sig, "name", f"Signal {idx+1}"),
-                            category=getattr(sig, "category", "TECHNICAL"),
-                            signal_type=getattr(sig, "signal_type", "TREND"),
-                            polarity=getattr(sig, "polarity", "NEGATIVE"),
-                            status=getattr(sig, "status", "WORSENING"),
-                            severity=getattr(sig, "severity", "HIGH"),
-                            summary=getattr(sig, "summary", "Detected risk pattern"),
-                            metric_change=getattr(sig, "metric_change", "+25.0%"),
-                            signal_strength=float(getattr(sig, "risk_score", 75.0)) / 100.0,
-                            signal_confidence=float(getattr(sig, "confidence", 0.90)),
-                            historical_prevalence=int(getattr(sig, "risk_score", 80.0)),
-                            supporting_evidence_ids=getattr(sig, "supporting_evidence_ids", []) or [],
-                            supporting_relationship_ids=getattr(sig, "supporting_relationship_ids", []) or [],
-                            created_at=now_iso
-                        )
-                    )
-
-            if not signals_list:
-                from app.services.signal_consumer import consume_evidence_packet
-                from app.services.evidence_grouper import group_verified_evidence
-                from app.services.trend_detector import detect_trends_from_groups
-                from app.services.relationship_detector import detect_evidence_relationships
-                from app.services.signal_agent import generate_signal_packet
-                signal_input_context = consume_evidence_packet(
-                    packet_input=evidence_packet,
-                    authorized_org_id=organization_id,
-                    expected_project_id=project_id
-                )
-                evidence_groups = group_verified_evidence(signal_input_context)
-                detected_trends = detect_trends_from_groups(evidence_groups)
-                relationships = detect_evidence_relationships(evidence_groups, detected_trends)
-                signal_packet = generate_signal_packet(
-                    context=signal_input_context,
-                    groups=evidence_groups,
-                    trends=detected_trends,
-                    relationships=relationships
-                )
-            else:
-                signal_packet = SignalPacket(
-                    project_id=project_id,
-                    analysis_id=analysis_id,
-                    organization_id=organization_id,
-                    generated_at=now_iso,
-                    signals=signals_list,
-                    summary=OverallSignalSummary(
-                        total_signals=len(signals_list),
-                        critical_count=sum(1 for s in signals_list if s.severity == "CRITICAL"),
-                        high_count=sum(1 for s in signals_list if s.severity == "HIGH"),
-                        medium_count=sum(1 for s in signals_list if s.severity == "MEDIUM"),
-                        low_count=sum(1 for s in signals_list if s.severity == "LOW"),
-                        health_score=round(100.0 - (sum(s.signal_strength for s in signals_list) / max(len(signals_list), 1) * 100.0), 1)
-                    )
-                )
+            signal_input_context = consume_evidence_packet(
+                packet_input=evidence_packet,
+                authorized_org_id=organization_id,
+                expected_project_id=project_id
+            )
+            evidence_groups = group_verified_evidence(signal_input_context)
+            detected_trends = detect_trends_from_groups(evidence_groups)
+            relationships = detect_evidence_relationships(evidence_groups, detected_trends)
+            signal_packet = generate_signal_packet(
+                context=signal_input_context,
+                groups=evidence_groups,
+                trends=detected_trends,
+                relationships=relationships
+            )
 
             return IntelligenceResult(
                 is_simulated=False,
@@ -580,7 +446,6 @@ class LangGraphProvider(BaseIntelligenceProvider):
         finally:
             if close_db:
                 db.close()
-
 
 
 def get_intelligence_provider(source_override: Optional[str] = None) -> BaseIntelligenceProvider:

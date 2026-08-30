@@ -4,8 +4,10 @@ from sqlalchemy.orm import Session
 from app.db.database import get_db
 from app.services.agent_service import orchestrate_rag
 from app.models.chat import Conversation, Message
+from app.models.document import Document
 from app.services.memory_service import get_recent_history, analyze_query_intelligence
 from app.services.tool_service import route_query, execute_list_documents, execute_document_metadata, execute_calculate
+from app.core.tenant import get_tenant_context
 
 from typing import List, Optional
 import time
@@ -17,9 +19,14 @@ class ChatRequest(BaseModel):
     query: str
     document_ids: Optional[List[str]] = None
     conversation_id: Optional[str] = None
+    project_id: Optional[str] = None
 
 @router.post("/")
-def chat_endpoint(request: ChatRequest, db: Session = Depends(get_db)):
+def chat_endpoint(
+    request: ChatRequest,
+    org_id: str = Depends(get_tenant_context),
+    db: Session = Depends(get_db)
+):
     """
     Public Chat Endpoint powered by Agentic RAG with Document-Aware Memory.
     """
@@ -73,17 +80,35 @@ def chat_endpoint(request: ChatRequest, db: Session = Depends(get_db)):
     else:
         # For search_documents or search_specific_document, use orchestrate_rag
         active_document_ids = request.document_ids
+
+        if request.project_id and not active_document_ids:
+            project_docs = db.query(Document).filter(
+                Document.organization_id == org_id,
+                Document.project_id == request.project_id
+            ).all()
+            active_document_ids = [d.id for d in project_docs] or None
         
         # If search_specific_document, try to find the document_id
         if tool_name == "search_specific_document" and "document_name" in tool_params:
-            from app.models.document import Document
             doc_name = tool_params["document_name"]
-            found_doc = db.query(Document).filter(Document.filename.ilike(f"%{doc_name}%")).first()
+            found_doc_q = db.query(Document).filter(Document.filename.ilike(f"%{doc_name}%"))
+            if org_id:
+                found_doc_q = found_doc_q.filter(Document.organization_id == org_id)
+            if request.project_id:
+                found_doc_q = found_doc_q.filter(Document.project_id == request.project_id)
+            found_doc = found_doc_q.first()
             if found_doc:
-                # Restrict search space to this document
                 active_document_ids = [found_doc.id]
 
-        result = orchestrate_rag(db, combined_query, initial_queries, active_document_ids, original_query=request.query)
+        result = orchestrate_rag(
+            db,
+            combined_query,
+            initial_queries,
+            active_document_ids,
+            original_query=request.query,
+            organization_id=org_id,
+            project_id=request.project_id,
+        )
 
     # Initialize latencies dict if not present
     if "latencies" not in result:

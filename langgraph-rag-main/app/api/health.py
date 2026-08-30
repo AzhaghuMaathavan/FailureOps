@@ -60,7 +60,7 @@ def health_check(db: Session = Depends(get_db)):
 
     return {
         "status": "ok" if db_ok else "degraded",
-        "service": "FailureOps X RAG & LangGraph",
+        "service": "FailureOps X RAG",
         "database": db_probe.get("database"),
         "vector_store": db_ok,
         "pgvector": db_probe.get("pgvector", False),

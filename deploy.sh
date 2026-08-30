@@ -25,7 +25,7 @@ if [ -d ".git" ]; then
 fi
 
 echo "🐍 Updating Python virtualenv dependencies..."
-cd $APP_DIR/rag
+cd $APP_DIR/langgraph-rag-main
 if [ ! -d "venv" ]; then
   python3 -m venv venv
   ./venv/bin/pip install --upgrade pip --quiet

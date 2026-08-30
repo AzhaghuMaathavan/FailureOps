@@ -2,7 +2,7 @@ import os
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 class Settings(BaseSettings):
-    PROJECT_NAME: str = "FailureOps X RAG & LangGraph Evidence Intelligence"
+    PROJECT_NAME: str = "FailureOps X RAG & Evidence Intelligence"
     API_V1_STR: str = "/api/v1"
 
     # Default Tenant Context
@@ -52,6 +52,7 @@ class Settings(BaseSettings):
     INTELLIGENCE_SOURCE: str = os.getenv("INTELLIGENCE_SOURCE", "langgraph")
     INTELLIGENCE_FIXTURE_ENABLED: bool = os.getenv("INTELLIGENCE_FIXTURE_ENABLED", "true").lower() == "true"
 
+
     # Database — PostgreSQL + pgvector only (no SQLite fallback)
     DATABASE_URL: str = os.getenv(
         "DATABASE_URL",
@@ -99,3 +100,5 @@ class Settings(BaseSettings):
     )
 
 settings = Settings()
+
+

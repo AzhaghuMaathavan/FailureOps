@@ -66,13 +66,11 @@ def init_engine(retries: int = 15, delay_seconds: float = 2.0):
                 time.sleep(delay_seconds)
 
     logger.error(f"Could not connect to PostgreSQL at {redact_database_url(url)}: {last_error}")
-    # Create fallback engine for test environments
     test_fallback = create_engine("sqlite:///:memory:")
     SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=test_fallback)
 
 
 init_engine(retries=2, delay_seconds=0.5)
-
 
 
 def get_db():
@@ -83,3 +81,4 @@ def get_db():
         yield db
     finally:
         db.close()
+

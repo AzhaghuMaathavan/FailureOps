@@ -2,8 +2,8 @@ module.exports = {
   apps: [
     {
       name: 'failureops-backend',
-      cwd: '/home/ubuntu/failureops/rag',
-      script: '/home/ubuntu/failureops/rag/venv/bin/uvicorn',
+      cwd: '/home/ubuntu/failureops/langgraph-rag-main',
+      script: '/home/ubuntu/failureops/langgraph-rag-main/venv/bin/uvicorn',
       args: 'app.main:app --host 127.0.0.1 --port 8000 --workers 2',
       interpreter: 'none',
       env: {

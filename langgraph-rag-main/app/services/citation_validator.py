@@ -133,35 +133,90 @@ def consolidate_duplicates_and_conflicts(
 
         for it in items:
             src = it.get("source", {})
+            if isinstance(src, dict):
+                doc_id = src.get("document_id") or it.get("source_document_id") or "unknown"
+                doc_name = src.get("document_name") or it.get("source_document_name") or "Unknown Document"
+                loc_type = src.get("location_type", "ROW" if it.get("row_numbers") else "PAGE")
+                loc_val = src.get("location_value") or (f"Rows {min(it['row_numbers'])}-{max(it['row_numbers'])}" if it.get("row_numbers") else "N/A")
+                loc = f"{loc_type}: {loc_val}"
+            else:
+                doc_id = getattr(src, "document_id", "unknown")
+                doc_name = getattr(src, "document_name", "Unknown Document")
+                loc = f"{getattr(src, 'location_type', 'Loc')}: {getattr(src, 'location_value', 'N/A')}"
+
             supporting_sources.append(SupportingSource(
-                document_id=src.get("document_id", "unknown"),
-                document_name=src.get("document_name", "Unknown Document"),
-                location=f"{src.get('location_type', 'Loc')}: {src.get('location_value', 'N/A')}"
+                document_id=doc_id,
+                document_name=doc_name,
+                location=loc
             ))
             for cid in it.get("supporting_chunk_ids", []):
                 if cid not in all_chunk_ids:
                     all_chunk_ids.append(cid)
 
+        # Determine canonical ID based on metric name or deterministic hash
+        m_name = primary.get("metric_name") or (primary.get("normalized_value") or {}).get("metric")
+        if m_name:
+            ev_id = f"ev_{str(m_name).lower().replace(' ', '_')}"
+        elif primary.get("id"):
+            ev_id = primary.get("id")
+        else:
+            ev_id = f"ev_{evidence_counter:03d}"
+
         # Average confidence among supporting sources
         avg_conf = round(sum(it.get("evidence_confidence", 0.85) for it in items) / len(items), 3)
 
-        src_dict = dict(primary.get("source", {
-            "document_id": "doc_default",
-            "document_name": "Source Document"
-        }))
-        item_source_type = primary.get("source_type") or src_dict.get("source_type", "PRODUCT_PLAN")
-        src_dict["source_type"] = item_source_type
+        prim_src = primary.get("source")
+        if isinstance(prim_src, dict):
+            src_doc_id = prim_src.get("document_id") or primary.get("source_document_id") or "doc_default"
+            src_doc_name = prim_src.get("document_name") or primary.get("source_document_name") or "Source Document"
+            src_loc_type = prim_src.get("location_type") or ("ROW" if primary.get("row_numbers") else "PAGE")
+            src_loc_val = prim_src.get("location_value") or (f"Rows {min(primary['row_numbers'])}-{max(primary['row_numbers'])}" if primary.get("row_numbers") else "1")
+            src_obj = EvidenceSource(
+                document_id=src_doc_id,
+                document_name=src_doc_name,
+                location_type=src_loc_type,
+                location_value=src_loc_val,
+                source_type=prim_src.get("source_type") or primary.get("source_type")
+            )
+        elif isinstance(prim_src, EvidenceSource):
+            src_obj = prim_src
+        else:
+            src_obj = EvidenceSource(
+                document_id=primary.get("source_document_id", "doc_default"),
+                document_name=primary.get("source_document_name", "Source Document"),
+                location_type="ROW" if primary.get("row_numbers") else "PAGE",
+                location_value=f"Rows {min(primary['row_numbers'])}-{max(primary['row_numbers'])}" if primary.get("row_numbers") else "1"
+            )
 
         consolidated_items.append(EvidenceItemSchema(
-            id=f"ev_{evidence_counter:03d}",
+            id=ev_id,
             category=primary.get("category", "OTHER"),
-            source_type=item_source_type,
             evidence_category=primary.get("evidence_category") or primary.get("category", "OTHER"),
-            evidence_type=primary.get("evidence_type", "OBSERVATION"),
+            source_type=primary.get("source_type"),
+            evidence_type=primary.get("evidence_type", "METRIC" if m_name else "OBSERVATION"),
             statement=primary.get("statement", ""),
+            fact_type=primary.get("fact_type", "METRIC" if m_name else "EVENT"),
+            metric_name=m_name,
+            baseline_value=primary.get("baseline_value"),
+            previous_value=primary.get("previous_value"),
+            current_value=primary.get("current_value"),
+            unit=primary.get("unit"),
+            direction=primary.get("direction"),
+            baseline_timestamp=primary.get("baseline_timestamp"),
+            previous_timestamp=primary.get("previous_timestamp"),
+            current_timestamp=primary.get("current_timestamp"),
+            baseline_to_current_change_percent=primary.get("baseline_to_current_change_percent"),
+            previous_to_current_change_percent=primary.get("previous_to_current_change_percent"),
+            source_document_id=primary.get("source_document_id") or src_obj.document_id,
+            source_document_name=primary.get("source_document_name") or src_obj.document_name,
+            source_chunk_id=primary.get("source_chunk_id"),
+            page_numbers=primary.get("page_numbers", []),
+            row_numbers=primary.get("row_numbers", []),
+            citation=primary.get("citation"),
+            source_metadata=primary.get("source_metadata", {}),
             normalized_value=primary.get("normalized_value"),
             time_period=primary.get("time_period"),
-            source=EvidenceSource(**src_dict),
+            source=src_obj,
             supporting_sources=supporting_sources,
             supporting_chunk_ids=all_chunk_ids,
             evidence_confidence=avg_conf,
@@ -169,6 +224,5 @@ def consolidate_duplicates_and_conflicts(
             privacy=primary.get("privacy", {"visibility": "PRIVATE", "global_learning_allowed": False})
         ))
         evidence_counter += 1
-
 
     return consolidated_items, conflicts
