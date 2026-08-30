@@ -61,7 +61,7 @@ OUTPUT STRICTLY A VALID JSON OBJECT with this schema:
 
 def extract_unified_evidence_from_chunks(
     chunks: List[Dict[str, Any]],
-    timeout_seconds: float = 25.0
+    timeout_seconds: float = 60.0
 ) -> List[Dict[str, Any]]:
     """
     Extracts raw evidence candidates across all dimensions in a single dense LLM call.
@@ -69,9 +69,9 @@ def extract_unified_evidence_from_chunks(
     if not chunks:
         return []
 
-    # Prepare top unique candidate chunks
+    # Prepare top high-signal unique candidate chunks
     chunk_payloads = []
-    for idx, c in enumerate(chunks[:15]):
+    for idx, c in enumerate(chunks[:6]):
         lineage = c.get("lineage", {})
         doc_name = lineage.get("document_name", "Unknown Document")
         meta = lineage.get("source_metadata", {})
@@ -88,6 +88,7 @@ def extract_unified_evidence_from_chunks(
         chunk_payloads.append(
             f"--- CHUNK {idx} ---\nSource: {doc_name} ({loc})\nContent:\n{c.get('content', '')}\n"
         )
+
 
     user_prompt = "Candidate Project Source Chunks:\n\n" + "\n".join(chunk_payloads)
 
@@ -230,7 +231,8 @@ def run_evidence_agent(
     unique_chunks = sorted(unique_chunks_map.values(), key=lambda x: x.get("rerank_score", 0), reverse=True)
 
     # Fast unified extraction
-    raw_items = extract_unified_evidence_from_chunks(unique_chunks, timeout_seconds=25.0)
+    raw_items = extract_unified_evidence_from_chunks(unique_chunks, timeout_seconds=60.0)
+
 
     # Citation validation & filtering
     valid_items = []
