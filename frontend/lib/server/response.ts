@@ -130,6 +130,18 @@ export function apiError(
     );
   }
 
+  if (error instanceof Error && error.message && error.message !== 'An error occurred' && !error.message.includes('fetch failed')) {
+    return NextResponse.json(
+      {
+        success: false,
+        error: 'Request Error',
+        message: error.message,
+        requestId,
+      },
+      { status: 400 }
+    );
+  }
+
   // Generic Sanitized Internal Server Error
   return NextResponse.json(
     {

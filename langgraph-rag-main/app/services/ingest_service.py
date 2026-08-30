@@ -17,6 +17,15 @@ logger = logging.getLogger(__name__)
 
 ALLOWED_EXTENSIONS = {".pdf", ".docx", ".pptx", ".xlsx", ".csv", ".txt", ".md", ".json"}
 
+CATEGORY_ALLOWED_EXTENSIONS = {
+    "PRODUCT_PLAN": {".pdf", ".docx", ".md", ".txt"},
+    "CUSTOMER_FEEDBACK": {".csv", ".json", ".txt"},
+    "PRODUCT_METRICS": {".csv", ".xlsx", ".json"},
+    "ENGINEERING_METRICS": {".csv", ".json", ".txt"},
+    "TEAM_OPERATIONS": {".csv", ".json", ".txt"},
+    "INCIDENT_REPORTS": {".pdf", ".md", ".txt", ".docx"},
+}
+
 
 def _truthy(value: Optional[str]) -> bool:
     return str(value or "").strip().lower() in {"1", "true", "yes", "on"}
@@ -42,6 +51,17 @@ async def ingest_upload(
             status_code=400,
             detail=f"Unsupported file format. Allowed: {', '.join(sorted(ALLOWED_EXTENSIONS))}",
         )
+
+    # Validate category-specific format constraints if a canonical category is provided
+    doc_type_key = str(document_type or "").strip().upper()
+    if doc_type_key in CATEGORY_ALLOWED_EXTENSIONS:
+        allowed_cat_exts = CATEGORY_ALLOWED_EXTENSIONS[doc_type_key]
+        if ext not in allowed_cat_exts:
+            allowed_str = ", ".join(sorted([e.lstrip(".").upper() for e in allowed_cat_exts]))
+            raise HTTPException(
+                status_code=400,
+                detail=f"{doc_type_key.lower()} requires {allowed_str} (got {ext})",
+            )
 
     doc_id = f"doc_{uuid.uuid4().hex[:12]}"
     logger.info("[UPLOAD] document_id=%s project_id=%s filename=%s", doc_id, project_id, filename)

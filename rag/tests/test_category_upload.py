@@ -1,12 +1,15 @@
 import unittest
 import asyncio
 import io
-from fastapi import UploadFile, BackgroundTasks
+import os
+from fastapi import UploadFile, BackgroundTasks, HTTPException
 from unittest.mock import patch
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
-from app.models.document import Base, Document
+from app.models.document import Base, Document, Page, DocumentBlock
+from app.models.chunk import Chunk
 from app.services.ingest_service import ingest_upload
+from app.services.csv_parser import parse_csv_to_blocks
 from app.core.object_storage import StoredObject
 
 class TestCategoryUpload(unittest.TestCase):
@@ -194,6 +197,46 @@ class TestCategoryUpload(unittest.TestCase):
             self.assertIsNone(doc.document_type)
             print("[TEST] ✓ Generic upload (optional category) succeeded:", doc.filename, "Type:", doc.document_type)
         asyncio.run(run_test())
+
+    @patch("app.services.ingest_service.persist_upload")
+    def test_category_format_mismatch_rejection(self, mock_persist):
+        # Attempt to upload .pdf as CUSTOMER_FEEDBACK -> must raise descriptive HTTPException
+        async def run_test():
+            file = self._create_mock_upload_file("invalid_feedback.pdf", b"%PDF-1.4 dummy")
+            bg = BackgroundTasks()
+            with self.assertRaises(HTTPException) as ctx:
+                await ingest_upload(
+                    self.db,
+                    file,
+                    project_id="aurora",
+                    organization_id="org_test",
+                    title="Invalid Feedback",
+                    document_type="CUSTOMER_FEEDBACK",
+                    sync="false",
+                    background_tasks=bg
+                )
+            self.assertEqual(ctx.exception.status_code, 400)
+            self.assertIn("customer_feedback requires", ctx.exception.detail)
+            print("[TEST] ✓ Category format mismatch properly rejected:", ctx.exception.detail)
+        asyncio.run(run_test())
+
+    def test_single_row_csv_parsing(self):
+        import tempfile
+        with tempfile.NamedTemporaryFile(mode="w", suffix=".csv", delete=False) as tf:
+            tf.write("user_id,churn_risk,feedback_summary\n")
+            tf_path = tf.name
+
+        try:
+            doc_id = "doc_single_row_csv"
+            success = parse_csv_to_blocks(tf_path, doc_id, self.db)
+            self.assertTrue(success)
+            blocks = self.db.query(DocumentBlock).filter(DocumentBlock.document_id == doc_id).all()
+            self.assertGreater(len(blocks), 0)
+            self.assertIn("Headers:", blocks[0].content)
+            print("[TEST] ✓ Single-row CSV parsed into blocks successfully:", blocks[0].content)
+        finally:
+            if os.path.exists(tf_path):
+                os.remove(tf_path)
 
 if __name__ == "__main__":
     unittest.main()

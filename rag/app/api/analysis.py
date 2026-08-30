@@ -785,7 +785,8 @@ async def upload_project_document(
     background_tasks: BackgroundTasks,
     file: UploadFile = File(...),
     title: Optional[str] = Form(None),
-    document_type: Optional[str] = Form("PROJECT_DOC"),
+    document_type: Optional[str] = Form(None),
+    source_type: Optional[str] = Form(None),
     description: Optional[str] = Form(None),
     visibility: Optional[str] = Form("PRIVATE"),
     sync: Optional[str] = Form("false"),
@@ -795,13 +796,14 @@ async def upload_project_document(
     """
     Uploads a project document, attaches tenant metadata, and queues format-aware parsing.
     """
+    doc_type = source_type or document_type or "PROJECT_DOC"
     return await ingest_upload(
         db,
         file,
         project_id=project_id,
         organization_id=org_id,
         title=title,
-        document_type=document_type,
+        document_type=doc_type,
         description=description,
         visibility=visibility or "PRIVATE",
         sync=sync,

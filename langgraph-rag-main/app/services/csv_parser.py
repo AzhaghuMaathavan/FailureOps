@@ -46,6 +46,23 @@ def parse_csv_to_blocks(file_path: str, doc_id: str, db):
 
     headers = cleaned_rows[0]
     
+    # Handle single-row (header-only or single row) CSVs
+    if len(cleaned_rows) == 1:
+        content = "Headers: " + " | ".join(headers)
+        db_block = DocumentBlock(
+            id=str(uuid.uuid4()),
+            document_id=doc_id,
+            page_id=page_id,
+            block_index=0,
+            block_type="Table",
+            content=content,
+            bbox=None,
+            raw_metadata={"rows": "1-1"}
+        )
+        db.add(db_block)
+        db.commit()
+        return True
+
     # 10 rows per chunk to avoid making too many DB records, 
     # but formatted logically row-by-row (Key: Value)
     CHUNK_ROWS = 10 
@@ -83,6 +100,20 @@ def parse_csv_to_blocks(file_path: str, doc_id: str, db):
         )
         db.add(db_block)
         block_index += 1
+
+    if block_index == 0 and headers:
+        content = "Headers: " + " | ".join(headers)
+        db_block = DocumentBlock(
+            id=str(uuid.uuid4()),
+            document_id=doc_id,
+            page_id=page_id,
+            block_index=0,
+            block_type="Table",
+            content=content,
+            bbox=None,
+            raw_metadata={"rows": "1-1"}
+        )
+        db.add(db_block)
 
     db.commit()
     return True

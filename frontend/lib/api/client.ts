@@ -124,6 +124,7 @@ export const apiClient = {
     const formData = new FormData();
     formData.append('file', file, file.name);
     formData.append('projectId', projectId);
+    formData.append('project_id', projectId);
     if (title) formData.append('title', title);
     formData.append('documentType', documentType);
     formData.append('document_type', documentType);
@@ -134,14 +135,14 @@ export const apiClient = {
     if (extra?.department) formData.append('department', extra.department);
     if (extra?.sync) formData.append('sync', extra.sync);
 
-    const response = await fetch('/api/evidence/upload', {
+    const response = await fetch('/api/documents/upload', {
       method: 'POST',
       body: formData,
     });
 
     const body = await response.json().catch(() => ({ success: false, message: 'Upload parse error' }));
     if (!response.ok || !body.success) {
-      throw new ApiError(body.message || 'File upload failed', response.status);
+      throw new ApiError(body.message || body.error || 'File upload failed', response.status);
     }
     return body.data;
   },

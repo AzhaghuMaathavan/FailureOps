@@ -58,8 +58,10 @@ export async function POST(req: NextRequest) {
       });
       const backendFormData = new FormData();
       backendFormData.append('file', forwarded, filename);
+      backendFormData.append('project_id', projectId);
       backendFormData.append('title', title || filename);
       backendFormData.append('document_type', documentType);
+      backendFormData.append('source_type', documentType);
       backendFormData.append('description', description);
       backendFormData.append('visibility', visibility || 'PRIVATE');
       if (department) backendFormData.append('department', department);
@@ -68,11 +70,12 @@ export async function POST(req: NextRequest) {
       console.info('[FAILUREOPS] Sending document to RAG', {
         projectId,
         filename,
+        documentType,
         bytes: bytes.length,
       });
 
       const uploadResult = await ragFetch<any>(
-        `/api/v1/projects/${encodeURIComponent(projectId)}/documents/upload`,
+        `/api/documents/upload`,
         session,
         {
           method: 'POST',
