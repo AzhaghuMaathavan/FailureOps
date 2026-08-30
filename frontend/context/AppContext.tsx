@@ -3,10 +3,39 @@
 import React, { createContext, useContext, useState, useEffect, useCallback } from 'react';
 import { Project, Signal, Experiment, OrganizationalMemoryEntry, EvidenceSourceType } from '@/types';
 
-interface AppContextType {
+export interface UserProfileState {
+  id: string;
+  name: string;
+  email: string;
+  organizationId: string;
+  organizationName: string;
+  title: string;
+  bio: string;
+  role: 'ORGANIZATION_ADMIN' | 'INTELLIGENCE_ANALYST' | 'VIEWER';
+  isVerified: boolean;
+  twoFactorEnabled: boolean;
+  avatarUrl?: string;
+  notifications?: {
+    emailAlerts: boolean;
+    sev1Immediate: boolean;
+    weeklyDigest: boolean;
+    learningShareApproved: boolean;
+  };
+  recentActivity?: Array<{
+    id: string;
+    action: string;
+    details: string;
+    timestamp: string;
+  }>;
+}
 
+interface AppContextType {
   project: Project;
   setProject: (project: Project) => void;
+  user: UserProfileState | null;
+  setUser: (user: UserProfileState | null) => void;
+  refreshUser: () => Promise<void>;
+  logout: () => Promise<void>;
   uploadedFiles: Record<EvidenceSourceType, string[]>;
   addUploadedFile: (category: EvidenceSourceType, filename: string) => void;
   analysisCompleted: boolean;
@@ -23,6 +52,39 @@ interface AppContextType {
 const AppContext = createContext<AppContextType | undefined>(undefined);
 
 export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
+  const [user, setUser] = useState<UserProfileState | null>({
+    id: 'usr_aurora_lead_881',
+    name: 'Lead Intelligence Architect',
+    email: 'lead.architect@aurora.tech',
+    organizationId: 'org_aurora_technologies',
+    organizationName: 'Aurora Technologies',
+    title: 'Principal Enclave Architect',
+    bio: 'Leading failure intelligence, root cause analysis, and multi-tenant reasoning pipelines across Aurora distributed services.',
+    role: 'ORGANIZATION_ADMIN',
+    isVerified: true,
+    twoFactorEnabled: false,
+    notifications: {
+      emailAlerts: true,
+      sev1Immediate: true,
+      weeklyDigest: true,
+      learningShareApproved: true,
+    },
+    recentActivity: [
+      {
+        id: 'act_1',
+        action: 'Enclave Initialized',
+        details: 'Created primary failure intelligence reasoning enclave for Aurora Cloud Analytics.',
+        timestamp: new Date(Date.now() - 3600000 * 24 * 2).toISOString(),
+      },
+      {
+        id: 'act_2',
+        action: 'Analysis Dispatched',
+        details: 'Executed 7-stage autonomous agent analysis on Aurora project artifacts.',
+        timestamp: new Date(Date.now() - 3600000 * 4).toISOString(),
+      },
+    ],
+  });
+
   const [project, setProjectState] = useState<Project>({
     id: 'aurora',
     name: 'ExpenseTracker',
@@ -47,17 +109,39 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
   const [uploadedFiles, setUploadedFiles] = useState<Record<EvidenceSourceType, string[]>>({} as any);
   const [analysisCompleted, setAnalysisCompleted] = useState<boolean>(false);
-
   const [signals, setSignals] = useState<Signal[]>([]);
   const [experiment, setExperiment] = useState<Experiment | null>(null);
-
-
   const [memoryEntries, setMemoryEntries] = useState<OrganizationalMemoryEntry[]>([]);
   const [theme, setTheme] = useState<'dark' | 'light'>('dark');
 
-  // Load persisted project or preferences on mount
+  const refreshUser = useCallback(async () => {
+    try {
+      const { apiClient } = await import('@/lib/api/client');
+      const res = await apiClient.getProfile();
+      if (res && res.profile) {
+        setUser(res.profile);
+      }
+    } catch (err) {
+      console.warn('Could not fetch user profile:', err);
+    }
+  }, []);
+
+  const logout = useCallback(async () => {
+    try {
+      const { apiClient } = await import('@/lib/api/client');
+      await apiClient.logout();
+    } catch {}
+    setUser(null);
+    if (typeof window !== 'undefined') {
+      window.location.href = '/login';
+    }
+  }, []);
+
+  // Load persisted user & project on mount
   useEffect(() => {
     document.documentElement.classList.add('dark');
+    refreshUser();
+
     const savedProjectId = localStorage.getItem('failureops_active_project_id');
     if (savedProjectId && savedProjectId !== project.id) {
       import('@/lib/api/client').then(({ apiClient }) => {
@@ -66,7 +150,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         }).catch(() => {});
       });
     }
-  }, []);
+  }, [refreshUser]);
 
   const setProject = useCallback((newProject: Project) => {
     setProjectState(newProject);
@@ -98,12 +182,15 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     setMemoryEntries(prev => [entry, ...prev]);
   };
 
-
   return (
     <AppContext.Provider
       value={{
         project,
         setProject,
+        user,
+        setUser,
+        refreshUser,
+        logout,
         uploadedFiles,
         addUploadedFile,
         analysisCompleted,

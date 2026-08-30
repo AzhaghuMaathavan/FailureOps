@@ -291,16 +291,19 @@ def run_evidence_agent(
             for it in h_items:
                 c_idx = it.get("chunk_index", 0)
                 target_chunk = unique_chunks[c_idx] if 0 <= c_idx < len(unique_chunks) else unique_chunks[0]
+                lineage = target_chunk.get("lineage", {})
+                doc_name = lineage.get("document_name", "Unknown Document")
                 source_type = resolve_chunk_source_type(target_chunk)
                 it["source_type"] = source_type
                 it["evidence_category"] = it.get("category", "TECHNICAL")
                 it["source"] = {
                     "document_id": target_chunk.get("document_id", "doc_default"),
-                    "document_name": lineage.get("document_name", "Unknown Document"),
+                    "document_name": doc_name,
                     "source_type": source_type,
                     "location_type": "PAGE",
                     "location_value": "1"
                 }
+
                 it["supporting_chunk_ids"] = [target_chunk.get("chunk_id", "chk_default")]
                 it["rerank_score"] = target_chunk.get("rerank_score", 5.0)
                 it["verification_status"] = "VERIFIED"

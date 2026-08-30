@@ -489,6 +489,72 @@ export const apiClient = {
     return request<any>(`/api/radar?view=executive&projectId=${encodeURIComponent(projectId)}`);
   },
 
+  // Auth & Profile Management
+  async signup(data: { name: string; email: string; password: string; organization?: string }) {
+    return request<any>('/api/auth/signup', {
+      method: 'POST',
+      body: JSON.stringify(data),
+    });
+  },
+
+  async verifyEmail(email: string, code: string) {
+    return request<any>('/api/auth/verify-email', {
+      method: 'POST',
+      body: JSON.stringify({ email, code }),
+    });
+  },
+
+  async resendVerification(email: string) {
+    return request<any>('/api/auth/resend-verification', {
+      method: 'POST',
+      body: JSON.stringify({ email }),
+    });
+  },
+
+  async login(email: string, password: string) {
+    return request<any>('/api/auth/login', {
+      method: 'POST',
+      body: JSON.stringify({ email, password }),
+    });
+  },
+
+  async forgotPassword(email: string) {
+    return request<any>('/api/auth/forgot-password', {
+      method: 'POST',
+      body: JSON.stringify({ email }),
+    });
+  },
+
+  async resetPassword(email: string, code: string, newPassword: string) {
+    return request<any>('/api/auth/reset-password', {
+      method: 'POST',
+      body: JSON.stringify({ email, code, newPassword }),
+    });
+  },
+
+  async getProfile() {
+    return request<any>('/api/auth/profile');
+  },
+
+  async updateProfile(updates: any) {
+    return request<any>('/api/auth/profile', {
+      method: 'PUT',
+      body: JSON.stringify(updates),
+    });
+  },
+
+  async changePassword(currentPassword: string, newPassword: string) {
+    return request<any>('/api/auth/change-password', {
+      method: 'PUT',
+      body: JSON.stringify({ currentPassword, newPassword }),
+    });
+  },
+
+  async logout() {
+    return request<any>('/api/auth/logout', {
+      method: 'POST',
+    });
+  },
 };
 
 
