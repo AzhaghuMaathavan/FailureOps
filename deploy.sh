@@ -36,7 +36,7 @@ echo "🗄️ Verifying Database Tables..."
 ./venv/bin/python3 -c "from app.db.database import Base, engine; from app.models.document import Document; from app.models.chunk import Chunk; from app.models.analysis import ProjectAnalysis; from app.models.evidence import EvidenceItem; from app.models.signal import SignalItem; Base.metadata.create_all(bind=engine);"
 
 echo "⚛️ Installing Node dependencies & Building Next.js Frontend..."
-cd $APP_DIR
+cd $APP_DIR/frontend
 npm install --no-audit --prefer-offline --quiet
 
 # Kill any orphaned next build processes before starting fresh build

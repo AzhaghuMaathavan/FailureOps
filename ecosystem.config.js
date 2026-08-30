@@ -14,7 +14,7 @@ module.exports = {
     },
     {
       name: 'failureops-frontend',
-      cwd: '/home/ubuntu/failureops',
+      cwd: '/home/ubuntu/failureops/frontend',
       script: 'node_modules/next/dist/bin/next',
       args: 'start -p 3000',
       env: {

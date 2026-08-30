@@ -1,902 +1,1035 @@
-You are the senior full-stack architect and debugging engineer for my project: FAILUREOPS X.
+You are a senior software architect and migration engineer.
+
+We are building a hackathon project called "FailureOps X".
 
 IMPORTANT:
-Do NOT add new product features yet.
-Do NOT redesign the UI.
-Do NOT replace working technologies unnecessarily.
-Do NOT randomly rewrite the entire project.
+The existing project already contains working frontend functionality, an existing RAG implementation, database integration, API routes, deployment configuration, and other working code.
 
-The current project is broken because the frontend, backend, PostgreSQL/pgvector, RAG pipeline, and possibly AI agents/configuration have become mixed together.
+Your task is to REORGANIZE the existing project into a professional modular architecture.
 
-Your ONLY objective right now is:
+DO NOT rebuild the application.
+DO NOT delete working functionality.
+DO NOT replace the existing RAG.
+DO NOT rewrite working business logic unnecessarily.
+DO NOT create fake implementations just to satisfy the folder structure.
 
-1. AUDIT THE ENTIRE PROJECT
-2. IDENTIFY ARCHITECTURAL/CONFIGURATION/CONNECTION PROBLEMS
-3. SEPARATE THE SERVICES CLEANLY
-4. MAKE FRONTEND → BACKEND → DATABASE → RAG WORK END-TO-END
-5. VERIFY EVERYTHING WITH REAL TESTS
-6. ONLY AFTER EVERYTHING WORKS, report what was fixed.
+The final application MUST continue to run after the migration.
 
 ==================================================
-PROJECT GOAL
+1. TARGET PROFESSIONAL ARCHITECTURE
 ==================================================
 
-FailureOps X will eventually be an AI organizational failure-intelligence platform.
+Create the following top-level structure:
 
-The eventual pipeline is:
+FailureOps-X/
+│
+├── frontend/
+│   ├── app/
+│   ├── components/
+│   ├── context/
+│   ├── lib/
+│   ├── public/
+│   ├── types/
+│   ├── services/
+│   ├── package.json
+│   └── ...
+│
+├── backend/
+│   ├── app/
+│   │   ├── api/
+│   │   │   ├── routes/
+│   │   │   └── dependencies/
+│   │   │
+│   │   ├── services/
+│   │   ├── models/
+│   │   ├── database/
+│   │   ├── middleware/
+│   │   ├── auth/
+│   │   └── main.py
+│   │
+│   ├── tests/
+│   ├── requirements.txt
+│   └── Dockerfile
+│
+├── rag/
+│   ├── app/
+│   │   ├── ingestion/
+│   │   ├── parsing/
+│   │   ├── chunking/
+│   │   ├── embeddings/
+│   │   ├── retrieval/
+│   │   ├── reranking/
+│   │   ├── citations/
+│   │   │
+│   │   ├── agents/
+│   │   │   ├── evidence_agent/
+│   │   │   ├── signal_agent/
+│   │   │   ├── pattern_agent/
+│   │   │   ├── failure_dna_agent/
+│   │   │   ├── truth_agent/
+│   │   │   ├── prediction_agent/
+│   │   │   └── intervention_agent/
+│   │   │
+│   │   ├── intelligence/
+│   │   │   ├── signals/
+│   │   │   ├── patterns/
+│   │   │   ├── failure_dna/
+│   │   │   ├── similarity/
+│   │   │   ├── risk/
+│   │   │   └── prediction/
+│   │   │
+│   │   ├── models/
+│   │   └── main.py
+│   │
+│   ├── tests/
+│   ├── requirements.txt
+│   └── Dockerfile
+│
+├── database/
+│   ├── migrations/
+│   ├── seeds/
+│   ├── schema/
+│   └── README.md
+│
+├── shared/
+│   ├── contracts/
+│   ├── schemas/
+│   ├── types/
+│   └── constants/
+│
+├── data/
+│   ├── demo/
+│   ├── sample_projects/
+│   └── sanitized_cases/
+│
+├── tests/
+│   ├── integration/
+│   ├── e2e/
+│   └── smoke/
+│
+├── docs/
+│   ├── ARCHITECTURE.md
+│   ├── API_CONTRACTS.md
+│   ├── AGENTS.md
+│   ├── DATA_FLOW.md
+│   ├── PRIVACY.md
+│   └── DEMO_FLOW.md
+│
+├── docker-compose.yml
+├── .env.example
+├── .gitignore
+└── README.md
 
-User
- ↓
-Frontend
- ↓
-Backend API
- ↓
-Project/document processing
- ↓
-RAG
- ↓
-Evidence extraction
- ↓
-Signals
- ↓
-Failure DNA
- ↓
-Historical similarity
- ↓
-Failure Radar
- ↓
-Prediction
- ↓
-Intervention
- ↓
-Learning / Memory
-
-BUT DO NOT IMPLEMENT ALL OF THIS NOW.
-
-For this repair task, ONLY establish this reliable foundation:
-
-Frontend
- ↓
-Backend API
- ↓
-PostgreSQL + pgvector
- ↓
-Document ingestion
- ↓
-Chunking
- ↓
-Embedding
- ↓
-Vector storage
- ↓
-Vector retrieval
- ↓
-LLM/RAG response
- ↓
-Backend
- ↓
-Frontend
 
 ==================================================
-STEP 1 — FULL PROJECT AUDIT
+2. FIRST STEP — INSPECT, DO NOT MODIFY
 ==================================================
 
-Before changing anything, inspect the ENTIRE repository.
+Before changing ANYTHING:
+
+Inspect the entire repository.
 
 Identify:
 
-- frontend framework
-- frontend entry point
-- frontend package manager
-- backend framework
-- backend entry point
-- backend package manager
-- PostgreSQL configuration
-- pgvector configuration
-- RAG implementation
-- embedding model/provider
-- LLM provider/model
-- environment variables
-- database connection code
-- API routes
-- CORS configuration
-- frontend API client
-- Docker configuration if present
-- docker-compose configuration if present
-- migration files
-- schema files
-- agent files
-- RAG files
-- authentication code if present
-- upload/document processing code
-- chunking code
-- vector search code
+1. Current frontend
+2. Current Next.js configuration
+3. Current API/BFF routes
+4. Existing Python backend
+5. Existing RAG
+6. RAG ingestion
+7. Document parsers
+8. Chunking
+9. Embeddings
+10. Retrieval
+11. Reranking
+12. Evidence extraction
+13. Existing agents
+14. Database models
+15. PostgreSQL/pgvector configuration
+16. Object storage
+17. Authentication
+18. Environment variables
+19. Docker configuration
+20. Deployment configuration
+21. Tests
+22. Existing demo/sample data
 
-DO NOT MODIFY FILES DURING THE INITIAL AUDIT.
+DO NOT MODIFY ANY FILE DURING THIS FIRST INSPECTION.
 
-First create an architecture report.
+Return a report:
 
-==================================================
-STEP 2 — CREATE A CLEAN SERVICE ARCHITECTURE
-==================================================
+CURRENT STRUCTURE
+↓
+CURRENT COMPONENT
+↓
+TARGET LOCATION
+↓
+MIGRATION RISK
 
-The architecture MUST be clearly separated.
+Example:
 
-Use this conceptual structure:
+app/components/X.tsx
+→ frontend/components/X.tsx
+→ LOW RISK
 
-failureops/
-│
-├── frontend/
-│
-├── backend/
-│
-├── rag/
-│
-├── database/
-│
-├── tests/
-│
-├── .env.example
-├── docker-compose.yml
-└── README.md
+rag/app/retrieval/foo.py
+→ rag/app/retrieval/foo.py
+→ NO MOVE REQUIRED
 
-If the current project has a different structure, DO NOT blindly move files.
+etc.
 
-First determine the safest structure and explain it.
 
 ==================================================
-STEP 3 — PORT SEPARATION
+3. IMPORTANT MIGRATION RULE
 ==================================================
 
-Use one dedicated port per service.
+The existing project currently has frontend files at the repository root and the RAG may already be inside:
 
-Recommended development ports:
+rag/
 
-Frontend:
-http://localhost:3000
+The final architecture must have:
 
-Backend:
-http://localhost:8000
+frontend/
+backend/
+rag/
 
-PostgreSQL:
-localhost:5432
+as separate top-level systems.
 
-IMPORTANT:
+However:
 
-PostgreSQL is NOT an HTTP service.
+DO NOT blindly move files.
 
-Do not try to access PostgreSQL through a browser.
+For every moved file:
 
-The frontend must NEVER connect directly to PostgreSQL.
+1. Move it.
+2. Update imports.
+3. Update aliases.
+4. Update package configuration.
+5. Update TypeScript configuration.
+6. Update Docker paths.
+7. Update environment paths.
+8. Update deployment scripts.
+9. Update CI/CD.
+10. Update API URLs.
+11. Run tests/build.
+12. Fix broken references.
 
-The frontend must communicate ONLY with the backend API.
-
-Correct:
-
-Frontend :3000
-    ↓ HTTP
-Backend :8000
-    ↓ PostgreSQL connection
-Postgres :5432
-
-RAG should NOT randomly expose another HTTP server unless the existing implementation specifically requires it.
-
-Prefer:
-
-Backend
-   ↓
-RAG service/module
-   ↓
-Embedding provider
-   ↓
-Postgres/pgvector
-
-For the initial repair, keep RAG inside the backend process/module unless there is a strong technical reason that it must be a separate service.
-
-DO NOT create unnecessary ports.
+Never leave broken imports.
 
 ==================================================
-STEP 4 — ENVIRONMENT VARIABLES
+4. FRONTEND MIGRATION
 ==================================================
 
-Create a single documented environment strategy.
+Move the existing Next.js frontend into:
+
+frontend/
+
+Move only frontend-related code.
+
+This includes:
+
+- app/
+- components/
+- context/
+- frontend-specific lib/
+- public/
+- frontend types
+- frontend services
+- Next.js configuration
+- package.json
+- frontend-specific configuration
+
+The frontend must remain a normal Next.js application.
+
+Expected:
+
+frontend/
+├── app/
+├── components/
+├── context/
+├── lib/
+├── public/
+├── services/
+├── types/
+├── package.json
+├── next.config.*
+├── tsconfig.json
+└── ...
+
+Update all imports accordingly.
+
+Do not duplicate the frontend.
+
+There must be only ONE active frontend implementation.
+
+
+==================================================
+5. BACKEND MIGRATION
+==================================================
 
 Create:
 
-.env.example
+backend/
 
-It should clearly define values such as:
+The backend is responsible for:
 
-DATABASE_URL=
-POSTGRES_HOST=
-POSTGRES_PORT=
-POSTGRES_DB=
-POSTGRES_USER=
-POSTGRES_PASSWORD=
+- API
+- authentication
+- authorization
+- project management
+- company management
+- user management
+- permissions
+- database access
+- orchestration
+- privacy enforcement
+- communication with RAG
+- communication with intelligence services
 
-LLM_API_KEY=
-EMBEDDING_API_KEY=
+Do NOT put RAG retrieval logic inside backend business logic.
 
-BACKEND_URL=
-FRONTEND_URL=
+Backend should communicate with RAG through clear interfaces/API/service boundaries.
 
-Use the actual providers already present in the project.
+If the existing Python backend already performs both backend and RAG functions, DO NOT break it.
 
-DO NOT invent providers or API keys.
+Instead, separate responsibilities logically first.
 
-Never hardcode:
+If physically separating the running services would create unnecessary risk, keep the existing implementation working and create clean service boundaries.
 
-- passwords
-- API keys
-- database credentials
-- secret keys
-
-Frontend environment variables must NOT expose server-side secrets.
 
 ==================================================
-STEP 5 — DATABASE CONNECTION
+6. RAG MIGRATION
 ==================================================
 
-Make PostgreSQL connection reliable.
+The existing RAG is extremely important.
 
-Verify:
+DO NOT replace it.
 
-1. PostgreSQL is running.
-2. Database exists.
-3. pgvector extension exists.
-4. Backend can connect.
-5. Tables exist.
-6. Vector column has the correct dimension.
-7. Index configuration matches the vector type/distance metric.
+The RAG must remain responsible for:
 
-Run an actual database health test.
+Document
+↓
+Parsing
+↓
+Chunking
+↓
+Embedding
+↓
+Retrieval
+↓
+Reranking
+↓
+Evidence candidates
 
-Create or repair:
+Preserve:
 
-GET /health
+- PyMuPDF
+- Docling
+- existing embedding model
+- pgvector
+- BM25 if present
+- hybrid retrieval
+- RRF if present
+- reranking
+- document/page/block lineage
+- citations
 
-Expected:
+The RAG should be located under:
 
-{
-  "status": "ok"
-}
+rag/
 
-Also create/verify:
+Organize it into:
 
-GET /health/db
+rag/app/
 
-Expected:
+├── ingestion/
+├── parsing/
+├── chunking/
+├── embeddings/
+├── retrieval/
+├── reranking/
+└── citations/
 
-{
-  "status": "ok",
-  "database": "connected"
-}
+Do not rewrite working RAG code merely for naming purposes.
 
-Do not return fake health status.
-
-The endpoint must perform a real database connection check.
 
 ==================================================
-STEP 6 — PGVECTOR
+7. AGENTS
 ==================================================
 
-Verify pgvector is actually installed and usable.
+Keep AI agents under:
 
-The database must support vector operations.
+rag/app/agents/
 
-Verify the actual SQL capability.
+Create/maintain:
 
-Do not assume pgvector is installed merely because a dependency exists.
+evidence_agent/
+signal_agent/
+pattern_agent/
+failure_dna_agent/
+truth_agent/
+prediction_agent/
+intervention_agent/
 
-Test:
+Each agent must have a clear responsibility.
 
-- extension
-- vector column
-- insert
-- similarity search
+Evidence Agent:
 
-Use the vector dimension required by the CURRENT embedding model.
+INPUT:
+RAG-retrieved document chunks
+
+OUTPUT:
+structured EvidenceItems
+
+Signal Agent:
+
+INPUT:
+EvidenceItems
+
+OUTPUT:
+Signals
+
+Pattern Agent:
+
+INPUT:
+Signals + Evidence
+
+OUTPUT:
+Patterns
+
+Failure DNA Agent:
+
+INPUT:
+Patterns + Signals
+
+OUTPUT:
+FailureDNA
+
+Truth Agent:
+
+INPUT:
+User/project assumptions + evidence
+
+OUTPUT:
+ClaimAssessment
+
+Prediction Agent:
+
+INPUT:
+FailureDNA + historical matches + trends
+
+OUTPUT:
+Prediction
+
+Intervention Agent:
+
+INPUT:
+Failure pattern + historical cases
+
+OUTPUT:
+InterventionRecommendation
+
 
 IMPORTANT:
 
-Do NOT change the embedding model just to make the schema convenient.
+Do not make every agent independently query the entire database.
 
-If the existing embedding model produces dimension X, the vector column must match X.
+Use controlled inputs and outputs.
+
+The architecture should be:
+
+RAG
+↓
+Evidence Agent
+↓
+Signal Agent
+↓
+Pattern Agent
+↓
+Failure DNA
+↓
+Historical Similarity
+↓
+Risk
+↓
+Prediction
+↓
+Intervention
+
 
 ==================================================
-STEP 7 — DOCUMENT INGESTION
+8. FAILURE RADAR
 ==================================================
 
-Repair the document ingestion pipeline.
+IMPORTANT:
 
-The minimum pipeline must be:
+Do NOT create unnecessary "Radar Agent".
+
+Failure Radar is primarily a risk visualization/calculation layer.
+
+Architecture:
+
+Evidence
+↓
+Signals
+↓
+Patterns
+↓
+Failure DNA
+↓
+Historical Similarity
+↓
+Risk Engine
+↓
+Failure Radar
+
+The Risk Engine should perform deterministic calculations.
+
+The UI should visualize:
+
+- overall risk
+- risk by dimension
+- risk trend
+- confidence
+- strongest contributing signals
+- historical similarity
+- predicted next failure
+
+The LLM should NOT randomly generate the numerical risk.
+
+
+==================================================
+9. SHARED CONTRACTS
+==================================================
+
+Create a shared contract layer:
+
+shared/
+
+├── contracts/
+├── schemas/
+├── types/
+└── constants/
+
+At minimum define contracts for:
+
+EvidenceItem
+Signal
+Pattern
+FailureDNA
+ClaimAssessment
+HistoricalMatch
+Prediction
+InterventionRecommendation
+OutcomeVerification
+PrivacyLevel
+
+Use strongly typed schemas.
+
+The frontend and backend/RAG must not independently invent incompatible versions of these objects.
+
+For example:
+
+EvidenceItem:
+
+{
+  id,
+  project_id,
+  source_id,
+  document_name,
+  page,
+  section,
+  claim,
+  evidence_type,
+  value,
+  confidence,
+  visibility
+}
+
+Preserve source lineage.
+
+
+==================================================
+10. DATABASE
+==================================================
+
+Database-related migration files should be under:
+
+database/
+
+Do not move the actual PostgreSQL server.
+
+Do not create a second database.
+
+Preserve existing PostgreSQL + pgvector configuration.
+
+Organize:
+
+database/
+├── migrations/
+├── seeds/
+├── schema/
+└── README.md
+
+Existing database tables must continue working.
+
+Potential entities:
+
+companies
+users
+projects
+documents
+chunks
+evidence
+signals
+patterns
+failure_dna
+historical_cases
+predictions
+interventions
+experiments
+outcomes
+
+Do not fabricate production historical data.
+
+
+==================================================
+11. PRIVACY ARCHITECTURE
+==================================================
+
+FailureOps X is intended to eventually work as a global platform.
+
+Therefore privacy must be built into the architecture.
+
+Every document/evidence/case should conceptually support:
+
+owner/company
+visibility
+sharing permission
+
+Use:
+
+PRIVATE
+ORGANIZATION
+GLOBAL_SANITIZED
+
+Rules:
+
+PRIVATE:
+Only authorized users from the owning organization.
+
+ORGANIZATION:
+Available inside the organization.
+
+GLOBAL_SANITIZED:
+Explicitly approved for global learning/search.
+
+CRITICAL:
+
+Never expose a private company's document through global search.
+
+Global historical learning should use sanitized/approved information.
+
+Example:
+
+PRIVATE SOURCE:
+
+Company A internal report:
+"Customer activation dropped because our onboarding implementation had bug XYZ."
+
+This must NOT become globally readable.
+
+Instead, if Company A explicitly permits global sharing:
+
+GLOBAL MEMORY:
+
+"Historical case: onboarding friction was associated with declining activation. Simplifying onboarding improved activation."
+
+Do not expose the original private document.
+
+Create:
+
+rag/app/privacy/
+
+or an equivalent clearly separated privacy module if appropriate.
+
+
+==================================================
+12. DATA FLOW
+==================================================
+
+The final architecture must support this flow:
+
+USER
+↓
+FRONTEND
+↓
+BACKEND API
+↓
+DOCUMENT INGESTION
+↓
+RAG
+↓
+EVIDENCE
+↓
+SIGNALS
+↓
+PATTERNS
+↓
+FAILURE DNA
+↓
+HISTORICAL SIMILARITY
+↓
+RISK ENGINE
+↓
+FAILURE RADAR
+↓
+PREDICTION
+↓
+INTERVENTION
+↓
+EXPERIMENT
+↓
+OUTCOME
+↓
+SANITIZED ORGANIZATIONAL MEMORY
+
+
+==================================================
+13. GLOBAL SEARCH
+==================================================
+
+FailureOps X will eventually allow a company to search for similar products/projects.
+
+Example:
+
+User enters:
+
+Product:
+"Expense Tracker"
+
+Description:
+"Mobile expense tracking application for small businesses."
+
+Features:
+
+- receipt scanning
+- automatic categorization
+- budget tracking
+- team expense management
+
+System:
+
+Product description
+↓
+Semantic representation
+↓
+Historical/global memory retrieval
+↓
+Similarity ranking
+↓
+Historical cases
+↓
+Approved/sanitized results
+
+The result should NOT automatically expose private documents.
+
+Instead show:
+
+Similar product/case
+Similarity
+Failure pattern
+What happened
+Mistakes observed
+Intervention
+Outcome
+Confidence
+Evidence availability
+
+Only show detailed source evidence if the user has permission to access it.
+
+
+==================================================
+14. DEMO DATA
+==================================================
+
+Keep demo data separate:
+
+data/
+
+├── demo/
+├── sample_projects/
+└── sanitized_cases/
+
+Demo data must never be confused with real customer data.
+
+Make it easy to seed the database for the hackathon demo.
+
+
+==================================================
+15. CONFIGURATION
+==================================================
+
+Update:
+
+docker-compose.yml
+.env.example
+README.md
+CI/CD
+deployment scripts
+
+Every service must have clear environment variables.
+
+Do not hard-code:
+
+API keys
+database passwords
+tokens
+credentials
+private URLs
+
+Use environment variables.
+
+
+==================================================
+16. DOCKER
+==================================================
+
+The final architecture should be able to run using Docker Compose.
+
+Conceptually:
+
+docker-compose.yml
+
+services:
+
+frontend
+backend
+rag
+postgres
+storage
+
+However:
+
+If backend and RAG currently run as one service and separating them would introduce unnecessary risk, keep them together temporarily while maintaining clear code boundaries.
+
+Do not introduce unnecessary microservices.
+
+
+==================================================
+17. TESTING AFTER MIGRATION
+==================================================
+
+After restructuring, run:
+
+1. Frontend build
+2. Frontend lint
+3. Backend startup
+4. RAG startup
+5. Database connection
+6. pgvector availability
+7. Existing RAG test
+8. Upload test
+9. Retrieval test
+10. API health test
+11. Frontend → backend test
+12. Backend → RAG test
+
+Test the basic flow:
 
 Upload document
- ↓
-Backend receives file
- ↓
-Extract text
- ↓
-Split into chunks
- ↓
-Generate embeddings
- ↓
-Store chunks + embeddings
- ↓
-Return ingestion result
+↓
+Parse
+↓
+Chunk
+↓
+Embed
+↓
+Store
+↓
+Retrieve
+↓
+Return evidence
 
-Every chunk should retain useful metadata such as:
-
-- document_id
-- project_id if available
-- page number if available
-- chunk index
-- source filename
-- text
-- embedding
-- metadata
-
-Do NOT lose source/page information.
-
-This is important because FailureOps later needs evidence traceability.
 
 ==================================================
-STEP 8 — RAG RETRIEVAL
+18. DO NOT DO THESE
 ==================================================
 
-Repair the RAG retrieval pipeline.
+DO NOT:
 
-Minimum:
+- rewrite the entire application
+- replace the existing RAG
+- change embedding models unnecessarily
+- replace PostgreSQL
+- introduce Kubernetes
+- introduce unnecessary microservices
+- introduce Kafka
+- introduce Redis unless already required
+- introduce a new vector database if pgvector already works
+- create unnecessary abstractions
+- duplicate components
+- duplicate APIs
+- duplicate RAG
+- create fake AI results
+- delete existing functionality
+- expose private documents
+- commit credentials
+- hard-code API keys
 
-User query
- ↓
-Generate query embedding
- ↓
-pgvector similarity search
- ↓
-Top K chunks
- ↓
-Build context
- ↓
-LLM
- ↓
-Answer + source references
-
-Do NOT retrieve the entire database.
-
-Use a reasonable top-K.
-
-Example:
-
-Top 10–20 candidates
-
-Then optionally rerank.
-
-For now, correctness is more important than advanced optimization.
 
 ==================================================
-STEP 9 — RAG MUST BE REAL
+19. MIGRATION ORDER
 ==================================================
 
-IMPORTANT:
+Perform the migration in this exact order:
 
-Do NOT create fake RAG.
+PHASE 1
+Inspect repository.
 
-Do NOT return hardcoded answers.
+PHASE 2
+Generate current architecture report.
 
-Do NOT return predefined documents.
+PHASE 3
+Create target directories.
 
-Do NOT make the UI display fake "AI analysis".
+PHASE 4
+Move frontend.
 
-The following test must work:
+PHASE 5
+Fix frontend imports/configuration.
 
-1. Upload a real test document.
-2. Document is stored.
-3. Text is extracted.
-4. Chunks are created.
-5. Embeddings are generated.
-6. Embeddings are stored in pgvector.
-7. User submits a query.
-8. Query embedding is generated.
-9. Similar chunks are retrieved.
-10. Retrieved chunks are passed to the LLM.
-11. LLM answers using retrieved context.
-12. Source/page metadata is returned.
+PHASE 6
+Verify frontend builds.
 
-==================================================
-STEP 10 — RAG API
-==================================================
+PHASE 7
+Separate backend responsibilities.
 
-Create or repair clean API endpoints.
+PHASE 8
+Preserve/move RAG into rag/.
 
-At minimum:
+PHASE 9
+Organize agents.
 
-POST /api/documents/upload
+PHASE 10
+Create shared contracts.
 
-POST /api/rag/query
+PHASE 11
+Organize database migration/schema files.
 
-GET /api/documents
+PHASE 12
+Organize data/demo files.
 
-GET /api/health
+PHASE 13
+Update Docker.
 
-GET /api/health/db
+PHASE 14
+Update deployment configuration.
 
-Use the existing API naming conventions if already established, but maintain the same logical separation.
+PHASE 15
+Update documentation.
 
-Example query:
+PHASE 16
+Run complete tests.
 
-POST /api/rag/query
+PHASE 17
+Fix all broken imports/configurations.
 
-Request:
+PHASE 18
+Verify the full application.
 
-{
-  "project_id": "demo-project",
-  "query": "What evidence indicates increasing deployment instability?"
-}
-
-Response should be structured, for example:
-
-{
-  "answer": "...",
-  "sources": [
-    {
-      "document": "engineering_report.pdf",
-      "page": 8,
-      "chunk_id": "..."
-    }
-  ]
-}
-
-Do not fabricate source references.
 
 ==================================================
-STEP 11 — FRONTEND CONNECTION
+20. VERY IMPORTANT — DO NOT STOP AT FOLDER CREATION
 ==================================================
 
-The frontend must communicate with the backend through HTTP.
+After migration, verify that the actual application works.
 
-Do NOT:
+Do not simply say:
+
+"Folders created successfully."
+
+You must verify:
 
 Frontend
- ↓
-Postgres
-
-That is forbidden.
-
-Correct:
-
-Frontend
- ↓
-API
- ↓
+↓
 Backend
- ↓
+↓
+RAG
+↓
 Database
 
-Create one centralized API client if one does not already exist.
+actually communicate.
 
-For example:
-
-frontend/src/api/
-
-Do not scatter hardcoded URLs throughout components.
-
-Use one configured backend URL.
-
-==================================================
-STEP 12 — CORS
-==================================================
-
-Configure CORS correctly.
-
-Development:
-
-Frontend:
-http://localhost:3000
-
-Backend:
-http://localhost:8000
-
-Backend must allow the frontend origin.
-
-Do NOT use wildcard CORS unnecessarily if credentials/authentication are involved.
-
-Verify the browser can actually call the backend.
-
-==================================================
-STEP 13 — REMOVE ARCHITECTURAL CONFUSION
-==================================================
-
-Find and report:
-
-- duplicate backend servers
-- duplicate API routes
-- duplicate RAG implementations
-- unused ports
-- conflicting environment variables
-- multiple database clients
-- multiple embedding implementations
-- hardcoded localhost URLs
-- frontend-to-database connections
-- broken imports
-- circular imports
-- dead code
-- duplicate schemas
-- conflicting vector dimensions
-- conflicting database URLs
-- unused Docker services
-- services started twice
-- incorrect CORS configuration
-
-Do not delete important code blindly.
-
-Explain before removing major components.
-
-==================================================
-STEP 14 — SINGLE SOURCE OF TRUTH
-==================================================
-
-There must be one clear implementation for:
-
-Database connection
-Embedding generation
-Chunking
-Vector storage
-Vector retrieval
-LLM invocation
-RAG orchestration
-
-If duplicates exist, consolidate them safely.
-
-==================================================
-STEP 15 — LOGGING
-==================================================
-
-Add useful structured logging.
-
-When a document is uploaded, backend logs should make it possible to understand:
-
-UPLOAD
- ↓
-TEXT EXTRACTION
- ↓
-CHUNK COUNT
- ↓
-EMBEDDING
- ↓
-VECTOR INSERT
- ↓
-SUCCESS
-
-When a query runs:
-
-QUERY
- ↓
-QUERY EMBEDDING
- ↓
-VECTOR SEARCH
- ↓
-RETRIEVED CHUNKS
- ↓
-LLM
- ↓
-RESPONSE
-
-Do not log secrets or sensitive document contents.
-
-==================================================
-STEP 16 — ERROR HANDLING
-==================================================
-
-Never silently fail.
-
-If:
-
-database unavailable
-
-return a clear backend error.
-
-If:
-
-embedding generation fails
-
-return a clear error.
-
-If:
-
-LLM fails
-
-return a clear error.
-
-If:
-
-document extraction fails
-
-return a clear error.
-
-If:
-
-vector search returns zero results
-
-return:
-
-{
-  "answer": "No relevant evidence was found.",
-  "sources": []
-}
-
-Do not hallucinate an answer when retrieval returns nothing.
-
-==================================================
-STEP 17 — BUILD A REAL TEST DATASET
-==================================================
-
-Create a small local test dataset.
-
-Example:
-
-project:
-Aurora
-
-documents:
-
-engineering_report.pdf
-customer_feedback.pdf
-project_plan.pdf
-
-Make the documents contain known facts.
-
-For example:
-
-engineering_report:
-
-"Deployment failures increased from 8% to 18%."
-
-customer_feedback:
-
-"Complaints related to onboarding increased significantly."
-
-project_plan:
-
-"Release deadline remains June 30."
-
-Then test queries against those known facts.
-
-==================================================
-STEP 18 — AUTOMATED TESTS
-==================================================
-
-Create tests for:
-
-1. backend health
-2. database connection
-3. pgvector availability
-4. document upload
-5. text extraction
-6. chunk creation
-7. embedding generation
-8. vector insertion
-9. vector retrieval
-10. RAG response
-11. source references
-12. frontend → backend connection
-
-At minimum, create one end-to-end test:
+Especially verify the existing RAG still performs:
 
 Upload
- ↓
-Process
- ↓
-Embed
- ↓
-Store
- ↓
-Query
- ↓
-Retrieve
- ↓
-Generate
- ↓
-Return source
+→ Parse
+→ Chunk
+→ Embed
+→ Retrieve
+→ Evidence
+
 
 ==================================================
-STEP 19 — PERFORMANCE
+21. FINAL REPORT
 ==================================================
 
-Do not prematurely optimize.
+At the end, provide:
 
-But ensure vector retrieval uses an appropriate ANN index if the current dataset requires it.
+1. Final directory tree.
 
-Use metadata filtering where applicable.
+2. Files moved.
 
-Retrieve only a small candidate set.
+3. Files created.
 
-Do NOT send thousands of chunks to the LLM.
+4. Files modified.
 
-The target architecture is:
+5. Files intentionally left unchanged.
 
-Query
- ↓
-Metadata filter
- ↓
-Vector ANN search
- ↓
-Top 10–20
- ↓
-Optional rerank
- ↓
-Top 5–10
- ↓
-LLM
+6. Frontend entry point.
 
-==================================================
-STEP 20 — FRONTEND MINIMUM UI
-==================================================
+7. Backend entry point.
 
-Do not redesign the entire FailureOps UI.
+8. RAG entry point.
 
-For now the frontend only needs:
+9. Database configuration.
 
-1. Backend connection status
-2. Database connection status
-3. Upload document
-4. Show uploaded documents
-5. Query RAG
-6. Display answer
-7. Display source/page references
-8. Display errors clearly
+10. Agent locations.
 
-Create a simple debug/status screen if necessary.
+11. Shared contract locations.
 
-The goal is to prove the complete pipeline works.
+12. API communication flow.
 
-==================================================
-STEP 21 — DO NOT IMPLEMENT FAILURE DNA YET
-==================================================
+13. RAG communication flow.
 
-Do NOT start:
+14. Privacy architecture.
 
-- Failure DNA
-- Failure Radar
-- Prediction
-- Truth Engine
-- Historical similarity
-- Experiment engine
-- Global memory
-- complex multi-agent orchestration
+15. Docker commands.
 
-until this foundation passes.
+16. Development commands.
 
-The foundation is:
+17. Test results.
 
-Frontend
- ↓
-Backend
- ↓
-Postgres
- ↓
-pgvector
- ↓
-RAG
- ↓
-LLM
- ↓
-Frontend
+18. Any remaining problems.
 
-==================================================
-STEP 22 — FINAL VERIFICATION
-==================================================
+19. Any TODOs.
 
-After fixing everything, perform a complete clean-start test.
-
-Stop all existing processes.
-
-Start only the required services.
-
-Expected:
-
-Postgres:
-5432
-
-Backend:
-8000
-
-Frontend:
-3000
-
-Then verify:
-
-http://localhost:3000
-works.
-
-Frontend → Backend works.
-
-Backend → PostgreSQL works.
-
-Backend → pgvector works.
-
-Document upload works.
-
-Embedding works.
-
-Vector insertion works.
-
-Vector retrieval works.
-
-LLM works.
-
-RAG works.
-
-Frontend displays the real RAG answer.
-
-==================================================
-STEP 23 — FINAL REPORT
-==================================================
-
-When finished, DO NOT simply say "fixed".
-
-Provide:
-
-A. Original problems discovered
-
-B. Files changed
-
-C. Architecture after repair
-
-D. Services and ports
-
-E. Environment variables required
-
-F. Database schema
-
-G. RAG flow
-
-H. APIs available
-
-I. Tests performed
-
-J. Test results
-
-K. Remaining issues
-
-L. Exact commands to start the project
-
-M. Exact command to test the RAG pipeline
-
-N. Any assumptions made
+20. Any migration risks.
 
 IMPORTANT:
 
-If something cannot be verified, explicitly say so.
+Do not claim something is implemented unless you verified it.
 
-Do not claim something works unless you actually tested it.
+Clearly label each feature as:
 
-==================================================
-CRITICAL RULE
-==================================================
+IMPLEMENTED
+PARTIALLY IMPLEMENTED
+INTERFACE ONLY
+MOCK/DEMO
+NOT IMPLEMENTED
 
-The priority order is:
+The final project must be runnable.
 
-1. Architecture
-2. Service separation
-3. Database connection
-4. pgvector
-5. Document ingestion
-6. Embeddings
-7. Vector retrieval
-8. RAG
-9. Backend API
-10. Frontend integration
-11. Testing
-
-ONLY AFTER ALL 11 WORK:
-
-Proceed to FailureOps X intelligence features.
-
-Do not optimize or redesign features that are not currently required.
-
-START NOW.
-
-First inspect the repository and produce the architecture/problem report.
-
-DO NOT MODIFY CODE UNTIL THE AUDIT IS COMPLETE.
+Start with PHASE 1: repository inspection.
+DO NOT MODIFY ANYTHING UNTIL THE INSPECTION REPORT IS COMPLETE.

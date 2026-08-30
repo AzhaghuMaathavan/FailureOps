@@ -7,7 +7,7 @@ include:
 services:
   failureops:
     build:
-      context: .
+      context: ./frontend
       dockerfile: Dockerfile
     container_name: failureops_ui
     depends_on:

@@ -39,7 +39,9 @@ jobs:
           rsync -avz \
             --exclude '.git' \
             --exclude 'node_modules' \
-            --exclude 'agentic-rag-main' \
+            --exclude 'frontend/node_modules' \
+            --exclude 'frontend/.next' \
+            --exclude '.next' \
             --exclude 'rag/venv' \
             --exclude 'rag/.venv' \
             --exclude 'rag/storage' \
