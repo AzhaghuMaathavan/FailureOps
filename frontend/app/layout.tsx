@@ -1,4 +1,4 @@
-import type { Metadata } from 'next';
+import type { Metadata, Viewport } from 'next';
 import './globals.css';
 import { Inter, JetBrains_Mono } from 'next/font/google';
 import { AppProvider } from '@/context/AppContext';
@@ -15,6 +15,14 @@ const jetbrainsMono = JetBrains_Mono({
   display: 'swap',
   variable: '--font-jetbrains-mono',
 });
+
+export const viewport: Viewport = {
+  width: 'device-width',
+  initialScale: 1,
+  maximumScale: 5,
+  userScalable: true,
+  themeColor: '#090b0e',
+};
 
 export const metadata: Metadata = {
   title: 'FailureOps X — Organizational Early-Warning Intelligence',

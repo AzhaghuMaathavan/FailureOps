@@ -262,21 +262,21 @@ export default function GlobalDashboardPage() {
       {/* 3. Fleet Risk Distribution Bar */}
       {projects.length > 0 && (
         <div className="bg-card rounded-2xl border border-border p-4 shadow-sm space-y-2">
-          <div className="flex items-center justify-between text-xs">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 text-xs">
             <span className="font-mono font-bold uppercase text-[11px] text-muted-foreground">
               Fleet Health Distribution ({projects.length} Total Projects)
             </span>
-            <div className="flex items-center gap-3 text-[11px] font-mono">
+            <div className="flex flex-wrap items-center gap-2.5 sm:gap-3 text-[11px] font-mono">
               <span className="flex items-center gap-1.5">
-                <span className="w-2.5 h-2.5 rounded-sm bg-destructive" />
+                <span className="w-2.5 h-2.5 rounded-sm bg-destructive shrink-0" />
                 <span>Critical: {criticalCount}</span>
               </span>
               <span className="flex items-center gap-1.5">
-                <span className="w-2.5 h-2.5 rounded-sm bg-warning" />
+                <span className="w-2.5 h-2.5 rounded-sm bg-warning shrink-0" />
                 <span>Watchlist: {watchCount}</span>
               </span>
               <span className="flex items-center gap-1.5">
-                <span className="w-2.5 h-2.5 rounded-sm bg-success" />
+                <span className="w-2.5 h-2.5 rounded-sm bg-success shrink-0" />
                 <span>Healthy: {healthyCount}</span>
               </span>
             </div>
