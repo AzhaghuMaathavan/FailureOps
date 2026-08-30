@@ -1,78 +1,141 @@
-# FailureOps X — AI-Powered Failure Intelligence & Closed-Loop Action Platform
+<p align="center">
+  <img src="frontend/public/brand/logo.png" alt="FailureOps X" width="96" />
+</p>
 
-FailureOps is an end-to-end organizational failure intelligence system that continuously analyzes unstructured multi-format project telemetry, extracts grounded evidence, detects leading signals, models causal failure trajectories, simulates interventions, and verifies real-world outcomes.
+<h1 align="center">FailureOps X</h1>
 
----
+<p align="center">
+  Organizational failure intelligence — ingest project documents, retrieve grounded evidence, and surface leading signals before the failure becomes a postmortem.
+</p>
 
-## 🌐 Live Production Deployment
+<p align="center">
+  <a href="https://failureops.shyxon.com/"><strong>Live app</strong></a>
+  ·
+  <a href="https://backendops.shyxon.com/docs"><strong>API docs</strong></a>
+  ·
+  <a href="https://failureops.shyxon.com/projects/aurora/radar">Radar</a>
+  ·
+  <a href="https://failureops.shyxon.com/projects/aurora/interventions">Interventions</a>
+</p>
 
-- **Frontend Application**: [https://failureops.shyxon.com/](https://failureops.shyxon.com/)
-- **Executive Failure Radar**: [https://failureops.shyxon.com/projects/aurora/radar](https://failureops.shyxon.com/projects/aurora/radar)
-- **Prioritized Interventions**: [https://failureops.shyxon.com/projects/aurora/interventions](https://failureops.shyxon.com/projects/aurora/interventions)
-- **FastAPI API Engine**: [https://backendops.shyxon.com/](https://backendops.shyxon.com/)
-- **Interactive OpenAPI Documentation**: [https://backendops.shyxon.com/docs](https://backendops.shyxon.com/docs)
-
----
-
-## 🏛️ Core Pipeline Architecture
-
-1. **Member 1 — Multi-Format RAG & Evidence Intelligence**:
-   - Ingestion across PDF, DOCX, PPTX, XLSX, CSV, MD, TXT, JSON with table coordinate preservation.
-   - 16-dimension query expansion with gated hybrid retrieval (BM25 + Dense Vectors + RRF + Reranker).
-   - Strict dimension isolation returning `NO_EVIDENCE_FOUND` without contamination.
-   - Deterministic citation verification with `#ev_xxx` grounding.
-
-2. **Member 2 — Signal Engine**:
-   - Evidence grouping and lineage preservation.
-   - Polarity-aware numerical trend detection.
-   - Cross-evidence relationship formulation (`TECHNICAL_RELIABILITY_STRESS`, `OPERATIONAL_OVERLOAD`, `ONBOARDING_FRICTION`).
-   - Signal strength and confidence synthesis bounded in $[0.0, 1.0]$.
-
-3. **Member 3 — Failure Intelligence & Prediction**:
-   - Failure DNA calculation across 16 dimensions with strict nullability.
-   - Epistemic Failure Chain graphs (`SIGNAL` $\to$ `PATTERN` $\to$ `CONSEQUENCE` $\to$ `PREDICTED_FAILURE`).
-   - Deterministic failure prediction with time horizons and corroboration.
-   - 3-tier privacy historical memory matching with `[SYNTHETIC BENCHMARK DEMO]` labels.
-   - Dynamic, non-static What-if simulations.
-
-4. **Member 4 — Closed-Loop Decision & Action Layer**:
-   - Prioritized interventions via formula:
-     $$\text{priority\_score} = \frac{\text{risk\_severity} \times \text{prediction\_confidence} \times \text{chain\_impact} \times \text{expected\_risk\_reduction}}{14.25 \times \text{effort\_weight}}$$
-   - Scientific A/B experiments with immutable baseline snapshots (`is_immutable: true`).
-   - Outcome verification with polarity-aware BEFORE vs AFTER delta evaluation and epistemic safety notes.
-   - Closed-loop organizational memory repository.
-   - Executive Failure Radar telemetry.
+<p align="center">
+  <img src="https://img.shields.io/badge/Next.js-16-black?logo=nextdotjs&logoColor=white" alt="Next.js" />
+  <img src="https://img.shields.io/badge/FastAPI-Python-009688?logo=fastapi&logoColor=white" alt="FastAPI" />
+  <img src="https://img.shields.io/badge/PostgreSQL-pgvector-336791?logo=postgresql&logoColor=white" alt="PostgreSQL" />
+  <img src="https://img.shields.io/badge/NVIDIA-Nemotron-76B900?logo=nvidia&logoColor=white" alt="NVIDIA" />
+</p>
 
 ---
 
-## 🧪 Local foundation (Frontend → Backend → PostgreSQL/pgvector → RAG)
+## What it does
 
-Do not point the browser at PostgreSQL. The Next.js app on `:3000` calls the FastAPI backend on `:8000`, which is the only process that connects to Postgres.
+Teams ship with fragmented artifacts: PRDs, support tickets, CI logs, customer notes, sprint plans. FailureOps turns those files into a **cited evidence graph**, then into **signals** you can act on.
 
-```bash
-# 1. PostgreSQL + pgvector
-docker compose -f rag/docker-compose.yml up -d postgres
+| Stage | What you get |
+| --- | --- |
+| Ingest | PDF, DOCX, PPTX, XLSX, CSV, Markdown, TXT, JSON → parsed, chunked, embedded |
+| Retrieve | Hybrid search (dense vectors + BM25), reranked, citation-backed answers |
+| Evidence → Signal | LangGraph run: upload → RAG phases → Evidence agent → Signal agent |
+| Intelligence | Failure DNA, radar trajectory, predicted failure points, interventions |
 
-# 2. Backend API (loads rag/.env for NVIDIA keys)
-cd rag
-python3 -m venv .venv
-source .venv/bin/activate
-pip install -r requirements.txt
-STORAGE_PROVIDER=local uvicorn app.main:app --host 127.0.0.1 --port 8000
-# from repo root in another terminal:
+The browser never talks to Postgres. Next.js on `:3000` is a BFF. FastAPI on `:8000` is the only process that touches the database and object storage.
 
-# 3. Frontend BFF
-npm install
-npm run dev
+---
+
+## Architecture
+
+```text
+Browser
+   │
+   ▼
+Next.js 16  (frontend/)     :3000     UI + /api/* BFF
+   │  HTTP only — no DATABASE_URL
+   ▼
+FastAPI     (rag/)          :8000     ingest · embed · retrieve · agents
+   │
+   ├── PostgreSQL 16 + pgvector        :5432     metadata + 2048-dim embeddings
+   └── RustFS (S3-compatible)          :9000     original documents
 ```
 
-Health checks:
+```mermaid
+flowchart LR
+  User[User] --> UI[Next.js UI]
+  UI --> BFF["BFF /api/*"]
+  BFF --> API[FastAPI]
+  API --> PG[(PostgreSQL + pgvector)]
+  API --> S3[RustFS]
+  BFF --> LG[LangGraph]
+  LG --> API
+```
 
-- http://localhost:8000/health
-- http://localhost:8000/health/db
-- http://localhost:3000/debug
+Production:
 
-RAG pipeline test (backend must be running):
+| Surface | URL |
+| --- | --- |
+| Frontend | [failureops.shyxon.com](https://failureops.shyxon.com/) |
+| Backend | [backendops.shyxon.com](https://backendops.shyxon.com/) |
+| OpenAPI | [backendops.shyxon.com/docs](https://backendops.shyxon.com/docs) |
+| Object storage console | [storage.shyxon.com/rustfs/console](https://storage.shyxon.com/rustfs/console/) |
+
+---
+
+## Repository layout
+
+```text
+frontend/          Next.js App Router UI and BFF routes
+rag/               FastAPI RAG + intelligence agents
+database/          Schema, migrations, demo seeds
+docs/              Architecture and agent specs
+shared/            Cross-layer contracts
+tests/             Foundation ingest/retrieval checks
+.github/workflows  Deploy to the production VPS on push to main
+```
+
+---
+
+## Local setup
+
+You need **Node 20+**, **Python 3.11+**, and **Docker** (for Postgres + pgvector).
+
+### 1. Database
+
+```bash
+docker compose -f rag/docker-compose.yml up -d postgres
+```
+
+### 2. Backend (`rag/`)
+
+```bash
+cp rag/.env.example rag/.env   # add NVIDIA_API_KEY (and related keys)
+cd rag
+python3 -m venv .venv
+source .venv/bin/activate      # Windows: .venv\Scripts\activate
+pip install -r requirements.txt
+STORAGE_PROVIDER=local uvicorn app.main:app --host 127.0.0.1 --port 8000
+```
+
+For local object storage that matches production, leave `STORAGE_PROVIDER=rustfs` and start the compose `rustfs` service as well.
+
+### 3. Frontend (`frontend/`)
+
+```bash
+cp frontend/.env.example frontend/.env
+# BACKEND_INTERNAL_URL=http://127.0.0.1:8000
+npm --prefix frontend install
+npm run dev                          # from repo root → frontend on :3000
+```
+
+### Health
+
+| Check | URL |
+| --- | --- |
+| API | http://localhost:8000/health |
+| Database | http://localhost:8000/health/db |
+| Frontend debug | http://localhost:3000/debug |
+
+### Foundation test
+
+With both services running:
 
 ```bash
 python3 tests/generate_aurora_docs.py
@@ -82,4 +145,38 @@ pytest tests/test_foundation.py -q
 
 ---
 
-Automated GitHub Actions continuous deployment is configured via `.github/workflows/deploy.yml`. Every push to `main` automatically deploys zero-downtime updates to the VPS.
+## Environment
+
+Copy the examples. **Never commit `.env` files. Never prefix secrets with `NEXT_PUBLIC_`.**
+
+| Variable | Where | Purpose |
+| --- | --- | --- |
+| `BACKEND_INTERNAL_URL` | frontend | FastAPI origin the BFF proxies to |
+| `DATABASE_URL` | rag only | Postgres. Not used by Next.js |
+| `NVIDIA_API_KEY` | rag | Embeddings, parse, rerank, LLM |
+| `STORAGE_PROVIDER` | rag | `local` or `rustfs` |
+| `RUSTFS_*` | rag | S3-compatible original-file storage |
+| `AUTH_SECRET` | frontend | Session signing (≥ 32 characters in production) |
+
+---
+
+## Production deploy
+
+Push to `main` triggers [`.github/workflows/deploy.yml`](.github/workflows/deploy.yml): rsync to the VPS, then `deploy.sh` (venv, `npm run build`, PM2 reload).
+
+```text
+PM2
+ ├── failureops-backend   rag/     uvicorn :8000
+ └── failureops-frontend  frontend npm start :3000
+```
+
+Nginx terminates TLS for `failureops.shyxon.com` and `backendops.shyxon.com`.
+
+---
+
+## Further reading
+
+- [System architecture](docs/ARCHITECTURE.md)
+- [Agent contracts](docs/AGENTS.md)
+- [Database](database/README.md)
+- [FAILUREOPS_X_IMPLEMENTATION.md](FAILUREOPS_X_IMPLEMENTATION.md) — product and UI specification
