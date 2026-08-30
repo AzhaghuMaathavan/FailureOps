@@ -15,6 +15,7 @@ import {
 import { useApp } from '@/context/AppContext';
 import { UserProfileDropdown } from '@/components/profile/UserProfileDropdown';
 import { NotificationsDropdown } from '@/components/layout/NotificationsDropdown';
+import { CommandPalette } from '@/components/common/CommandPalette';
 
 const iconBtn =
   'inline-flex items-center justify-center size-8 rounded-lg bg-surface-feed border border-border text-muted-foreground hover:text-foreground hover:border-primary/40 transition-colors duration-150 cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring';
@@ -24,6 +25,7 @@ export const TopHeader: React.FC = () => {
   const pathname = usePathname();
   const { project, theme, toggleTheme } = useApp();
   const onSearchPage = pathname === '/search';
+  const [isCommandOpen, setIsCommandOpen] = React.useState(false);
 
   useEffect(() => {
     const onKeyDown = (event: KeyboardEvent) => {
@@ -33,15 +35,11 @@ export const TopHeader: React.FC = () => {
         return;
       }
       event.preventDefault();
-      if (onSearchPage) {
-        document.getElementById('global-search-input')?.focus();
-        return;
-      }
-      router.push('/search');
+      setIsCommandOpen(true);
     };
     window.addEventListener('keydown', onKeyDown);
     return () => window.removeEventListener('keydown', onKeyDown);
-  }, [onSearchPage, router]);
+  }, []);
 
   return (
     <header
@@ -77,8 +75,8 @@ export const TopHeader: React.FC = () => {
       {!onSearchPage && (
         <button
           type="button"
-          onClick={() => router.push('/search')}
-          aria-label="Open global search"
+          onClick={() => setIsCommandOpen(true)}
+          aria-label="Open command palette"
           className="hidden lg:flex min-w-0 w-full items-center justify-between gap-2 px-3 py-2 rounded-lg bg-surface-feed border border-border text-xs text-subtle hover:border-primary/50 hover:text-foreground transition-colors duration-150 cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
         >
           <span className="flex items-center gap-2 min-w-0">
@@ -118,6 +116,8 @@ export const TopHeader: React.FC = () => {
 
         <UserProfileDropdown />
       </div>
+
+      <CommandPalette isOpen={isCommandOpen} onClose={() => setIsCommandOpen(false)} />
     </header>
   );
 };
