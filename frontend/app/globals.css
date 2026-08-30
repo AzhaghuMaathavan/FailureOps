@@ -42,11 +42,11 @@
     --shadow-card: 0 1px 0 0 #e2e8f0, 0 8px 24px -8px rgba(15, 23, 42, 0.1);
     --shadow-primary: 0 0 18px -4px rgba(255, 122, 0, 0.28);
 
-    --sidebar: #0f172a;
-    --sidebar-foreground: #f8fafc;
+    --sidebar: #ffffff;
+    --sidebar-foreground: #0f172a;
     --sidebar-primary: #ff7a00;
     --sidebar-primary-foreground: #090b0e;
-    --sidebar-border: #1e293b;
+    --sidebar-border: #e2e8f0;
 
     --chart-1: #ff7a00;
     --chart-2: #0284c7;

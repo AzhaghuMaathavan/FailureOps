@@ -157,7 +157,7 @@ export const AppSidebar: React.FC = () => {
       >
         {navigation.map((section) => (
           <div key={section.group} className="space-y-0.5">
-            <h5 className="px-2.5 pb-1 text-[9px] font-bold tracking-[0.08em] text-subtle uppercase">
+            <h5 className="px-2.5 pb-1 font-mono text-[9px] font-bold tracking-[0.08em] text-muted-foreground/80 uppercase">
               {section.group}
             </h5>
             <div className="space-y-0.5">
@@ -172,7 +172,7 @@ export const AppSidebar: React.FC = () => {
                     aria-current={isActive ? 'page' : undefined}
                     className={`flex items-center justify-between px-2.5 py-[7px] rounded-lg text-[11px] font-medium transition-colors duration-150 border ${chromeLink} ${
                       isActive
-                        ? 'bg-primary-muted text-primary font-semibold border-primary'
+                        ? 'bg-primary/10 text-primary font-bold border-primary/30'
                         : 'text-muted-foreground hover:text-foreground hover:bg-surface-feed border-transparent'
                     }`}
                   >
@@ -203,9 +203,9 @@ export const AppSidebar: React.FC = () => {
       </nav>
 
       {/* Project Status Snippet */}
-      <div className="shrink-0 mx-3 mb-2 p-2.5 rounded-xl bg-card border border-border shadow-card">
+      <div className="shrink-0 mx-3 mb-2 p-3 rounded-xl bg-surface-feed/80 border border-border shadow-sm">
         <div className="flex items-center justify-between gap-2 min-w-0">
-          <span className="text-[10px] font-mono font-medium text-muted-foreground uppercase tracking-wider truncate">
+          <span className="text-[10px] font-mono font-bold text-foreground uppercase tracking-wider truncate">
             {activeProject?.name || projectId}
           </span>
           <RiskBadge level={activeProject?.health || 'WATCH'} />
@@ -225,7 +225,7 @@ export const AppSidebar: React.FC = () => {
       </div>
 
       {/* User profile & Logout bar */}
-      <div className="shrink-0 p-3 border-t border-sidebar-border bg-sidebar/50 flex items-center justify-between gap-2">
+      <div className="shrink-0 p-3 border-t border-sidebar-border bg-sidebar flex items-center justify-between gap-2">
         <Link
           href="/profile"
           className="flex items-center gap-2 min-w-0 hover:opacity-85 transition-opacity cursor-pointer"

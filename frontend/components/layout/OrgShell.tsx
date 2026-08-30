@@ -67,11 +67,9 @@ export function OrgMetricCard({
   valueClassName?: string;
 }) {
   return (
-    <div
-      className={`flex min-w-0 flex-col gap-1.5 rounded-xl border border-border bg-card p-4 ${cardShadow}`}
-    >
-      <p className="font-mono text-[10px] font-medium text-muted-foreground">{label}</p>
-      <p className={`truncate font-mono text-[22px] font-bold leading-none sm:text-[26px] ${valueClassName}`}>
+    <div className="flex min-w-0 flex-col gap-1.5 rounded-xl border border-border bg-card p-4 shadow-sm">
+      <p className="font-mono text-[10px] font-bold uppercase tracking-wider text-muted-foreground">{label}</p>
+      <p className={`truncate font-mono text-[22px] font-extrabold leading-none sm:text-[26px] ${valueClassName}`}>
         {value}
       </p>
       <p className="text-[11px] text-muted-foreground">{hint}</p>
@@ -92,17 +90,17 @@ export function OrgInsightCard({
   href?: string;
   onClick?: () => void;
 }) {
-  const className = `flex min-w-0 flex-col gap-2 rounded-[14px] border border-border bg-card p-[18px] ${cardShadow} ${
+  const className = `flex min-w-0 flex-col items-start gap-2.5 rounded-xl border border-border bg-card p-5 transition-all duration-150 shadow-sm hover:border-primary/50 hover:shadow-md ${
     href || onClick
-      ? 'cursor-pointer transition-colors duration-200 hover:border-primary/50 hover:bg-card-hover focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring motion-reduce:transition-none'
+      ? 'cursor-pointer hover:bg-card-hover focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring motion-reduce:transition-none'
       : ''
   }`;
 
   const content = (
     <>
-      <p className="text-sm font-semibold text-foreground">{title}</p>
+      <p className="text-sm font-bold tracking-tight text-foreground">{title}</p>
       <p className="text-xs leading-relaxed text-muted-foreground">{body}</p>
-      {footer}
+      {footer ? <div className="mt-1">{footer}</div> : null}
     </>
   );
 
@@ -116,7 +114,7 @@ export function OrgInsightCard({
 
   if (onClick) {
     return (
-      <button type="button" onClick={onClick} className={`${className} text-left`}>
+      <button type="button" onClick={onClick} className={`${className} w-full text-left`}>
         {content}
       </button>
     );
@@ -133,14 +131,14 @@ export function OrgStatusPill({
   tone?: 'critical' | 'watch' | 'success' | 'default';
 }) {
   const tones = {
-    critical: 'border-destructive text-destructive',
-    watch: 'border-warning text-warning',
-    success: 'border-success text-success',
-    default: 'border-border text-muted-foreground',
+    critical: 'border-destructive/40 bg-destructive/10 text-destructive font-bold',
+    watch: 'border-warning/40 bg-warning/10 text-warning font-bold',
+    success: 'border-success/40 bg-success/10 text-success font-bold',
+    default: 'border-border bg-surface-feed text-muted-foreground font-semibold',
   };
   return (
     <span
-      className={`inline-flex items-start rounded-full border bg-surface-feed px-2 py-1 font-mono text-[10px] font-medium ${tones[tone]}`}
+      className={`inline-flex w-fit items-center rounded-md border px-2.5 py-1 font-mono text-[10px] uppercase tracking-wider ${tones[tone]}`}
     >
       {children}
     </span>
