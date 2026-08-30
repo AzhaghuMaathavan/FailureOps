@@ -2,6 +2,8 @@
 
 import React from 'react';
 import Link from 'next/link';
+import { FailureOpsLogo } from './FailureOpsLogo';
+import { cn } from '@/lib/utils';
 
 interface BrandLogoProps {
   size?: 'xs' | 'sm' | 'md' | 'lg' | 'xl';
@@ -18,45 +20,49 @@ export const BrandLogo: React.FC<BrandLogoProps> = ({
   className = '',
   glow = true,
 }) => {
-  const dimensions = {
-    xs: { mark: 20, type: 'text-[9px]', markType: 'text-[7px]', subtext: 'text-[8px]', radius: 'rounded-md' },
-    sm: { mark: 24, type: 'text-[10px]', markType: 'text-[8px]', subtext: 'text-[8px]', radius: 'rounded-md' },
-    md: { mark: 28, type: 'text-[11px]', markType: 'text-[10px]', subtext: 'text-[9px]', radius: 'rounded-lg' },
-    lg: { mark: 32, type: 'text-[13px]', markType: 'text-[12px]', subtext: 'text-[9px]', radius: 'rounded-[10px]' },
-    xl: { mark: 40, type: 'text-lg', markType: 'text-sm', subtext: 'text-xs', radius: 'rounded-xl' },
+  const pixelSizes = {
+    xs: 22,
+    sm: 26,
+    md: 32,
+    lg: 38,
+    xl: 48,
+  };
+
+  const textSizes = {
+    xs: { title: 'text-xs', subtitle: 'text-[9px]' },
+    sm: { title: 'text-sm', subtitle: 'text-[10px]' },
+    md: { title: 'text-base', subtitle: 'text-xs' },
+    lg: { title: 'text-lg', subtitle: 'text-xs' },
+    xl: { title: 'text-xl', subtitle: 'text-sm' },
   }[size];
 
-  const mark = (
-    <div
-      className={`relative shrink-0 flex items-center justify-center bg-primary text-primary-foreground font-mono font-bold leading-none ${dimensions.radius} ${dimensions.markType} ${
-        glow ? 'shadow-primary-glow' : ''
-      }`}
-      style={{ width: dimensions.mark, height: dimensions.mark }}
-      aria-hidden="true"
-    >
-      FX
-    </div>
+  const logoIcon = (
+    <FailureOpsLogo
+      size={pixelSizes[size]}
+      glow={glow}
+      className="shrink-0 transition-transform duration-200 group-hover:scale-105"
+    />
   );
 
   const content = (
-    <div className={`inline-flex items-center gap-2.5 group select-none ${className}`}>
-      {mark}
+    <div className={cn('inline-flex items-center gap-3 select-none group', className)}>
+      {logoIcon}
 
       {variant === 'full' && (
-        <div className="flex flex-col text-left min-w-0">
-          <span className={`font-mono font-bold tracking-wide text-foreground leading-none whitespace-nowrap ${dimensions.type}`}>
-            FAILUREOPS X
+        <div className="flex flex-col text-left leading-tight min-w-0">
+          <span className={cn('font-mono font-bold tracking-tight text-foreground', textSizes.title)}>
+            FAILUREOPS <span className="text-primary font-black">X</span>
           </span>
-          <span className={`font-medium text-muted-foreground leading-tight mt-px whitespace-nowrap ${dimensions.subtext}`}>
-            Early-warning intel
+          <span className={cn('text-muted-foreground font-medium uppercase tracking-wider', textSizes.subtitle)}>
+            Project Failure Intelligence
           </span>
         </div>
       )}
 
       {variant === 'badge' && (
-        <div className="flex items-center gap-1.5 px-2 py-0.5 rounded-full bg-primary-muted border border-primary/40">
+        <div className="flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-primary/10 border border-primary/20">
           <span className="font-mono font-bold text-foreground text-xs whitespace-nowrap">
-            FAILUREOPS <span className="text-primary">X</span>
+            FAILUREOPS <span className="text-primary font-black">X</span>
           </span>
         </div>
       )}
@@ -67,8 +73,8 @@ export const BrandLogo: React.FC<BrandLogoProps> = ({
     return (
       <Link
         href={href}
-        aria-label="FailureOps X home"
-        className="inline-flex cursor-pointer rounded-lg focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-sidebar"
+        aria-label="FailureOps X Home"
+        className="inline-flex cursor-pointer rounded-lg p-1 -ml-1 transition-opacity hover:opacity-95 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background"
       >
         {content}
       </Link>
@@ -78,7 +84,7 @@ export const BrandLogo: React.FC<BrandLogoProps> = ({
   if (variant === 'icon') {
     return (
       <div className={className} role="img" aria-label="FailureOps X">
-        {mark}
+        {logoIcon}
       </div>
     );
   }

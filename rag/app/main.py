@@ -56,13 +56,17 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
+from app.api import health, documents, retrieval, chat, conversations, analysis, foundation, email
+
 app.include_router(foundation.router, prefix="/api", tags=["foundation"])
+app.include_router(email.router, tags=["Email & Notifications"])
 app.include_router(health.router, prefix=settings.API_V1_STR, tags=["health"])
 app.include_router(documents.router, prefix=settings.API_V1_STR + "/documents", tags=["documents"])
 app.include_router(retrieval.router, prefix=settings.API_V1_STR + "/retrieval", tags=["retrieval"])
 app.include_router(chat.router, prefix=settings.API_V1_STR + "/chat", tags=["chat"])
 app.include_router(conversations.router, prefix=settings.API_V1_STR + "/conversations", tags=["conversations"])
 app.include_router(analysis.router, prefix=settings.API_V1_STR, tags=["analysis"])
+
 
 
 @app.get("/")

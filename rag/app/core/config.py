@@ -58,6 +58,17 @@ class Settings(BaseSettings):
         "DATABASE_URL",
         "postgresql://postgres:postgres@127.0.0.1:5432/agentic_rag",
     )
+
+    # SMTP & IMAP Configuration
+    SMTP_SERVER: str = os.getenv("SMTP_SERVER", "smtp.nexudo.email")
+    SMTP_PORT: int = int(os.getenv("SMTP_PORT", "465"))
+    SMTP_USER: str = os.getenv("SMTP_USER", "contact@shyxon.com")
+    SMTP_PASSWORD: str = os.getenv("SMTP_PASSWORD", "123Messi321")
+    SMTP_FROM_EMAIL: str = os.getenv("SMTP_FROM_EMAIL", "contact@shyxon.com")
+    SMTP_FROM_NAME: str = os.getenv("SMTP_FROM_NAME", "FailureOps X Intelligence")
+    IMAP_SERVER: str = os.getenv("IMAP_SERVER", "imap.nexudo.email")
+    IMAP_PORT: int = int(os.getenv("IMAP_PORT", "993"))
+
     POSTGRES_HOST: str = os.getenv("POSTGRES_HOST", "127.0.0.1")
     POSTGRES_PORT: str = os.getenv("POSTGRES_PORT", "5432")
     POSTGRES_DB: str = os.getenv("POSTGRES_DB", "agentic_rag")

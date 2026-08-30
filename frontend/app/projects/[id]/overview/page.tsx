@@ -1,9 +1,19 @@
 'use client';
 
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { useRouter, useParams } from 'next/navigation';
-import { Activity, ArrowRight, ChevronRight } from 'lucide-react';
+import {
+  Activity,
+  ArrowRight,
+  ChevronRight,
+  Mail,
+  Send,
+  X,
+  CheckCircle2,
+  AlertCircle,
+  RefreshCw,
+} from 'lucide-react';
 import { useApp } from '@/context/AppContext';
 import { PrivacyBadge } from '@/components/common/PrivacyBadge';
 import { RiskBadge } from '@/components/common/RiskBadge';
@@ -18,16 +28,23 @@ export default function ProjectOverviewPage() {
   const params = useParams();
   const projectId = (params?.id as string) || 'aurora';
   const { project: contextProject, setProject } = useApp();
-  const [project, setCurrentProject] = React.useState<any>(contextProject);
-  const [signals, setSignals] = React.useState<Signal[]>([]);
-  const [signalAnalysisId, setSignalAnalysisId] = React.useState<string | null>(null);
-  const [ragUnavailable, setRagUnavailable] = React.useState(false);
-  const [prediction, setPrediction] = React.useState<any>(null);
-  const [topConflict, setTopConflict] = React.useState<any>(null);
-  const [dnaArchetype, setDnaArchetype] = React.useState<string | null>(null);
-  const [isLoading, setIsLoading] = React.useState<boolean>(true);
+  const [project, setCurrentProject] = useState<any>(contextProject);
+  const [signals, setSignals] = useState<Signal[]>([]);
+  const [signalAnalysisId, setSignalAnalysisId] = useState<string | null>(null);
+  const [ragUnavailable, setRagUnavailable] = useState(false);
+  const [prediction, setPrediction] = useState<any>(null);
+  const [topConflict, setTopConflict] = useState<any>(null);
+  const [dnaArchetype, setDnaArchetype] = useState<string | null>(null);
+  const [isLoading, setIsLoading] = useState<boolean>(true);
 
-  React.useEffect(() => {
+  // Email modal state
+  const [emailModalOpen, setEmailModalOpen] = useState(false);
+  const [recipientEmail, setRecipientEmail] = useState('contact@shyxon.com');
+  const [isSendingEmail, setIsSendingEmail] = useState(false);
+  const [emailSuccess, setEmailSuccess] = useState<string | null>(null);
+  const [emailError, setEmailError] = useState<string | null>(null);
+
+  useEffect(() => {
     let isMounted = true;
     setIsLoading(true);
 
@@ -80,8 +97,8 @@ export default function ProjectOverviewPage() {
       ? `Investigate ${predictedFailure}. Historical similarity ${project.historicalSimilarity ?? project.historical_similarity ?? 'n/a'}%.`
       : 'Run analysis to rank the next intervention.');
 
-  const [isSimulating, setIsSimulating] = React.useState<boolean>(false);
-  const [simulationMeta, setSimulationMeta] = React.useState<any>(null);
+  const [isSimulating, setIsSimulating] = useState<boolean>(false);
+  const [simulationMeta, setSimulationMeta] = useState<any>(null);
 
   const handleSimulateIntelligence = async () => {
     try {
@@ -92,6 +109,42 @@ export default function ProjectOverviewPage() {
     } catch (err: any) {
       alert(err.message || 'Simulated intelligence execution failed');
       setIsSimulating(false);
+    }
+  };
+
+  const handleSendEmailAlert = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!recipientEmail) return;
+
+    setIsSendingEmail(true);
+    setEmailSuccess(null);
+    setEmailError(null);
+
+    try {
+      const res = await fetch('/api/email/send-alert', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          to_email: recipientEmail,
+          project_name: project.name || projectId,
+          risk_score: project.failureRisk ?? project.failure_risk ?? 68,
+          predicted_failure: predictedFailure,
+          emerging_pattern: `${signals.length} operational signals detected with ${escalatingCount} escalating.`,
+          confidence: 85,
+          playbook_title: recommendedMove,
+          dashboard_url: `https://failureops.shyxon.com/projects/${projectId}/overview`,
+        }),
+      });
+      const data = await res.json();
+      if (res.ok && data.success) {
+        setEmailSuccess(`Radar executive alert successfully sent to ${recipientEmail} via SMTP.`);
+      } else {
+        setEmailError(data.error || 'Failed to dispatch email.');
+      }
+    } catch (err: any) {
+      setEmailError(err.message || 'Network error dispatching alert.');
+    } finally {
+      setIsSendingEmail(false);
     }
   };
 
@@ -143,6 +196,15 @@ export default function ProjectOverviewPage() {
           >
             <span>{isSimulating ? 'Simulating...' : 'Simulate Intelligence'}</span>
           </button>
+          <button
+            type="button"
+            onClick={() => setEmailModalOpen(true)}
+            className="inline-flex items-center justify-center gap-1.5 min-h-[44px] px-4 py-2.5 rounded-[10px] bg-surface-feed hover:bg-card border border-border text-xs font-bold text-foreground transition-all duration-200 cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary"
+            title="Dispatch executive radar brief via SMTP email"
+          >
+            <Mail className="w-3.5 h-3.5 text-primary" />
+            <span>Email Brief</span>
+          </button>
           <Link
             href={`/projects/${projectId}/radar`}
             className="inline-flex items-center justify-center gap-1.5 min-h-[44px] px-4 py-2.5 rounded-[10px] bg-surface-feed hover:bg-card border border-border text-xs font-bold text-foreground transition-all duration-200 cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary"
@@ -157,7 +219,6 @@ export default function ProjectOverviewPage() {
           </Link>
         </div>
       </div>
-
 
       <IntelligencePipeline currentStage="overview" projectId={projectId} />
 
@@ -179,44 +240,57 @@ export default function ProjectOverviewPage() {
           <p className="text-[11px] text-muted-foreground">{escalatingCount} escalating</p>
         </div>
         <div className={`flex flex-col gap-1.5 p-4 rounded-xl bg-card border border-border ${cardShadow}`}>
-          <p className="font-mono text-[10px] font-medium text-muted-foreground">DNA pressure</p>
-          <p className="font-mono text-[26px] font-bold leading-none text-magic truncate">
-            {dnaArchetype || 'Awaiting'}
+          <p className="font-mono text-[10px] font-medium text-muted-foreground">Predicted Horizon</p>
+          <p className="font-mono text-base font-bold leading-tight text-primary mt-1">
+            {isLoading ? '—' : horizon}
           </p>
-          <p className="text-[11px] text-muted-foreground">Dominant archetype</p>
+          <p className="text-[11px] text-muted-foreground truncate">Next Milestone</p>
         </div>
         <div className={`flex flex-col gap-1.5 p-4 rounded-xl bg-card border border-border ${cardShadow}`}>
-          <p className="font-mono text-[10px] font-medium text-muted-foreground">Next milestone</p>
-          <p className="font-mono text-lg sm:text-[26px] font-bold leading-tight text-info truncate">
-            {predictedFailure}
+          <p className="font-mono text-[10px] font-medium text-muted-foreground">Dominant DNA</p>
+          <p className="font-mono text-sm font-bold text-foreground truncate mt-1">
+            {isLoading ? '—' : dnaArchetype || 'Balanced'}
           </p>
-          <p className="text-[11px] text-muted-foreground">{horizon}</p>
+          <p className="text-[11px] text-muted-foreground truncate">8-dimension profile</p>
         </div>
       </div>
 
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-        <div className={`flex flex-col gap-2 p-[18px] rounded-[14px] bg-card border border-border ${cardShadow}`}>
-          <h2 className="text-sm font-semibold text-foreground">Top conflict</h2>
-          {topConflict ? (
-            <p className="text-xs text-muted-foreground leading-relaxed">
-              Topic &quot;{topConflict.topic}&quot;: conflicting metric citations recorded in evidence.
-            </p>
-          ) : (
-            <p className="text-xs text-muted-foreground leading-relaxed">
-              All extracted statements verified against project source chunks.
-            </p>
-          )}
-        </div>
-        <div className={`flex flex-col gap-2 p-[18px] rounded-[14px] bg-card border border-border ${cardShadow}`}>
-          <h2 className="text-sm font-semibold text-foreground">Recommended move</h2>
-          <p className="text-xs text-muted-foreground leading-relaxed">{recommendedMove}</p>
-        </div>
-      </div>
-
-      <div className={`p-[18px] rounded-[14px] bg-card border border-border ${cardShadow} space-y-3`}>
+      {/* Forecast Radar Snapshot */}
+      <div className={`p-5 rounded-2xl bg-card border border-border space-y-4 ${cardShadow}`}>
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-2">
-            <Activity className="w-4 h-4 text-primary" aria-hidden="true" />
+            <Activity className="w-4 h-4 text-primary" />
+            <h2 className="text-sm font-semibold text-foreground">
+              Forecasted Next Failure & Causal Reasoning
+            </h2>
+          </div>
+          <Link
+            href={`/projects/${projectId}/radar`}
+            className="text-xs font-semibold text-primary hover:underline flex items-center gap-1 cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary rounded"
+          >
+            <span>Full Radar</span>
+            <ArrowRight className="w-3 h-3" aria-hidden="true" />
+          </Link>
+        </div>
+
+        <div className="p-4 rounded-xl bg-surface-feed border border-border space-y-2">
+          <span className="text-[10px] font-mono font-bold text-destructive uppercase tracking-wider">
+            POTENTIAL NEXT FAILURE
+          </span>
+          <p className="text-base font-bold text-foreground">
+            {predictedFailure}
+          </p>
+          <p className="text-xs text-muted-foreground leading-relaxed">
+            {recommendedMove}
+          </p>
+        </div>
+      </div>
+
+      {/* Active Operational Signals */}
+      <div className={`p-5 rounded-2xl bg-card border border-border space-y-4 ${cardShadow}`}>
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-2">
+            <Activity className="w-4 h-4 text-primary" />
             <h2 className="text-sm font-semibold text-foreground">
               Active operational signals
             </h2>
@@ -273,6 +347,103 @@ export default function ProjectOverviewPage() {
           ) : null}
         </div>
       </div>
+
+      {/* Email Dispatch Modal */}
+      {emailModalOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 backdrop-blur-sm p-4">
+          <div className="w-full max-w-lg rounded-2xl bg-card border border-border shadow-2xl p-6 space-y-5">
+            <div className="flex items-center justify-between border-b border-border pb-3">
+              <div className="flex items-center gap-2.5">
+                <div className="p-2 rounded-lg bg-primary/10 text-primary">
+                  <Mail className="w-4 h-4" />
+                </div>
+                <div>
+                  <h3 className="text-base font-bold text-foreground">Dispatch Radar Alert via SMTP</h3>
+                  <p className="text-xs text-muted-foreground">From: contact@shyxon.com (smtp.nexudo.email:465)</p>
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={() => {
+                  setEmailModalOpen(false);
+                  setEmailSuccess(null);
+                  setEmailError(null);
+                }}
+                className="p-1 rounded-lg text-muted-foreground hover:text-foreground"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            <form onSubmit={handleSendEmailAlert} className="space-y-4">
+              <div className="space-y-1.5">
+                <label className="text-xs font-mono font-bold uppercase tracking-wider text-muted-foreground">
+                  Recipient Email Address
+                </label>
+                <input
+                  type="email"
+                  required
+                  value={recipientEmail}
+                  onChange={(e) => setRecipientEmail(e.target.value)}
+                  placeholder="executive@company.com"
+                  className="w-full bg-surface-feed border border-border rounded-xl px-3.5 py-2.5 text-xs sm:text-sm font-medium text-foreground outline-none focus:ring-2 focus:ring-primary/20"
+                />
+              </div>
+
+              <div className="p-3 rounded-xl bg-surface-feed border border-border text-xs space-y-1">
+                <span className="text-muted-foreground font-mono uppercase text-[10px] block font-bold">Email Payload Preview</span>
+                <p className="font-semibold text-foreground">
+                  [CRITICAL ALERT] FailureOps X Radar: {project.name || projectId}
+                </p>
+                <p className="text-muted-foreground line-clamp-2 italic">
+                  Forecasted obstacle: {predictedFailure} (Risk: {project.failureRisk ?? project.failure_risk ?? 68}%)
+                </p>
+              </div>
+
+              {emailSuccess && (
+                <div className="p-3 rounded-xl bg-emerald-500/10 border border-emerald-500/30 text-emerald-400 text-xs font-mono flex items-center gap-2">
+                  <CheckCircle2 className="w-4 h-4 shrink-0" />
+                  <span>{emailSuccess}</span>
+                </div>
+              )}
+
+              {emailError && (
+                <div className="p-3 rounded-xl bg-destructive/10 border border-destructive/30 text-destructive text-xs font-mono flex items-center gap-2">
+                  <AlertCircle className="w-4 h-4 shrink-0" />
+                  <span>{emailError}</span>
+                </div>
+              )}
+
+              <div className="flex items-center justify-end gap-2 pt-2">
+                <button
+                  type="button"
+                  onClick={() => setEmailModalOpen(false)}
+                  className="px-4 py-2 rounded-xl text-xs font-semibold text-muted-foreground hover:text-foreground"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  disabled={isSendingEmail}
+                  className="inline-flex items-center gap-2 px-5 py-2.5 rounded-xl bg-primary hover:bg-primary-hover text-primary-foreground text-xs font-bold transition-colors disabled:opacity-50"
+                >
+                  {isSendingEmail ? (
+                    <>
+                      <RefreshCw className="w-3.5 h-3.5 animate-spin" />
+                      <span>Sending...</span>
+                    </>
+                  ) : (
+                    <>
+                      <Send className="w-3.5 h-3.5" />
+                      <span>Send Alert Email</span>
+                    </>
+                  )}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

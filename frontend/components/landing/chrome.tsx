@@ -36,19 +36,16 @@ export function btnGhost(className?: string) {
   );
 }
 
-export function FxMark() {
+import { FailureOpsLogo } from '@/components/common/FailureOpsLogo';
+
+export function FxMark({ size = 32, className }: { size?: number; className?: string }) {
   return (
-    <span
-      className={cn(
-        'inline-flex size-7 shrink-0 items-center justify-center rounded-lg bg-primary font-mono text-[10px] font-bold text-primary-foreground sm:size-8 sm:rounded-[10px] sm:text-xs',
-        primaryGlow
-      )}
-      aria-hidden="true"
-    >
-      FX
-    </span>
+    <div className={cn('relative inline-flex shrink-0 items-center justify-center', className)}>
+      <FailureOpsLogo size={size} glow={true} />
+    </div>
   );
 }
+
 
 export function LandingHeader() {
   return (
@@ -93,20 +90,16 @@ export function LandingHeader() {
 
 export function RegisterHeader({ step, stepLabel }: { step: number; stepLabel: string }) {
   return (
-    <header className="relative z-20 w-full border-b border-border bg-background px-4 py-4 sm:px-6 lg:px-12">
+    <header className="relative z-20 w-full border-b border-border bg-background px-4 py-3.5 sm:px-6 lg:px-12">
       <div className="flex items-center justify-between gap-3">
         <Link
           href="/"
-          className={cn('min-h-11 text-sm font-bold text-foreground md:hidden', focusRing)}
+          className={cn('flex items-center gap-2.5 rounded-lg p-1 -ml-1', focusRing)}
         >
-          Register
-          <span className="sr-only"> — home</span>
-        </Link>
-        <Link
-          href="/"
-          className={cn('hidden min-h-11 items-center rounded-lg md:inline-flex', focusRing)}
-        >
-          <span className="font-mono text-[13px] font-bold text-foreground">FAILUREOPS X</span>
+          <FxMark size={28} />
+          <span className="font-mono text-sm font-bold text-foreground">
+            FAILUREOPS <span className="text-primary">X</span>
+          </span>
           <span className="sr-only"> — home</span>
         </Link>
         <p className="font-mono text-xs font-medium text-muted-foreground">
@@ -121,6 +114,7 @@ export function RegisterHeader({ step, stepLabel }: { step: number; stepLabel: s
     </header>
   );
 }
+
 
 export function LandingFooter() {
   return (
