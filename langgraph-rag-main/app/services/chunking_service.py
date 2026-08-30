@@ -137,6 +137,17 @@ def create_chunks_for_document(db: Session, document_id: str):
 
     flush_chunk()
 
+    if not created_chunks and blocks:
+        for block_obj, page_obj in blocks:
+            c = block_obj.content or ""
+            if c.strip():
+                active_text.append(c)
+                active_block_ids.append(block_obj.id)
+                active_page_ids.append(page_obj.id)
+                active_page_numbers.append(page_obj.page_number if page_obj.page_number and page_obj.page_number >= 1 else (page_obj.page_number or 0) + 1)
+                active_block_metadata.append(block_obj.raw_metadata)
+        flush_chunk()
+
     # Link previous and next chunk IDs
     for i in range(len(created_chunks)):
         if i > 0:
