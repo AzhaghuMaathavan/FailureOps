@@ -49,5 +49,7 @@ langgraph-rag-main/.venv/
 prompt.md
 report.md
 theme.md
+.user_store.json
+
 
 
