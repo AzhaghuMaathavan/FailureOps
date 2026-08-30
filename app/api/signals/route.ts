@@ -55,6 +55,7 @@ export async function GET(req: NextRequest) {
         ? backendData.analysis_id
         : null,
       signals: mappedSignals,
+      packet: backendData,
     });
   } catch (error) {
     return apiError(error, 'Unable to retrieve project operational signals.');

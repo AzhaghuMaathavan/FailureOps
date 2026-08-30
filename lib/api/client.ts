@@ -113,13 +113,23 @@ export const apiClient = {
     return request<any>(`/api/evidence?projectId=${encodeURIComponent(projectId)}${q}`);
   },
 
-  async uploadProjectFile(projectId: string, file: File, title?: string, documentType: string = 'PROJECT_DOC', description?: string) {
+  async uploadProjectFile(
+    projectId: string,
+    file: File,
+    title?: string,
+    documentType: string = 'PROJECT_DOC',
+    description?: string,
+    extra?: { visibility?: string; department?: string; sync?: string }
+  ) {
     const formData = new FormData();
     formData.append('file', file, file.name);
     formData.append('projectId', projectId);
     if (title) formData.append('title', title);
     formData.append('documentType', documentType);
     if (description) formData.append('description', description);
+    if (extra?.visibility) formData.append('visibility', extra.visibility);
+    if (extra?.department) formData.append('department', extra.department);
+    if (extra?.sync) formData.append('sync', extra.sync);
 
     const response = await fetch('/api/evidence/upload', {
       method: 'POST',
@@ -155,9 +165,10 @@ export const apiClient = {
   async getSignals(projectId: string = 'aurora', analysisId?: string): Promise<{
     analysisId: string | null;
     signals: Signal[];
+    packet?: unknown;
   }> {
     const q = analysisId ? `&analysisId=${encodeURIComponent(analysisId)}` : '';
-    const data = await request<{ analysisId: string | null; signals: Signal[] } | Signal[]>(
+    const data = await request<{ analysisId: string | null; signals: Signal[]; packet?: unknown } | Signal[]>(
       `/api/signals?projectId=${encodeURIComponent(projectId)}${q}`
     );
     if (Array.isArray(data)) {
@@ -166,6 +177,7 @@ export const apiClient = {
     return {
       analysisId: data?.analysisId ?? null,
       signals: data?.signals || [],
+      packet: data?.packet,
     };
   },
 
@@ -301,6 +313,39 @@ export const apiClient = {
         completed_at?: string | null;
       }[];
     }>(`/api/rag/pipeline?projectId=${encodeURIComponent(projectId)}`);
+  },
+
+  async startLangGraphRun(
+    projectId: string,
+    files: File[],
+    metadata: {
+      title: string;
+      documentType: string;
+      description: string;
+      visibility: 'PRIVATE' | 'ORGANIZATION';
+      department: string;
+    }[]
+  ) {
+    const formData = new FormData();
+    formData.append('projectId', projectId);
+    formData.append('metadata', JSON.stringify(metadata));
+    for (const file of files) {
+      formData.append('files', file, file.name);
+    }
+    const response = await fetch('/api/langgraph/run', { method: 'POST', body: formData });
+    const body = await response.json().catch(() => ({ success: false, message: 'LangGraph start failed' }));
+    if (!response.ok || !body.success) {
+      throw new ApiError(body.message || 'Failed to start LangGraph run', response.status);
+    }
+    return body.data;
+  },
+
+  async getLangGraphRun(runId: string) {
+    return request<any>(`/api/langgraph/run/${encodeURIComponent(runId)}`);
+  },
+
+  async getLatestLangGraphRun(projectId: string) {
+    return request<any>(`/api/langgraph/run?projectId=${encodeURIComponent(projectId)}`);
   },
 
   // Truth Engine

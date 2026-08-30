@@ -58,18 +58,19 @@ export function ragHeaders(session: UserSession, extra?: HeadersInit, body?: Bod
 export async function ragFetch<T = unknown>(
   path: string,
   session: UserSession,
-  init: RequestInit = {}
+  init: RequestInit & { timeoutMs?: number } = {}
 ): Promise<T> {
   const method = (init.method || 'GET').toUpperCase();
   console.info(`[FAILUREOPS] ${method} ${path}`);
+  const { timeoutMs, ...fetchInit } = init;
 
   let resp: Response;
   try {
     resp = await fetch(ragUrl(path), {
-      ...init,
-      headers: ragHeaders(session, init.headers, init.body),
+      ...fetchInit,
+      headers: ragHeaders(session, fetchInit.headers, fetchInit.body),
       cache: 'no-store',
-      signal: init.signal ?? AbortSignal.timeout(60_000),
+      signal: fetchInit.signal ?? AbortSignal.timeout(timeoutMs ?? 60_000),
     });
   } catch (cause) {
     console.error(`[FAILUREOPS] RAG unreachable at ${path}`);

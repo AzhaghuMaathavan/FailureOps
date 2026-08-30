@@ -23,11 +23,16 @@ import { apiClient, isRagUnavailable } from '@/lib/api/client';
 import { useApp } from '@/context/AppContext';
 import { RagPipelinePanel } from '@/components/evidence/RagPipelinePanel';
 import { KpiStat } from '@/components/evidence/KpiStat';
+import { LangGraphRunPanel, LangGraphRunView } from '@/components/pipeline/LangGraphRunPanel';
 
 interface PendingFileItem {
   id: string;
   file: File;
   category: EvidenceSourceType;
+  title: string;
+  description: string;
+  visibility: 'PRIVATE' | 'ORGANIZATION';
+  department: string;
 }
 
 export default function EvidenceUploadPage() {
@@ -46,6 +51,7 @@ export default function EvidenceUploadPage() {
   const [deletingDocId, setDeletingDocId] = useState<string | null>(null);
   const [replacingPendingId, setReplacingPendingId] = useState<string | null>(null);
   const [isDragging, setIsDragging] = useState(false);
+  const [langGraphRun, setLangGraphRun] = useState<LangGraphRunView | null>(null);
 
   const fileInputRef = useRef<HTMLInputElement | null>(null);
   const replaceInputRef = useRef<HTMLInputElement | null>(null);
@@ -99,9 +105,13 @@ export default function EvidenceUploadPage() {
   const fetchBackendDocuments = async (silent = false) => {
     try {
       if (!silent) setIsLoadingDocs(true);
-      const data = await apiClient.getRagPipeline(projectId);
+      const [data, latestRun] = await Promise.all([
+        apiClient.getRagPipeline(projectId),
+        apiClient.getLatestLangGraphRun(projectId).catch(() => null),
+      ]);
       setPipeline(data);
       setBackendDocs(data.documents || []);
+      if (latestRun) setLangGraphRun(latestRun);
       setRagUnavailable(false);
     } catch (err: unknown) {
       console.error('Failed to load project documents:', err);
@@ -131,6 +141,23 @@ export default function EvidenceUploadPage() {
     return () => clearInterval(id);
   }, [projectId, ragUnavailable, backendDocs.map((d) => `${d.id}:${d.status}:${d.chunk_count}:${d.embedded_count}`).join('|')]);
 
+  useEffect(() => {
+    if (!langGraphRun?.runId) return;
+    if (langGraphRun.status !== 'QUEUED' && langGraphRun.status !== 'RUNNING') return;
+    const id = setInterval(async () => {
+      try {
+        const next = await apiClient.getLangGraphRun(langGraphRun.runId);
+        if (next) setLangGraphRun(next);
+        if (next?.status === 'RUNNING' || next?.status === 'COMPLETED') {
+          fetchBackendDocuments(true);
+        }
+      } catch {
+        /* keep last snapshot */
+      }
+    }, 1500);
+    return () => clearInterval(id);
+  }, [langGraphRun?.runId, langGraphRun?.status, projectId]);
+
   const stageSelectedFiles = (files: FileList | File[]) => {
     const list = Array.from(files);
     if (list.length === 0) return;
@@ -138,6 +165,10 @@ export default function EvidenceUploadPage() {
       id: `pending_${Math.random().toString(36).substring(2, 9)}`,
       file,
       category: currentCategory,
+      title: file.name.replace(/\.[^.]+$/, ''),
+      description: '',
+      visibility: 'PRIVATE',
+      department: '',
     }));
     setPendingFiles((prev) => [...prev, ...newItems]);
     setUploadError(null);
@@ -186,18 +217,21 @@ export default function EvidenceUploadPage() {
     setUploadError(null);
 
     try {
-      for (const item of pendingFiles) {
-        await apiClient.uploadProjectFile(
-          projectId,
-          item.file,
-          item.file.name,
-          item.category
-        );
-      }
+      const started = await apiClient.startLangGraphRun(
+        projectId,
+        pendingFiles.map((item) => item.file),
+        pendingFiles.map((item) => ({
+          title: item.title || item.file.name,
+          documentType: item.category,
+          description: item.description,
+          visibility: item.visibility,
+          department: item.department,
+        }))
+      );
+      setLangGraphRun(started);
       setPendingFiles([]);
-      await fetchBackendDocuments();
     } catch (err: any) {
-      setUploadError(err.message || 'One or more files failed to upload.');
+      setUploadError(err.message || 'LangGraph upload failed.');
     } finally {
       setIsUploading(false);
     }
@@ -369,7 +403,7 @@ export default function EvidenceUploadPage() {
               ) : (
                 <>
                   <UploadCloud className="h-3.5 w-3.5" aria-hidden="true" />
-                  <span>Upload & Ingest All Files</span>
+                  <span>Upload through LangGraph</span>
                 </>
               )}
             </button>
@@ -379,8 +413,9 @@ export default function EvidenceUploadPage() {
             {pendingFiles.map((item) => (
               <div
                 key={item.id}
-                className="flex items-center justify-between rounded-xl border border-border bg-card p-3 text-xs"
+                className="space-y-3 rounded-xl border border-border bg-card p-3 text-xs"
               >
+                <div className="flex items-center justify-between gap-3">
                 <div className="flex items-center gap-3 truncate">
                   <FileText className="h-4 w-4 shrink-0 text-primary" aria-hidden="true" />
                   <div>
@@ -409,11 +444,72 @@ export default function EvidenceUploadPage() {
                     Remove
                   </button>
                 </div>
+                </div>
+                <div className="grid grid-cols-1 gap-2 md:grid-cols-2">
+                  <label className="block space-y-1">
+                    <span className="font-mono text-[10px] uppercase text-muted-foreground">Title</span>
+                    <input
+                      value={item.title}
+                      onChange={(e) =>
+                        setPendingFiles((prev) =>
+                          prev.map((row) => (row.id === item.id ? { ...row, title: e.target.value } : row))
+                        )
+                      }
+                      className="w-full cursor-text rounded-lg border border-border bg-surface-feed px-2.5 py-1.5 text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                    />
+                  </label>
+                  <label className="block space-y-1">
+                    <span className="font-mono text-[10px] uppercase text-muted-foreground">Visibility</span>
+                    <select
+                      value={item.visibility}
+                      onChange={(e) =>
+                        setPendingFiles((prev) =>
+                          prev.map((row) =>
+                            row.id === item.id
+                              ? { ...row, visibility: e.target.value as PendingFileItem['visibility'] }
+                              : row
+                          )
+                        )
+                      }
+                      className="w-full cursor-pointer rounded-lg border border-border bg-surface-feed px-2.5 py-1.5 text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                    >
+                      <option value="PRIVATE">Private</option>
+                      <option value="ORGANIZATION">Organization</option>
+                    </select>
+                  </label>
+                  <label className="block space-y-1">
+                    <span className="font-mono text-[10px] uppercase text-muted-foreground">Department</span>
+                    <input
+                      value={item.department}
+                      onChange={(e) =>
+                        setPendingFiles((prev) =>
+                          prev.map((row) => (row.id === item.id ? { ...row, department: e.target.value } : row))
+                        )
+                      }
+                      className="w-full cursor-text rounded-lg border border-border bg-surface-feed px-2.5 py-1.5 text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                    />
+                  </label>
+                  <label className="block space-y-1 md:col-span-2">
+                    <span className="font-mono text-[10px] uppercase text-muted-foreground">Description</span>
+                    <textarea
+                      value={item.description}
+                      onChange={(e) =>
+                        setPendingFiles((prev) =>
+                          prev.map((row) => (row.id === item.id ? { ...row, description: e.target.value } : row))
+                        )
+                      }
+                      rows={2}
+                      className="w-full cursor-text rounded-lg border border-border bg-surface-feed px-2.5 py-1.5 text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                    />
+                  </label>
+                </div>
               </div>
             ))}
           </div>
         </div>
       )}
+
+      {langGraphRun && <LangGraphRunPanel run={langGraphRun} />}
 
       {pipeline && !ragUnavailable && (
         <RagPipelinePanel

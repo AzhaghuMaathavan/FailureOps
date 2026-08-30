@@ -7,12 +7,14 @@ import { Binary, Loader2, ArrowRight } from 'lucide-react';
 import { apiClient, isRagUnavailable } from '@/lib/api/client';
 import { RagPipelinePanel } from '@/components/evidence/RagPipelinePanel';
 import { KpiStat } from '@/components/evidence/KpiStat';
+import { LangGraphRunPanel, LangGraphRunView } from '@/components/pipeline/LangGraphRunPanel';
 
 export default function RagPipelinePage() {
   const params = useParams();
   const projectId = (params?.id as string) || 'aurora';
   const [pipeline, setPipeline] = useState<any>(null);
   const [health, setHealth] = useState<any>(null);
+  const [langGraphRun, setLangGraphRun] = useState<LangGraphRunView | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
@@ -20,12 +22,14 @@ export default function RagPipelinePage() {
     setIsLoading(true);
     setError(null);
     try {
-      const [data, h] = await Promise.all([
+      const [data, h, run] = await Promise.all([
         apiClient.getRagPipeline(projectId),
         apiClient.getRagHealth().catch(() => null),
+        apiClient.getLatestLangGraphRun(projectId).catch(() => null),
       ]);
       setPipeline(data);
       setHealth(h);
+      if (run) setLangGraphRun(run);
     } catch (err: unknown) {
       setPipeline(null);
       setError(isRagUnavailable(err) ? 'RAG unavailable' : err instanceof Error ? err.message : 'Unable to load pipeline');
@@ -98,6 +102,8 @@ export default function RagPipelinePage() {
               valueClassName="text-primary"
             />
           </div>
+
+          {langGraphRun && <LangGraphRunPanel run={langGraphRun} />}
 
           <RagPipelinePanel
             projectId={projectId}

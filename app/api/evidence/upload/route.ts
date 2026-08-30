@@ -28,6 +28,9 @@ export async function POST(req: NextRequest) {
       const title = (formData.get('title') as string) || '';
       const documentType = (formData.get('documentType') as string) || 'PROJECT_DOC';
       const description = (formData.get('description') as string) || '';
+      const visibility = (formData.get('visibility') as string) || 'PRIVATE';
+      const department = (formData.get('department') as string) || '';
+      const sync = (formData.get('sync') as string) || 'false';
 
       if (!incoming || typeof incoming === 'string') {
         throw new Error('No file provided in form data');
@@ -58,6 +61,9 @@ export async function POST(req: NextRequest) {
       backendFormData.append('title', title || filename);
       backendFormData.append('document_type', documentType);
       backendFormData.append('description', description);
+      backendFormData.append('visibility', visibility || 'PRIVATE');
+      if (department) backendFormData.append('department', department);
+      backendFormData.append('sync', sync);
 
       console.info('[FAILUREOPS] Sending document to RAG', {
         projectId,

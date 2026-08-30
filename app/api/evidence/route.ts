@@ -23,8 +23,12 @@ export async function GET(req: NextRequest) {
       ? `/api/v1/projects/${encodeURIComponent(projectId)}/analysis/${encodeURIComponent(analysisId)}/evidence`
       : `/api/v1/projects/${encodeURIComponent(projectId)}/evidence`;
 
-    const evidencePacket = await ragFetch(path, session);
-    return apiSuccess(evidencePacket);
+    const evidencePacket = await ragFetch<Record<string, unknown>>(path, session);
+    const packet = evidencePacket && typeof evidencePacket === 'object' ? evidencePacket : {};
+    return apiSuccess({
+      ...packet,
+      packet,
+    });
   } catch (error) {
     return apiError(error, 'Unable to retrieve evidence citations from backend.');
   }
