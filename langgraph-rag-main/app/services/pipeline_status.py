@@ -125,6 +125,7 @@ def document_pipeline_dict(db: Session, doc: Document) -> Dict[str, Any]:
     vector_status = embed_status
 
     return {
+        "id": doc.id,
         "document_id": doc.id,
         "filename": doc.filename,
         "document_type": doc.document_type,

@@ -378,7 +378,11 @@ export default function EvidenceUploadPage() {
     }
   };
 
-  const handleDeleteBackendDoc = async (docId: string) => {
+  const handleDeleteBackendDoc = async (docId?: string) => {
+    if (!docId || docId === 'undefined') {
+      console.warn('[handleDeleteBackendDoc] Ignored deletion of empty docId');
+      return;
+    }
     try {
       setDeletingDocId(docId);
       await apiClient.deleteDocument(projectId, docId);
@@ -724,13 +728,13 @@ export default function EvidenceUploadPage() {
 
                 <button
                   type="button"
-                  onClick={() => handleDeleteBackendDoc(doc.id)}
-                  disabled={deletingDocId === doc.id}
+                  onClick={() => handleDeleteBackendDoc(doc.id || doc.document_id || doc.documentId)}
+                  disabled={deletingDocId === (doc.id || doc.document_id || doc.documentId)}
                   className="shrink-0 cursor-pointer rounded-lg border border-destructive/30 bg-destructive/10 p-1.5 text-destructive transition-colors hover:bg-destructive/20 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:opacity-50"
                   title="Delete document and remove associated chunks"
                   aria-label={`Delete ${doc.filename}`}
                 >
-                  {deletingDocId === doc.id ? (
+                  {deletingDocId === (doc.id || doc.document_id || doc.documentId) ? (
                     <RefreshCw className="h-3.5 w-3.5 animate-spin motion-reduce:animate-none" aria-hidden="true" />
                   ) : (
                     <Trash2 className="h-3.5 w-3.5" aria-hidden="true" />
