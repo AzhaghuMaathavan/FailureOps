@@ -12,10 +12,11 @@ const PROTECTED_PREFIXES = [
   '/intelligence',
   '/historical',
   '/debug',
+  '/register',
 ];
 
 // Auth routes where authenticated users should be redirected to /dashboard
-const AUTH_PAGES = ['/login', '/signup', '/register', '/forgot-password', '/reset-password'];
+const AUTH_PAGES = ['/login', '/signup', '/forgot-password', '/reset-password'];
 
 export function proxy(request: NextRequest) {
   const { pathname, search } = request.nextUrl;

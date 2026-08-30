@@ -1,1603 +1,446 @@
-MASTER PROMPT — FIX EVIDENCE INTELLIGENCE DATA LOSS + DUPLICATION
+MASTER PROMPT — FIX "REGISTER PRODUCT" BUTTON ON LIVE ENCLAVE DASHBOARD
 
 PROJECT:
 FAILUREOPS X — PROJECT FAILURE INTELLIGENCE
 
-REFERENCE:
-The existing LangGraph/RAG implementation already produces rich, detailed
-structured intelligence.
+CURRENT BUG
+-----------
 
-I have compared:
+On the main dashboard:
 
-1. THE REFERENCE / LANGGRAPH OUTPUT
-   → detailed extracted information
-   → multiple fields
-   → real source provenance
-   → real metric values
-   → dates
-   → events/claims where applicable
-   → evidence
-   → confidence
-   → source locations
+/dashboard
 
-2. CURRENT FAILUREOPS EVIDENCE INTELLIGENCE UI
-   → duplicate evidence cards
-   → same document/evidence repeated multiple times
-   → very little information shown
-   → large portions of LangGraph output are being dropped
-   → evidence detail drawer/modal is too sparse
-   → source/provenance exists but is not represented completely
+there is a top-right button:
 
-GOAL:
+"Register Product"
 
-Make FailureOps display the REAL, DETAILED LangGraph/RAG intelligence that is
-already being produced.
+The button is visible but clicking it does not correctly navigate to the
+existing product/project registration flow.
 
-DO NOT create fake detail.
+IMPORTANT:
+Do NOT create a duplicate registration page.
 
-DO NOT hardcode example data.
+There is ALREADY an existing registration flow in the application with:
 
-DO NOT duplicate the LangGraph pipeline.
+Step 1:
+Product details
 
-DO NOT redesign the backend intelligence if it already works.
+Step 2:
+Evidence sources
 
-Find where the rich LangGraph response is being transformed into an incomplete
-frontend object and FIX THAT DATA LOSS.
+Step 3:
+Privacy
+
+Then:
+
+Create Project & Build Intelligence
+
+Reuse that existing flow.
 
 ============================================================
-1. FIRST — FORENSIC AUDIT
+1. FIRST — AUDIT
 ============================================================
 
-Before changing code, inspect the complete data path:
+Before changing code, inspect:
 
-DOCUMENT
-→ PARSER
-→ CHUNK
-→ RAG RETRIEVAL
-→ LANGGRAPH
-→ EVIDENCE AGENT
-→ STRUCTURED EVIDENCE
-→ DATABASE
-→ API
-→ FRONTEND API CLIENT
-→ TYPES
-→ EVIDENCE INTELLIGENCE PAGE
-→ EVIDENCE DETAIL DRAWER
+- dashboard page
+- Register Product button
+- existing registration route
+- existing registration page/components
+- router configuration
+- navigation helpers
+- project creation API
+- registration state/store
+- route guards
+- auth/project context
 
-Identify exactly where information is lost.
+Determine exactly why:
 
-Inspect:
+Dashboard
+→ Register Product
 
-- LangGraph state
-- final graph output
-- evidence schema
-- evidence DB model
-- evidence persistence
-- evidence API response
-- frontend TypeScript interface
-- API transformation/mapping
-- deduplication logic
-- Evidence Intelligence list
-- Evidence detail drawer/modal
+is not navigating/working.
 
-DO NOT PATCH THE UI FIRST.
-
-Report:
-
-DATA LOSS POINT:
-<exact file/function>
-
-DUPLICATION POINT:
-<exact file/function>
-
-============================================================
-2. REFERENCE THE REAL LANGGRAPH OUTPUT
-============================================================
-
-Use the real existing LangGraph output as the authoritative source.
-
-The frontend must not reconstruct intelligence from:
-
-- filename
-- raw chunk text
-- category
-- evidence ID alone
-
-Instead, consume the structured evidence fields returned by the backend.
-
-Compare the actual backend response against the frontend model.
-
-Create a field mapping:
-
-BACKEND FIELD
-→ FRONTEND FIELD
-
-Example:
-
-evidence.statement
-→ evidence.statement
-
-evidence.source_document_id
-→ evidence.sourceDocumentId
-
-evidence.source_document_name
-→ evidence.sourceDocumentName
-
-evidence.page_numbers
-→ evidence.pageNumbers
-
-evidence.supporting_chunk_ids
-→ evidence.supportingChunkIds
-
-evidence.confidence
-→ evidence.confidence
-
-evidence.metric
-→ evidence.metric
-
-etc.
-
-Do not silently discard fields.
-
-============================================================
-3. PRESERVE THE FULL EVIDENCE OBJECT
-============================================================
-
-The current frontend appears to reduce rich evidence into something like:
-
-title
-+
-filename
-+
-page
-+
-confidence
-
-That is NOT sufficient.
-
-Preserve the full structured evidence returned by LangGraph.
-
-Depending on the actual schema, retain fields such as:
-
-evidence_id
-analysis_id
-project_id
-
-evidence_type
-category
-subcategory
-
-core_statement
-summary
-details
-key_facts
-
-metric
-canonical_name
-value
-unit
-
-baseline_value
-previous_value
-current_value
-
-baseline_date
-previous_date
-current_date
-
-baseline_to_current_change_percent
-previous_to_current_change_percent
-
-trend
-
-event_type
-claim_type
-speaker/entity
-
-risk_score
-severity
-
-confidence
-
-source_document_id
-source_document_name
-source_document_type
-
-supporting_chunk_ids
-
-page_numbers
-row_start
-row_end
-sheet_name
-section_name
-location_type
-location_value
-
-citation
-
-supporting_excerpt
-
-Whatever fields actually exist in the backend should be preserved.
-
-Do NOT invent fields that do not exist.
-
-============================================================
-4. CRITICAL — STOP DUPLICATING EVIDENCE
-============================================================
-
-The current Evidence Intelligence screen shows the same evidence/source more
-than once.
-
-Example symptom:
-
-fintech.pdf
-9. Current Product Assumptions
-Page 5
-
-appears multiple times.
-
-This must be fixed at the data/query level.
-
-Do NOT solve this only by hiding duplicates in CSS.
-
-Determine why duplicates are being generated.
+Do NOT assume the cause.
 
 Possible causes:
 
-- multiple chunks producing the same evidence
-- same evidence persisted multiple times
-- API joins multiplying records
-- frontend mapping duplicates
-- one evidence record per signal instead of one canonical evidence record
-- repeated LangGraph writes
-- missing unique constraint
-- duplicated API requests
+- missing onClick
+- wrong route
+- stale route
+- router misconfiguration
+- button rendered without navigation
+- event handler broken
+- route guard
+- incorrect relative URL
+- registration page mounted at another path
+- JavaScript error
 
-Audit all possibilities.
+Identify the actual root cause.
 
 ============================================================
-5. CANONICAL EVIDENCE IDENTITY
+2. REUSE EXISTING REGISTRATION FLOW
 ============================================================
 
-The system needs one canonical identity for an evidence item.
-
-Use the existing authoritative evidence/database ID.
-
-Do NOT identify uniqueness using only:
-
-filename
-+
-page
-
-because multiple real evidence items can exist on the same page.
-
-Preferred conceptual identity:
-
-evidence_id
-
-Then relationships can reference the same evidence:
-
-Signal A
-→ evidence_123
-
-Signal B
-→ evidence_123
-
-DNA
-→ evidence_123
-
-Radar
-→ evidence_123
-
-Do NOT create four visually identical evidence items.
-
-============================================================
-6. DEDUPLICATION RULE
-============================================================
-
-Deduplicate only when the records truly represent the same evidence.
-
-Do NOT blindly use:
-
-new Set(filename)
-
-or:
-
-new Set(statement)
-
-because this can remove legitimate distinct evidence.
-
-Use authoritative evidence IDs wherever available.
-
-If backend data contains multiple rows with identical evidence identity,
-fix the persistence/query issue rather than hiding it only in frontend.
-
-============================================================
-7. DATABASE AUDIT
-============================================================
-
-Inspect evidence persistence.
-
-Look for:
-
-INSERT evidence
-INSERT evidence
-INSERT evidence
-
-during one analysis.
-
-Check whether the same analysis can create duplicate evidence.
-
-Check:
-
-analysis_id
-project_id
-source_document_id
-evidence_id
-
-and relationships.
-
-If duplicate persistence is occurring:
-
-fix it with:
-
-- idempotency
-- upsert
-- uniqueness constraints where appropriate
-- deterministic evidence IDs
-- duplicate detection
-
-Do NOT simply DELETE duplicate rows without understanding why they exist.
-
-============================================================
-8. FRONTEND API AUDIT
-============================================================
-
-Inspect the API response used by:
-
-Evidence Intelligence.
-
-Print/log one REAL response during development.
-
-Compare:
-
-BACKEND RESPONSE
-
-with:
-
-FRONTEND RECEIVED OBJECT
-
-with:
-
-RENDERED CARD
-
-Find exactly which fields disappear.
-
-Example:
-
-Backend:
-
-{
-  statement,
-  metric,
-  baseline,
-  previous,
-  current,
-  trend,
-  confidence,
-  source,
-  citation
-}
-
-Frontend currently:
-
-{
-  title,
-  source,
-  confidence
-}
-
-Fix this.
-
-============================================================
-9. EVIDENCE LIST UI
-============================================================
-
-The Evidence Intelligence page should show concise but meaningful cards.
-
-DO NOT show giant raw chunks.
-
-Each card should contain:
-
-----------------------------------------
-EVIDENCE
-
-Core statement
-
-Key metric / key fact
-
-Source:
-engineeringmetrics.csv
-
-Location:
-Page / Row / Sheet
-
-Confidence:
-92%
-
-Category:
-TECHNICAL
-
-[View Evidence]
-[Open Source]
-----------------------------------------
-
-The list is a SUMMARY.
-
-The detail drawer contains the rich information.
-
-============================================================
-10. EVIDENCE DETAIL DRAWER
-============================================================
-
-CURRENT PROBLEM:
-
-The drawer/modal only shows a tiny statement such as:
-
-"Verified qualitative event/claim backed by source lineage."
-
-This is wasting the detailed information already available from LangGraph.
-
-The drawer must become the primary detailed inspection view.
-
-Use:
-
-EVIDENCE CITATION RECORD
-
-----------------------------------------
-CORE EVIDENCE
-<real detailed statement>
-
-KEY FACTS
-<important extracted facts>
-
-METRIC CONTEXT
-<if metric evidence>
-
-BASELINE
-value/date
-
-PREVIOUS
-value/date
-
-CURRENT
-value/date
-
-CHANGE
-baseline → current
-
-PERIOD CHANGE
-previous → current
-
-TREND
-increasing/decreasing/stable
-----------------------------------------
-
-SOURCE PROVENANCE
-
-Source:
-fintech.pdf
-
-Page:
-5
-
-Location:
-<actual location>
-
-Confidence:
-79%
-
-[Citation]
-
-[Open Source]
-----------------------------------------
-
-SUPPORTING EXCERPT
-
-<actual supporting excerpt from the retrieved chunk>
-----------------------------------------
-
-TECHNICAL DETAILS
-<expandable>
-- evidence ID
-- analysis ID
-- chunk IDs
-- retrieval metadata where safe
-----------------------------------------
-
-Only render sections that are actually applicable.
-
-============================================================
-11. NEVER SHOW GENERIC PLACEHOLDER TEXT
-============================================================
-
-Do not show:
-
-"Verified qualitative event/claim backed by source lineage."
-
-when the actual evidence statement is available.
-
-Do not show:
-
-"No engine rationale was returned."
-
-if a real deterministic explanation can be constructed.
-
-Do not show:
-
-"Observed anomaly."
-
-when actual signal/evidence data exists.
-
-Use the real backend content.
-
-============================================================
-12. METRIC EVIDENCE
-============================================================
-
-For numeric/time-series evidence, prefer structured display.
-
-Example:
-
-API_P95_MS
-
-BASELINE
-318 ms
-2026-06-01
-
-PREVIOUS
-365 ms
-2026-08-17
-
-CURRENT
-370 ms
-2026-08-24
-
-TOTAL CHANGE
-+16.35%
-
-PERIOD CHANGE
-+1.37%
-
-TREND
-INCREASING
-
-RISK
-54 / 100
-MEDIUM
-
-SOURCE
-engineeringmetrics.csv
-
-This is much better than rendering:
-
-"week_start: ... | api_p95_ms: ..."
-
-============================================================
-13. QUALITATIVE EVIDENCE
-============================================================
-
-For narrative/feedback/claim/event evidence:
-
-show:
-
-TYPE
-EVENT / CLAIM
-
-STATEMENT
-<real statement>
-
-ENTITY / SPEAKER
-<if known>
-
-DATE
-<if known>
-
-WHY IMPORTANT
-<only if backend provides supported interpretation>
-
-SOURCE
-<document>
-
-LOCATION
-<page/row/section>
-
-CONFIDENCE
-<real value>
-
-SUPPORTING EXCERPT
-<real excerpt>
-
-============================================================
-14. EVENTS
-============================================================
-
-If an evidence item corresponds to an event:
-
-show:
-
-EVENT
-
-Event statement
-
-Event type
-
-Date/time
-
-Entities
-
-Source
-
-Location
-
-Confidence
-
-Citation
-
-Do not treat event as just another generic evidence string.
-
-============================================================
-15. CLAIMS
-============================================================
-
-For claims:
-
-CLAIM
-
-Statement
-
-Speaker/entity if known
-
-Claim type
-
-Source
-
-Location
-
-Confidence
-
-Evidence excerpt
-
-Do not fabricate speaker/entity.
-
-============================================================
-16. SIGNAL → EVIDENCE
-============================================================
-
-When evidence is referenced from another screen:
-
-Signal
-→ evidence_id
-→ Evidence Detail
-
-The detail drawer must show the same complete evidence record.
-
-Do not generate a new summary object.
-
-============================================================
-17. FAILURE DNA → EVIDENCE
-============================================================
-
-Failure DNA drivers must reference canonical evidence IDs.
-
-Example:
-
-Technical Risk
-→ Signal API_P95_MS
-→ Evidence evidence_123
-→ engineeringmetrics.csv
-→ Page/row
-→ actual source
-
-============================================================
-18. RADAR → EVIDENCE
-============================================================
-
-Failure Radar top risks must be able to explain:
-
-WHY?
-
-using actual signals/evidence.
-
-The user should be able to click:
-
-Top Failure Risk
-→ supporting signal
-→ evidence
-→ source
-
-============================================================
-19. PREDICTION → EVIDENCE
-============================================================
-
-Prediction must expose its supporting evidence.
-
-Prediction:
-
-Release instability
-
-Supporting Signals:
-
-API_P95_MS
-Open Bugs
-Deployment Failures
-
-Supporting Evidence:
-
-evidence_123
-evidence_456
-
-Each must be clickable.
-
-============================================================
-20. SOURCE BUTTON
-============================================================
-
-"Open Source" must open the actual original source.
-
-Flow:
-
-evidence_id
-→ source_document_id
-→ authorized document endpoint
-→ storage reference
-→ RustFS
-→ actual file
-
-Do NOT construct a URL from:
-
-filename
-
-Do NOT expose RustFS credentials.
-
-For PDFs, open relevant page when supported.
-
-Example:
-
-fintech.pdf#page=5
-
-============================================================
-21. PAGE / ROW / SHEET LOCATION
-============================================================
-
-Use source-appropriate locations.
-
-PDF:
-Page 5
-
-CSV:
-Row/date
-
-XLSX:
-Sheet + row/cell
-
-DOCX:
-Section/page if available
-
-Markdown/TXT:
-Section/line if available
-
-Do NOT label every source:
-
-Page 1
-
-when the backend has a better location.
-
-============================================================
-22. IMPORTANT — DO NOT LOSE LANGGRAPH STRUCTURE
-============================================================
-
-If LangGraph returns structured output such as:
-
-metrics
-events
-claims
-evidence
-
-preserve those structures.
-
-Do NOT serialize everything into:
-
-statement: string
-
-This is likely one of the reasons the current UI looks sparse.
-
-============================================================
-23. CHECK API SERIALIZATION
-============================================================
-
-Pydantic/backend serialization may be dropping nested fields.
-
-Audit:
-
-Pydantic response models
-FastAPI serializers
-ORM serialization
-JSON conversion
-
-Make sure nested structures are returned.
-
-Example:
-
-supporting_evidence: [...]
-
-should remain an array.
-
-Do not convert it to:
-
-"ev_001"
-
-unless the UI actually needs a reference.
-
-============================================================
-24. CHECK TYPESCRIPT TYPES
-============================================================
-
-Frontend TypeScript interfaces must reflect the real backend.
-
-Do not define:
-
-interface Evidence {
-  id: string;
-  title: string;
-  source: string;
-}
-
-if backend returns 20 meaningful fields.
-
-Expand the interface accurately.
-
-Avoid:
-
-any
-
-as a shortcut.
-
-============================================================
-25. FILTERS
-============================================================
-
-Current filters may show:
-
-ALL (10)
-METRICS (10)
-EVENTS (0)
-CLAIMS (0)
-
-even though richer evidence exists.
-
-Audit classification.
-
-Metrics should only contain actual metric evidence.
-
-Events should contain actual events.
-
-Claims should contain actual claims.
-
-Do not classify every evidence item as METRIC.
-
-Do not make EVENTS/CLAIMS disappear because the frontend mapping dropped
-their types.
-
-============================================================
-26. CATEGORY COUNTS
-============================================================
-
-Counts must come from canonical backend evidence records.
-
-Do not count duplicate rendered objects.
-
-If there are:
-
-10 unique evidence records
-
-the UI should not show:
-
-10 metrics
-
-when only 7 are metrics.
-
-============================================================
-27. ANALYSIS SCOPING
-============================================================
-
-Evidence must belong to the correct:
-
-organization
-project
-analysis
-
-Do not merge evidence from multiple projects.
-
-When fetching:
-
-GET evidence
-
-apply the proper project/organization authorization.
-
-============================================================
-28. QUERYLESS AUTOMATIC ANALYSIS
-============================================================
-
-The automatic project analysis already extracts important project information
-without requiring a user query.
-
-The Evidence Intelligence screen must therefore display the automatically
-extracted result.
-
-Do not force a manual query just to populate this screen.
-
-============================================================
-29. QUESTION-ANSWERING IS SEPARATE
-============================================================
-
-Evidence Ask can answer a question.
-
-Evidence Intelligence is the persistent analysis result.
-
-Do not make Evidence Intelligence depend on a random previous question.
-
-============================================================
-30. NO EXTRA LLM CALL JUST FOR UI
-============================================================
-
-Do NOT call another LLM to "make the evidence more detailed."
-
-The detailed information should come from:
-
-existing LangGraph/RAG structured output.
-
-The UI should format it.
-
-Do not increase LLM cost unnecessarily.
-
-============================================================
-31. PERFORMANCE
-============================================================
-
-Do not send thousands of raw chunks to the frontend.
-
-Backend should return:
-
-- concise evidence summary
-- structured fields
-- source metadata
-- selected supporting excerpt
-
-The full document remains in RustFS.
-
-============================================================
-32. DO NOT DISPLAY EVERYTHING AT ONCE
-============================================================
-
-The goal is:
-
-DETAILED
-
-but
-
-NOT CLUTTERED.
-
-LIST CARD:
-
-core evidence
-+
-important fact
-+
-source
-+
-confidence
-
-DETAIL DRAWER:
-
-full structured evidence
-+
-metric context
-+
-provenance
-+
-excerpt
-
-TECHNICAL DETAILS:
-
-collapsed
-
-============================================================
-33. DEDUPLICATION UX
-============================================================
-
-If multiple signals depend on the same evidence:
-
-do not show multiple identical cards.
-
-Show one evidence card.
-
-It may say:
-
-Used by:
-3 Signals
-
-or:
-
-Referenced by:
-API_P95_MS
-Technical Stress
-Release Risk
-
-This demonstrates evidence reuse rather than duplication.
-
-============================================================
-34. CROSS-SCREEN CONSISTENCY
-============================================================
-
-The same evidence must appear consistently in:
-
-Evidence Intelligence
-Signal Explorer
-Failure DNA
-Failure Radar
-Prediction
-Interventions
-Truth Engine
-
-Same evidence_id.
-
-Same source.
-
-Same location.
-
-Same confidence.
-
-Same underlying facts.
-
-============================================================
-35. NULL HANDLING
-============================================================
-
-Do not display:
-
-null
-undefined
-N/A
-
-when a richer valid field exists elsewhere in the backend.
-
-But also:
-
-do not invent values to replace null.
-
-Use:
-
-Not available
-
-only when the backend truly has no value.
-
-============================================================
-36. CURRENT REFERENCE BEHAVIOR
-============================================================
-
-Use the existing working LangGraph/RAG implementation as the reference for
-what information is available.
-
-Do NOT simplify the new frontend into a reduced schema.
-
-The rule is:
-
-BACKEND RICH DATA
-→ preserve
-→ API
-→ frontend
-→ structured UI
-
-NOT:
-
-BACKEND RICH DATA
-→ simplify
-→ throw away fields
-→ display tiny summary
-
-============================================================
-37. LIVE DEBUGGING
-============================================================
-
-Use one real analysis.
-
-Inspect:
-
-1. Raw LangGraph response
-2. Persisted evidence record
-3. Evidence API response
-4. Browser Network response
-5. Frontend object
-6. Rendered card
-7. Detail drawer
-
-Capture one example.
-
-For example:
-
-engineeringmetrics.csv
-
-must be traceable:
-
-LangGraph output
-→ evidence record
-→ API response
-→ Evidence card
-→ Evidence detail
-→ Open Source
-→ actual document
-
-============================================================
-38. DUPLICATION TEST
-============================================================
-
-Run a real analysis with multiple documents.
-
-Check:
-
-- same evidence not repeated
-- same source not repeated unnecessarily
-- same evidence ID reused
-- different real evidence from same document remains separate
+There must be ONE canonical registration flow.
 
 Expected:
 
-3 unique evidence items
+Dashboard
+    ↓
+Register Product
+    ↓
+/register
+    ↓
+Step 1 — Product details
+    ↓
+Step 2 — Evidence sources
+    ↓
+Step 3 — Privacy
+    ↓
+Create Project & Build Intelligence
 
-NOT:
+Do NOT create:
 
-the same evidence rendered 8 times because 8 downstream signals reference it.
+/dashboard/register-product
+
+or another duplicate registration workflow if /register already exists.
+
+Use the current registration implementation.
 
 ============================================================
-39. SOURCE TEST
+3. BUTTON BEHAVIOR
 ============================================================
+
+Clicking:
+
+Register Product
+
+must navigate to the canonical registration route.
+
+Use the application's existing router/navigation mechanism.
+
+Prefer:
+
+router navigation
+
+over:
+
+window.location.href
+
+unless the current application intentionally uses full-page navigation.
+
+============================================================
+4. PROJECT CONTEXT
+============================================================
+
+Dashboard may be:
+
+/dashboard
+
+and registration may be:
+
+/register
+
+or another existing route.
+
+Inspect the real router and use the correct current route.
+
+Do not hardcode a guessed route.
+
+============================================================
+5. BUTTON SHOULD WORK FROM ALL RELEVANT STATES
+============================================================
+
+Test the button when:
+
+- no project selected
+- project selected
+- multiple projects available
+- dashboard has loaded
+- dashboard has partial data
+- API is temporarily unavailable
+
+The button should still take the user to registration.
+
+Do NOT make registration dependent on dashboard intelligence data loading.
+
+============================================================
+6. DO NOT BREAK SIDEBAR NAVIGATION
+============================================================
+
+The sidebar already contains:
+
+Register New Product
+
+Make sure:
+
+Dashboard → Register Product
+
+and:
+
+Sidebar → Register New Product
+
+both point to the SAME registration flow.
+
+Do not create two different implementations.
+
+============================================================
+7. ACTIVE ROUTE
+============================================================
+
+When navigating to registration:
+
+- registration route should become active
+- dashboard state should not break
+- sidebar should remain functional
+- browser Back should return to dashboard
+
+============================================================
+8. PRESERVE FORM STATE
+============================================================
+
+Do not accidentally destroy registration state while navigating between:
+
+Step 1
+Step 2
+Step 3
+
+Existing behavior must remain intact.
+
+============================================================
+9. ROUTER AUDIT
+============================================================
+
+Inspect route definitions for something similar to:
+
+/dashboard
+/register
+/projects/:projectId/...
+
+Determine the canonical registration path.
+
+Verify:
+
+GET/render route works directly.
+
+This is important because a button navigation fix should not hide a broken
+registration route.
+
+============================================================
+10. DIRECT URL TEST
+============================================================
+
+Open the registration URL directly in the browser.
+
+Verify:
+
+Step 1 loads correctly.
+
+Then test:
+
+Dashboard
+→ Register Product
+→ same Step 1 screen.
+
+Both paths must reach the same page/component.
+
+============================================================
+11. CONSOLE ERROR CHECK
+============================================================
+
+Use browser DevTools.
 
 Click:
 
-Open Source
+Register Product
 
-Verify:
+Check for:
 
-HTTP 200
+- JavaScript exception
+- routing error
+- failed network request
+- chunk loading error
+- authorization error
 
-and actual file opens.
+Fix the real issue if present.
 
-Then confirm the visible evidence actually exists inside the file.
-
-This is mandatory.
-
-============================================================
-40. SECURITY TEST
-============================================================
-
-Try accessing:
-
-- another project evidence
-- another project's document
-- guessed document ID
-
-must return:
-
-401/403/404 according to the existing security model.
-
-Do not weaken authorization while fixing source links.
+Do not suppress console errors.
 
 ============================================================
-41. TEST EVENTS AND CLAIMS
+12. NETWORK CHECK
 ============================================================
 
-Use a narrative/feedback document.
+A simple navigation button may require NO backend request.
 
-Verify:
+Do not unnecessarily create an API call when the correct behavior is simply
+routing to the existing registration page.
 
-EVENTS count > 0 when genuine events exist.
-
-CLAIMS count > 0 when genuine claims exist.
-
-Each has:
-
-statement
-source
-location
-confidence
-
-If the document genuinely contains none:
-
-0 is correct.
-
-Do not manufacture events or claims.
+If registration page itself loads project data/configuration, verify those
+requests separately.
 
 ============================================================
-42. TEST TELEMETRY
+13. BUTTON ACCESSIBILITY
 ============================================================
 
-Use a telemetry CSV.
+Ensure the button remains a real accessible button/link.
 
-Verify:
+It should work with:
 
-METRICS
+- mouse
+- keyboard Enter
+- keyboard Space if it's a button
 
-contain structured:
-
-metric
-baseline
-previous
-current
-changes
-trend
-risk if available
-source
-
-Do not turn the entire telemetry table into one giant text blob.
+Do not replace it with a click-only div.
 
 ============================================================
-43. FRONTEND ERROR STATES
+14. LOADING / DOUBLE CLICK
 ============================================================
 
-If API returns no evidence:
+Prevent accidental duplicate navigation or duplicate project creation.
 
-show:
+IMPORTANT:
 
-No verified evidence available.
+The dashboard button only navigates.
 
-If analysis is running:
+It must NOT create a project.
 
-show:
+Project creation should happen only when the user presses:
 
-Analysis in progress.
+Create Project & Build Intelligence
 
-If API fails:
-
-show:
-
-Unable to load evidence.
-
-Do not silently substitute mock data.
+in the registration flow.
 
 ============================================================
-44. REMOVE PRODUCTION MOCK FALLBACKS
+15. DO NOT CHANGE PRODUCT CREATION LOGIC
 ============================================================
 
-Search for:
+This bug is about navigation.
 
-mock evidence
-sample evidence
-fallback evidence
-demo evidence
+Do not modify:
 
-If API fails, do NOT render fake evidence.
+- project creation
+- privacy logic
+- evidence selection
+- LangGraph analysis
+- RAG
+- document ingestion
 
-Show an honest error state.
-
-============================================================
-45. NO BACKEND DUPLICATION
-============================================================
-
-If there is already a canonical Evidence service:
-
-reuse it.
-
-Do not create:
-
-EvidenceServiceV2
-EvidenceRepositoryNew
-EvidenceAPI2
-
-unless absolutely necessary and justified.
+unless the audit proves the registration route itself is broken.
 
 ============================================================
-46. REQUIRED ARCHITECTURE
+16. REGRESSION TEST
 ============================================================
 
-The final architecture should be:
+Add or update a frontend test:
 
-LANGGRAPH
-   ↓
-STRUCTURED ANALYSIS
-   ↓
-PERSISTED EVIDENCE
-   ↓
-CANONICAL EVIDENCE API
-   ↓
-FRONTEND
+dashboard renders
+→ locate Register Product
+→ click
+→ assert canonical registration route/component is displayed.
 
-Every downstream screen consumes the canonical evidence.
+Also verify:
+
+sidebar Register New Product
+→ same destination.
 
 ============================================================
-47. FINAL DATA MODEL RELATIONSHIP
+17. LIVE BROWSER TEST
 ============================================================
 
-One canonical evidence:
+Perform this exact test:
 
-E123
-
-can support:
-
-Signal S1
-Signal S2
-DNA D1
-Radar R1
-Prediction P1
-Intervention I1
-
-without creating:
-
-E123-copy1
-E123-copy2
-E123-copy3
-
-This is important for trust and storage efficiency.
+1. Open /dashboard
+2. Confirm "Register Product" visible
+3. Click it
+4. Confirm URL changes to canonical registration route
+5. Confirm Step 1 — Product details appears
+6. Click through Step 2
+7. Click through Step 3
+8. Confirm existing registration flow still works
+9. Use Back
+10. Confirm dashboard returns correctly
 
 ============================================================
-48. ACCEPTANCE CRITERIA
+18. IMPORTANT — DO NOT CREATE DUPLICATE ROUTES
 ============================================================
 
-The fix is complete only when:
+Search the project for all occurrences of:
 
-A. The frontend receives the full useful LangGraph evidence structure.
+Register Product
+Register New Product
+/register
+registration
 
-B. No meaningful backend evidence fields are silently discarded.
+There must be a clear canonical route.
 
-C. Duplicate evidence cards are removed at the correct layer.
+If duplicate registration components/routes already exist, document them.
 
-D. Unique evidence IDs are preserved.
-
-E. Evidence detail drawer shows substantially richer structured information.
-
-F. Metrics display baseline / previous / current correctly.
-
-G. Events display actual event information.
-
-H. Claims display actual claim information.
-
-I. Source provenance remains attached.
-
-J. Open Source opens the actual file.
-
-K. Signal → Evidence works.
-
-L. Evidence → Source works.
-
-M. DNA → Evidence works.
-
-N. Radar → Evidence works.
-
-O. Prediction → Evidence works.
-
-P. No fake/mock data is used in production.
-
-Q. Private project isolation remains intact.
+Do not blindly delete them.
 
 ============================================================
-49. REQUIRED SCREEN TARGET
-============================================================
-
-Evidence Intelligence LIST:
-
----------------------------------------------
-API_P95_MS
-
-370 ms
-+16.35% from baseline
-+1.37% vs previous
-INCREASING
-
-Risk:
-54 / 100
-MEDIUM
-
-Source:
-engineeringmetrics.csv · 2026-08-24
-
-Confidence:
-92%
-
-[View Evidence] [Open Source]
----------------------------------------------
-
-Evidence Detail:
-
----------------------------------------------
-API_P95_MS
-Technical Metric
-
-CORE FINDING
-P95 API latency increased to 370 ms.
-
-TIME SERIES
-Baseline: 318 ms
-Previous: 365 ms
-Current: 370 ms
-
-CHANGE
-Total: +16.35%
-Period: +1.37%
-
-TREND
-Increasing
-
-RISK
-54 / 100 — MEDIUM
-
-KEY EVIDENCE
-<real extracted evidence>
-
-SOURCE
-engineeringmetrics.csv
-
-LOCATION
-<real row/date/page>
-
-CONFIDENCE
-92%
-
-SUPPORTING EXCERPT
-<real excerpt>
-
-[OPEN SOURCE]
-
-TECHNICAL DETAILS ▼
----------------------------------------------
-
-This is an example of presentation structure only.
-Use the ACTUAL backend values.
-
-============================================================
-50. IMPORTANT — DO NOT COPY THE EXAMPLE VALUES
-============================================================
-
-The values above are illustrative.
-
-The implementation must render actual current backend data.
-
-Do NOT hardcode:
-
-API_P95_MS
-370
-54
-92%
-
-or any other values.
-
-============================================================
-51. REGRESSION TESTS
-============================================================
-
-Add tests for:
-
-- rich evidence field preservation
-- duplicate evidence prevention
-- canonical evidence IDs
-- evidence API serialization
-- metrics
-- events
-- claims
-- source provenance
-- project isolation
-- source URL generation
-- source download/open
-- frontend mapping
-- evidence detail rendering
-
-============================================================
-52. FINAL LIVE TEST
-============================================================
-
-Run one real project analysis with:
-
-- telemetry document
-- narrative document
-- feedback document
-
-Then verify:
-
-1. LangGraph extracts evidence.
-2. Evidence is persisted once.
-3. Evidence API returns rich structure.
-4. Evidence Intelligence shows unique cards.
-5. Metric card shows detailed metric context.
-6. Event card shows actual event.
-7. Claim card shows actual claim.
-8. Detail drawer shows rich structured information.
-9. Evidence IDs are clickable.
-10. Source is clickable.
-11. Actual source file opens.
-12. Signal references the same evidence.
-13. Failure DNA references the same evidence.
-14. Radar references the same evidence.
-15. Prediction references the same evidence where applicable.
-
-============================================================
-53. FINAL REPORT
+19. FINAL REPORT
 ============================================================
 
 Return:
 
-1. ROOT CAUSE OF DATA LOSS
-2. ROOT CAUSE OF DUPLICATION
-3. LANGGRAPH FIELDS AVAILABLE
-4. LANGGRAPH FIELDS PREVIOUSLY LOST
-5. BACKEND CHANGES
-6. DATABASE CHANGES
-7. API CHANGES
-8. FRONTEND TYPE CHANGES
-9. FRONTEND COMPONENT CHANGES
-10. DEDUPLICATION STRATEGY
-11. PROVENANCE STRATEGY
-12. SOURCE OPENING FIX
-13. EVENTS/CLAIMS FIX
-14. METRIC DISPLAY FIX
-15. TESTS ADDED
-16. TEST RESULTS
-17. FRONTEND BUILD RESULT
-18. LIVE END-TO-END RESULT
+1. Root cause
+2. File/component responsible
+3. Canonical registration route
+4. Code change made
+5. Whether backend was touched
+6. Test added
+7. Test result
+8. Browser verification result
 
-Also provide:
+Use:
 
 BEFORE:
-<what the frontend was receiving/displaying>
+Dashboard → Register Product → nothing/broken
 
 AFTER:
-<what the frontend receives/displays>
+Dashboard → Register Product → existing registration flow
 
 ============================================================
-FINAL PRINCIPLE
+20. FINAL ACCEPTANCE
 ============================================================
 
-The LangGraph/RAG backend already does the hard work.
+The fix is complete only when:
 
-Do not throw away that intelligence.
+✓ Dashboard Register Product works
 
-The correct architecture is:
+✓ Sidebar Register New Product works
 
-LANGGRAPH
-→ rich structured evidence
-→ persist
-→ canonical API
-→ preserve all useful fields
-→ deduplicate by authoritative identity
-→ render concise summary
-→ open rich detail
-→ trace to actual source
+✓ Both use the same registration flow
 
-The user must be able to go:
+✓ No duplicate registration page created
 
-EVIDENCE
-↓
-DETAIL
-↓
-SOURCE
-↓
-ACTUAL DOCUMENT
+✓ Browser URL changes correctly
 
-and understand:
+✓ Registration Step 1 loads
 
-WHAT WAS FOUND?
-WHY DOES IT MATTER?
-WHAT DATA SUPPORTS IT?
-WHERE DID IT COME FROM?
+✓ Existing Step 2 and Step 3 still work
 
-NO MOCK DATA.
-NO DUPLICATES.
-NO LOST FIELDS.
-NO FAKE SOURCES.
-NO RAW-DUMP UI.
-NO UNSUPPORTED CLAIMS.
+✓ Project creation is not triggered by dashboard button
 
-FIX THE DATA PIPELINE FIRST, THEN THE UI.
+✓ Back navigation works
+
+✓ No new console errors
+
+✓ No regression to existing project functionality
 
 ============================================================
-START WITH AUDIT — DO NOT MODIFY CODE UNTIL YOU IDENTIFY
-THE EXACT DATA-LOSS AND DUPLICATION POINTS.
+START
 ============================================================
+
+First audit the current router and dashboard button implementation.
+
+Do not modify code until you know:
+
+WHY the button currently fails
+
+and
+
+WHAT the canonical registration route already is.
+
+Then make the smallest correct fix.
