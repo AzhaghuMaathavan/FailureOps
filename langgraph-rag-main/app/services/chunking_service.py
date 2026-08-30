@@ -68,6 +68,9 @@ def create_chunks_for_document(db: Session, document_id: str):
                     if v not in merged_meta[k]:
                         merged_meta[k].append(v)
 
+        from app.services.document_service import classify_document_source_type
+        doc_src_type = classify_document_source_type(doc)
+
         chunk = Chunk(
             id=str(uuid.uuid4()),
             document_id=document_id,
@@ -78,11 +81,14 @@ def create_chunks_for_document(db: Session, document_id: str):
             content=final_content.strip(),
             lineage={
                 "document_name": doc_name,
+                "document_type": doc_src_type,
+                "source_type": doc_src_type,
                 "page_ids": unique_page_ids,
                 "page_numbers": unique_page_nums,
                 "block_ids": active_block_ids,
                 "source_metadata": merged_meta
             },
+
             headers={
                 "title": current_title,
                 "section_path": list(section_path)

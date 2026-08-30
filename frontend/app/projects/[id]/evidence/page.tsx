@@ -37,18 +37,46 @@ export default function EvidenceIntelligencePage() {
       .then(res => {
         if (mounted) {
           const rawItems = res?.evidence || (Array.isArray(res) ? res : []);
-          const mapped: EvidenceItem[] = rawItems.map((item: any) => ({
-            id: item.id || item.evidence_id || `ev_${Math.random().toString(36).substring(2, 7)}`,
-            projectId: item.project_id || projectId,
-            sourceType: (item.category || item.sourceType || 'PRODUCT_METRICS') as EvidenceItem['sourceType'],
-            sourceFile: item.source?.document_name || item.source_citation?.file_name || item.filename || 'Project Telemetry',
-            content: item.statement || item.content || item.rawSnippet || item.normalizedFact || '',
-            reference: item.source?.location_value || item.source_citation?.page_or_sheet_or_line || item.location || item.id || 'Lineage Trace',
-            confidence: Math.round((item.evidence_confidence ?? item.confidence ?? 0.9) * ((item.evidence_confidence ?? item.confidence ?? 0.9) <= 1 ? 100 : 1)),
-            timestamp: item.time_period?.start || item.source_citation?.timestamp || item.timestamp || 'Recently',
-            category: item.category || 'TECHNICAL',
-            snippetContext: item.statement || item.normalizedFact || item.content || '',
-          }));
+          const mapped: EvidenceItem[] = rawItems.map((item: any) => {
+            const rawSourceType = (
+              item.source_type ||
+              item.source?.source_type ||
+              item.document_type ||
+              item.sourceType ||
+              'PRODUCT_PLAN'
+            ).toString().toUpperCase().replace(/[\s-]+/g, '_');
+
+            const canonicalSourceType: EvidenceItem['sourceType'] = (
+              [
+                'PRODUCT_PLAN',
+                'CUSTOMER_FEEDBACK',
+                'PRODUCT_METRICS',
+                'ENGINEERING_METRICS',
+                'TEAM_OPERATIONS',
+                'INCIDENT_REPORTS',
+              ].includes(rawSourceType)
+                ? rawSourceType
+                : 'PRODUCT_PLAN'
+            ) as EvidenceItem['sourceType'];
+
+            const docName = item.source?.document_name || item.source_citation?.file_name || item.filename || 'Project Telemetry';
+            const locType = item.source?.location_type || 'PAGE';
+            const locVal = item.source?.location_value || item.source_citation?.page_or_sheet_or_line || item.location;
+            const refStr = locVal ? `${locType}: ${locVal}` : (item.reference || item.id || 'Lineage Trace');
+
+            return {
+              id: item.id || item.evidence_id || `ev_${Math.random().toString(36).substring(2, 7)}`,
+              projectId: item.project_id || projectId,
+              sourceType: canonicalSourceType,
+              sourceFile: docName,
+              content: item.statement || item.content || item.rawSnippet || item.normalizedFact || '',
+              reference: refStr,
+              confidence: Math.round((item.evidence_confidence ?? item.confidence ?? 0.9) * ((item.evidence_confidence ?? item.confidence ?? 0.9) <= 1 ? 100 : 1)),
+              timestamp: item.time_period?.start || item.source_citation?.timestamp || item.timestamp || 'Recently',
+              category: item.category || item.evidence_category || 'TECHNICAL',
+              snippetContext: item.statement || item.normalizedFact || item.content || '',
+            };
+          });
 
           setEvidenceList(mapped);
           setConflictCount(Array.isArray(res?.conflicts) ? res.conflicts.length : 0);
@@ -71,20 +99,25 @@ export default function EvidenceIntelligencePage() {
     return () => { mounted = false; };
   }, [projectId]);
 
+  const categories = [
+    { id: 'ALL', label: 'ALL' },
+    { id: 'PRODUCT_PLAN', label: 'PRODUCT PLAN' },
+    { id: 'CUSTOMER_FEEDBACK', label: 'CUSTOMER FEEDBACK' },
+    { id: 'PRODUCT_METRICS', label: 'PRODUCT METRICS' },
+    { id: 'ENGINEERING_METRICS', label: 'ENGINEERING METRICS' },
+    { id: 'TEAM_OPERATIONS', label: 'TEAM OPERATIONS' },
+    { id: 'INCIDENT_REPORTS', label: 'INCIDENT REPORTS' },
+  ];
+
+  const getCategoryCount = (catId: string) => {
+    if (catId === 'ALL') return evidenceList.length;
+    return evidenceList.filter((e) => e.sourceType === catId).length;
+  };
+
   const filteredList =
     selectedCategory === 'ALL'
       ? evidenceList
-      : evidenceList.filter(e => e.sourceType === selectedCategory || e.category === selectedCategory);
-
-  const categories = [
-    'ALL',
-    'PRODUCT_METRICS',
-    'CUSTOMER_FEEDBACK',
-    'ENGINEERING_METRICS',
-    'TEAM_OPERATIONS',
-    'PRODUCT_PLAN',
-    'INCIDENT_REPORTS',
-  ];
+      : evidenceList.filter((e) => e.sourceType === selectedCategory);
 
   const sourceCount = new Set(evidenceList.map((item) => item.sourceFile)).size;
   const staleCount = evidenceList.filter((item) => isEvidenceStale(item.timestamp)).length;
@@ -136,21 +169,25 @@ export default function EvidenceIntelligencePage() {
         className="flex flex-wrap items-center gap-1.5 text-xs"
       >
         <Filter className="h-3.5 w-3.5 shrink-0 text-muted-foreground" aria-hidden="true" />
-        {categories.map((cat) => (
-          <button
-            key={cat}
-            type="button"
-            aria-pressed={selectedCategory === cat}
-            onClick={() => setSelectedCategory(cat)}
-            className={`shrink-0 cursor-pointer rounded-lg px-3 py-1.5 font-mono font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring ${
-              selectedCategory === cat
-                ? 'bg-primary font-bold text-primary-foreground shadow-sm'
-                : 'border border-border bg-card text-muted-foreground hover:bg-card-hover hover:text-foreground'
-            }`}
-          >
-            {cat.replace('_', ' ')}
-          </button>
-        ))}
+        {categories.map((cat) => {
+          const count = getCategoryCount(cat.id);
+          const isSelected = selectedCategory === cat.id;
+          return (
+            <button
+              key={cat.id}
+              type="button"
+              aria-pressed={isSelected}
+              onClick={() => setSelectedCategory(cat.id)}
+              className={`shrink-0 cursor-pointer rounded-lg px-3 py-1.5 font-mono text-xs font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring ${
+                isSelected
+                  ? 'bg-primary font-bold text-primary-foreground shadow-sm'
+                  : 'border border-border bg-card text-muted-foreground hover:bg-card-hover hover:text-foreground'
+              }`}
+            >
+              {cat.label} ({isLoading ? '…' : count})
+            </button>
+          );
+        })}
       </div>
 
       {isLoading ? (
@@ -172,12 +209,12 @@ export default function EvidenceIntelligencePage() {
         <div className="space-y-3 rounded-xl border border-border bg-card p-12 text-center shadow-[0_1px_0_0_rgba(13,20,36,0.8),0_8px_24px_-8px_rgba(0,0,0,0.35)]">
           <p className="text-sm font-bold text-foreground">
             {hasCompletedAnalysis
-              ? 'No sufficiently supported evidence found.'
+              ? `No evidence found for ${selectedCategory.replace(/_/g, ' ')}.`
               : 'No completed analysis yet'}
           </p>
           <p className="mt-1 text-xs text-muted-foreground">
             {hasCompletedAnalysis
-              ? 'The Evidence Agent found no grounded citations in the retrieved chunks for this filter.'
+              ? `The Evidence Agent found no citations from ${selectedCategory.replace(/_/g, ' ')} sources in this project.`
               : 'Upload documents, wait until chunk and embedding counts are non-zero, then run project analysis.'}
           </p>
           <Link
@@ -188,6 +225,7 @@ export default function EvidenceIntelligencePage() {
           </Link>
         </div>
       ) : (
+
         <div className="flex flex-col gap-2">
           {filteredList.map((ev) => (
             <EvidenceCard

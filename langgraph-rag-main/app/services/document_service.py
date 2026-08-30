@@ -14,6 +14,43 @@ from app.core.storage import get_pages_dir
 
 logger = logging.getLogger(__name__)
 
+CANONICAL_SOURCE_TYPES = {
+    "PRODUCT_PLAN",
+    "CUSTOMER_FEEDBACK",
+    "PRODUCT_METRICS",
+    "ENGINEERING_METRICS",
+    "TEAM_OPERATIONS",
+    "INCIDENT_REPORTS",
+    "OTHER"
+}
+
+def classify_document_source_type(doc: Document) -> str:
+    """
+    Authoritative classification for document source_type.
+    Uses doc.document_type if valid, or extracts from doc metadata/filename/topics.
+    """
+    raw_type = (doc.document_type or "").strip().upper().replace(" ", "_").replace("-", "_")
+    if raw_type in CANONICAL_SOURCE_TYPES and raw_type != "STRING":
+        return raw_type
+
+    combined = f"{doc.filename or ''} {doc.title or ''} {doc.description or ''} {' '.join(doc.topics or [])}".lower()
+    
+    if any(k in combined for k in ["feedback", "survey", "csat", "nps", "interview", "review", "complaint", "customer"]):
+        return "CUSTOMER_FEEDBACK"
+    if any(k in combined for k in ["product_metric", "product metric", "activation", "retention", "telemetry", "churn", "conversion", "dau", "mau", "growth"]):
+        return "PRODUCT_METRICS"
+    if any(k in combined for k in ["incident", "postmortem", "outage", "sev1", "sev2", "sev-1", "sev-2", "root_cause", "rollback"]):
+        return "INCIDENT_REPORTS"
+    if any(k in combined for k in ["team", "workload", "sprint", "burnout", "overtime", "internship", "completion", "hr", "operations", "velocity"]):
+        return "TEAM_OPERATIONS"
+    if any(k in combined for k in ["engineering", "deploy", "ci/cd", "cicd", "commit", "bug", "mttr", "latency", "architecture", "error_rate", "mlt", "test_report"]):
+        return "ENGINEERING_METRICS"
+    if any(k in combined for k in ["prd", "plan", "spec", "roadmap", "feature", "blackbox", "proposal", "requirement"]):
+        return "PRODUCT_PLAN"
+        
+    return "PRODUCT_PLAN"
+
+
 def extract_document_profile(db: Session, doc: Document):
     from app.models.chunk import Chunk
     chunks = db.query(Chunk).filter(Chunk.document_id == doc.id).order_by(Chunk.chunk_index).limit(4).all()

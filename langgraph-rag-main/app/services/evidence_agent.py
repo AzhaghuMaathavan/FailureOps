@@ -59,6 +59,32 @@ OUTPUT STRICTLY A VALID JSON OBJECT with this schema:
 """
 
 
+def resolve_chunk_source_type(chunk: Dict[str, Any]) -> str:
+    lineage = chunk.get("lineage", {})
+    source_type = lineage.get("source_type") or lineage.get("document_type")
+    if source_type and source_type.upper() in [
+        "PRODUCT_PLAN", "CUSTOMER_FEEDBACK", "PRODUCT_METRICS", 
+        "ENGINEERING_METRICS", "TEAM_OPERATIONS", "INCIDENT_REPORTS", "OTHER"
+    ]:
+        return source_type.upper()
+
+    doc_name = (lineage.get("document_name") or chunk.get("filename") or "").lower()
+    if any(k in doc_name for k in ["feedback", "survey", "csat", "nps", "interview", "review", "complaint", "customer"]):
+        return "CUSTOMER_FEEDBACK"
+    if any(k in doc_name for k in ["product_metric", "product metric", "metrics.csv", "telemetry", "churn", "activation"]):
+        return "PRODUCT_METRICS"
+    if any(k in doc_name for k in ["incident", "postmortem", "outage", "sev1", "sev2", "sev-1", "sev-2"]):
+        return "INCIDENT_REPORTS"
+    if any(k in doc_name for k in ["team", "workload", "sprint", "burnout", "overtime", "internship", "operation", "hr"]):
+        return "TEAM_OPERATIONS"
+    if any(k in doc_name for k in ["engineering", "deploy", "ci/cd", "cicd", "commit", "bug", "mttr", "mlt"]):
+        return "ENGINEERING_METRICS"
+    if any(k in doc_name for k in ["prd", "plan", "spec", "roadmap", "feature", "blackbox", "proposal", "requirement"]):
+        return "PRODUCT_PLAN"
+        
+    return "PRODUCT_PLAN"
+
+
 def extract_unified_evidence_from_chunks(
     chunks: List[Dict[str, Any]],
     timeout_seconds: float = 60.0
@@ -89,7 +115,6 @@ def extract_unified_evidence_from_chunks(
             f"--- CHUNK {idx} ---\nSource: {doc_name} ({loc})\nContent:\n{c.get('content', '')}\n"
         )
 
-
     user_prompt = "Candidate Project Source Chunks:\n\n" + "\n".join(chunk_payloads)
 
     try:
@@ -109,7 +134,7 @@ def extract_unified_evidence_from_chunks(
         for dim in list(EVIDENCE_DIMENSIONS.keys()):
             extracted.extend(heuristic_extract_evidence(dim, chunks))
 
-    # Enrich extracted items with metadata
+    # Enrich extracted items with metadata and authoritative source_type
     enriched_items = []
     for it in extracted:
         c_idx = it.get("chunk_index", 0)
@@ -120,15 +145,20 @@ def extract_unified_evidence_from_chunks(
 
         lineage = target_chunk.get("lineage", {})
         doc_name = lineage.get("document_name", "Unknown Document")
+        doc_id = target_chunk.get("document_id", "doc_default")
         page_nums = lineage.get("page_numbers", [])
         meta = lineage.get("source_metadata", {})
         
         loc_type = "PAGE" if page_nums else ("SLIDE" if meta.get("slide") else ("SHEET" if meta.get("sheet") else "SECTION"))
         loc_val = str(page_nums[0]) if page_nums else (str(meta.get("slide", ["1"])[0]) if meta.get("slide") else (str(meta.get("sheet", ["1"])[0]) if meta.get("sheet") else "1"))
+        source_type = resolve_chunk_source_type(target_chunk)
 
+        it["source_type"] = source_type
+        it["evidence_category"] = it.get("category", "TECHNICAL")
         it["source"] = {
-            "document_id": target_chunk.get("document_id", "doc_default"),
+            "document_id": doc_id,
             "document_name": doc_name,
+            "source_type": source_type,
             "location_type": loc_type,
             "location_value": loc_val
         }
@@ -138,6 +168,7 @@ def extract_unified_evidence_from_chunks(
         enriched_items.append(it)
 
     return enriched_items
+
 
 
 def heuristic_extract_evidence(dimension: str, chunks: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
@@ -260,10 +291,13 @@ def run_evidence_agent(
             for it in h_items:
                 c_idx = it.get("chunk_index", 0)
                 target_chunk = unique_chunks[c_idx] if 0 <= c_idx < len(unique_chunks) else unique_chunks[0]
-                lineage = target_chunk.get("lineage", {})
+                source_type = resolve_chunk_source_type(target_chunk)
+                it["source_type"] = source_type
+                it["evidence_category"] = it.get("category", "TECHNICAL")
                 it["source"] = {
                     "document_id": target_chunk.get("document_id", "doc_default"),
                     "document_name": lineage.get("document_name", "Unknown Document"),
+                    "source_type": source_type,
                     "location_type": "PAGE",
                     "location_value": "1"
                 }
@@ -272,6 +306,7 @@ def run_evidence_agent(
                 it["verification_status"] = "VERIFIED"
                 it["evidence_confidence"] = 0.88
                 valid_items.append(it)
+
 
     # Consolidate duplicates and find contradictions
     verified_items, conflicts = consolidate_duplicates_and_conflicts(valid_items)

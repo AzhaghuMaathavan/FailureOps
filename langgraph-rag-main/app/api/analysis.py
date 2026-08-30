@@ -456,11 +456,13 @@ def execute_project_simulate_intelligence(
 def get_analysis_evidence_packet(
     project_id: str,
     analysis_id: str,
+    category: Optional[str] = None,
+    source_type: Optional[str] = None,
     org_id: str = Depends(get_tenant_context),
     db: Session = Depends(get_db)
 ):
     """
-    Retrieves the verified structured Evidence Packet produced by the Evidence Agent.
+    Retrieves the verified structured Evidence Packet produced by the Evidence Agent with optional category/source filtering.
     """
     analysis = db.query(ProjectAnalysis).filter(
         ProjectAnalysis.id == analysis_id,
@@ -480,17 +482,33 @@ def get_analysis_evidence_packet(
     if not analysis.evidence_packet:
         raise HTTPException(status_code=500, detail="Evidence packet unavailable")
 
-    return EvidencePacket(**analysis.evidence_packet)
+    packet_dict = dict(analysis.evidence_packet)
+    raw_ev = packet_dict.get("evidence", [])
+    
+    target_filter = (source_type or category or "").strip().upper().replace(" ", "_").replace("-", "_")
+    if target_filter and target_filter != "ALL":
+        filtered_ev = [
+            it for it in raw_ev
+            if it.get("source_type", "").upper() == target_filter
+            or it.get("category", "").upper() == target_filter
+            or it.get("evidence_category", "").upper() == target_filter
+            or (isinstance(it.get("source"), dict) and it.get("source", {}).get("source_type", "").upper() == target_filter)
+        ]
+        packet_dict["evidence"] = filtered_ev
+
+    return EvidencePacket(**packet_dict)
 
 
 @router.get("/projects/{project_id}/evidence", response_model=EvidencePacket)
 def get_latest_project_evidence(
     project_id: str,
+    category: Optional[str] = None,
+    source_type: Optional[str] = None,
     org_id: str = Depends(get_tenant_context),
     db: Session = Depends(get_db)
 ):
     """
-    Retrieves the latest completed Evidence Packet for a project with multi-tenant scoping.
+    Retrieves the latest completed Evidence Packet for a project with multi-tenant scoping and optional source/category filter.
     """
     latest_analysis = db.query(ProjectAnalysis).filter(
         ProjectAnalysis.organization_id == org_id,
@@ -506,7 +524,6 @@ def get_latest_project_evidence(
             generated_at=datetime.now(timezone.utc).isoformat(),
             evidence=[],
             conflicts=[],
-
             coverage={dim: "NO_EVIDENCE_FOUND" for dim in [
                 "ADOPTION", "CUSTOMER", "TECHNICAL", "OPERATIONAL", "FINANCIAL", 
                 "DELIVERY", "QUALITY", "RESOURCE", "TEAM", "MARKET", "STRATEGY", 
@@ -523,7 +540,22 @@ def get_latest_project_evidence(
             )
         )
 
-    return EvidencePacket(**latest_analysis.evidence_packet)
+    packet_dict = dict(latest_analysis.evidence_packet)
+    raw_ev = packet_dict.get("evidence", [])
+    
+    target_filter = (source_type or category or "").strip().upper().replace(" ", "_").replace("-", "_")
+    if target_filter and target_filter != "ALL":
+        filtered_ev = [
+            it for it in raw_ev
+            if it.get("source_type", "").upper() == target_filter
+            or it.get("category", "").upper() == target_filter
+            or it.get("evidence_category", "").upper() == target_filter
+            or (isinstance(it.get("source"), dict) and it.get("source", {}).get("source_type", "").upper() == target_filter)
+        ]
+        packet_dict["evidence"] = filtered_ev
+
+    return EvidencePacket(**packet_dict)
+
 
 
 

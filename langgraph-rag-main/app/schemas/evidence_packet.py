@@ -17,12 +17,14 @@ class TimePeriod(BaseModel):
 class EvidenceSource(BaseModel):
     document_id: str
     document_name: str
+    source_type: Optional[str] = "PRODUCT_PLAN" # PRODUCT_PLAN, CUSTOMER_FEEDBACK, PRODUCT_METRICS, ENGINEERING_METRICS, TEAM_OPERATIONS, INCIDENT_REPORTS, OTHER
     location_type: Optional[str] = None # PAGE, SLIDE, SHEET, SECTION, ROW
     location_value: Optional[str] = None
 
 class SupportingSource(BaseModel):
     document_id: str
     document_name: str
+    source_type: Optional[str] = None
     location: Optional[str] = None
 
 class PrivacyMetadata(BaseModel):
@@ -31,7 +33,9 @@ class PrivacyMetadata(BaseModel):
 
 class EvidenceItemSchema(BaseModel):
     id: str
-    category: str # ADOPTION, CUSTOMER, PRODUCT, FINANCIAL, OPERATIONAL, TECHNICAL, DELIVERY, QUALITY, RESOURCE, TEAM, MARKET, STRATEGY, SECURITY, DEPENDENCY, PERFORMANCE, RISK, OTHER
+    category: str # Semantic category: ADOPTION, CUSTOMER, PRODUCT, FINANCIAL, OPERATIONAL, TECHNICAL, DELIVERY, QUALITY, RESOURCE, TEAM, MARKET, STRATEGY, SECURITY, DEPENDENCY, PERFORMANCE, RISK, OTHER
+    evidence_category: Optional[str] = None # Explicit semantic category alias
+    source_type: str = "PRODUCT_PLAN" # Document source classification: PRODUCT_PLAN, CUSTOMER_FEEDBACK, PRODUCT_METRICS, ENGINEERING_METRICS, TEAM_OPERATIONS, INCIDENT_REPORTS, OTHER
     evidence_type: str # METRIC, TREND, EVENT, CUSTOMER_FEEDBACK, INCIDENT, DECISION, OBSERVATION, GOAL, CONSTRAINT, COMPLAINT, MILESTONE, RESOURCE_SIGNAL, TECHNICAL_SIGNAL, RISK_STATEMENT, OTHER
     statement: str
     normalized_value: Optional[NormalizedMetric] = None
@@ -42,6 +46,7 @@ class EvidenceItemSchema(BaseModel):
     evidence_confidence: float = Field(ge=0.0, le=1.0, default=0.90)
     verification_status: str = "VERIFIED" # VERIFIED, REJECTED
     privacy: PrivacyMetadata = Field(default_factory=PrivacyMetadata)
+
 
 class ConflictClaim(BaseModel):
     value: Any
