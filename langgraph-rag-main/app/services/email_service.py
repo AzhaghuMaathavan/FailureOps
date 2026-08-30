@@ -519,6 +519,150 @@ class EmailService:
         text_body = f"Your FailureOps X 6-digit verification code is: {code}. It expires in 15 minutes."
         return self.send_email(to_email, subject, html_body, text_body)
 
+    def build_critical_failure_alert_html(
+        self,
+        project_name: str,
+        risk_score: int,
+        predicted_failure: str,
+        emerging_pattern: str,
+        confidence: int,
+        playbook_title: str,
+        dashboard_url: str = "https://failureops.shyxon.com/dashboard",
+    ) -> str:
+        """Generates an executive Sev-1 early-warning radar alert HTML email."""
+        risk_color = "#ef4444" if risk_score >= 70 else "#f59e0b" if risk_score >= 40 else "#10b981"
+        severity_label = "CRITICAL RISK" if risk_score >= 70 else "HIGH ELEVATED" if risk_score >= 40 else "MODERATE"
+
+        return f"""<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
+<html xmlns="http://www.w3.org/1999/xhtml">
+<head>
+  <meta http-equiv="Content-Type" content="text/html; charset=UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>FailureOps X Critical Radar Alert</title>
+  <style type="text/css">
+    body {{ margin: 0; padding: 0; background-color: #030712; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; }}
+    @media only screen and (max-width: 600px) {{
+      .wrapper {{ width: 100% !important; padding: 12px !important; }}
+    }}
+  </style>
+</head>
+<body style="margin: 0; padding: 0; background-color: #030712; color: #f1f5f9;">
+  <table role="presentation" width="100%" border="0" cellspacing="0" cellpadding="0" style="background-color: #030712; padding: 40px 10px 48px 10px;">
+    <tr>
+      <td align="center">
+        <table role="presentation" class="wrapper" width="100%" border="0" cellspacing="0" cellpadding="0" style="max-width: 600px; background-color: #090e1a; border: 1px solid #1e293b; border-radius: 16px; overflow: hidden; box-shadow: 0 25px 60px -15px rgba(0, 0, 0, 0.9);">
+          <tr>
+            <td height="4" style="background: linear-gradient(90deg, #ef4444 0%, #ff7a00 50%, #38bdf8 100%); line-height: 4px; font-size: 0px;">&nbsp;</td>
+          </tr>
+          <tr>
+            <td style="padding: 28px 32px 20px 32px; border-bottom: 1px solid #141f36;">
+              <table role="presentation" width="100%" border="0" cellspacing="0" cellpadding="0">
+                <tr>
+                  <td align="left" style="vertical-align: middle;">
+                    <table role="presentation" border="0" cellspacing="0" cellpadding="0">
+                      <tr>
+                        <td style="background-color: #ff7a00; color: #030712; font-family: monospace; font-size: 13px; font-weight: 900; padding: 5px 10px; border-radius: 6px;">FX</td>
+                        <td style="padding-left: 12px; font-size: 18px; font-weight: 900; letter-spacing: 1px; color: #ffffff;">FAILUREOPS <span style="color: #ff7a00;">X</span></td>
+                      </tr>
+                    </table>
+                  </td>
+                  <td align="right" style="vertical-align: middle;">
+                    <span style="display: inline-block; background-color: rgba(239, 68, 68, 0.15); border: 1px solid rgba(239, 68, 68, 0.4); color: #f87171; font-family: monospace; font-size: 11px; font-weight: 700; padding: 4px 10px; border-radius: 20px;">
+                      &#9888; SEV-1 RADAR ALERT
+                    </span>
+                  </td>
+                </tr>
+              </table>
+            </td>
+          </tr>
+          <tr>
+            <td style="padding: 32px 32px 24px 32px;">
+              <div style="font-size: 12px; font-family: monospace; color: #94a3b8; margin-bottom: 6px;">PROJECT: <span style="color: #f1f5f9; font-weight: bold;">{project_name.upper()}</span></div>
+              <h2 style="margin: 0 0 16px 0; font-size: 22px; font-weight: 800; color: #ffffff; line-height: 1.3;">
+                Forecasted Obstacle: <span style="color: #ff7a00;">{predicted_failure}</span>
+              </h2>
+
+              <!-- Risk Badge Bar -->
+              <table role="presentation" width="100%" border="0" cellspacing="0" cellpadding="0" style="background-color: #0d1527; border: 1px solid #19263f; border-radius: 12px; padding: 18px; margin-bottom: 24px;">
+                <tr>
+                  <td width="33%" style="text-align: center; border-right: 1px solid #19263f;">
+                    <div style="font-size: 10px; font-family: monospace; color: #64748b; text-transform: uppercase;">Failure Risk</div>
+                    <div style="font-size: 24px; font-weight: 900; color: {risk_color}; margin-top: 4px;">{risk_score}%</div>
+                    <div style="font-size: 10px; color: {risk_color}; font-weight: 700;">{severity_label}</div>
+                  </td>
+                  <td width="33%" style="text-align: center; border-right: 1px solid #19263f;">
+                    <div style="font-size: 10px; font-family: monospace; color: #64748b; text-transform: uppercase;">Confidence</div>
+                    <div style="font-size: 24px; font-weight: 900; color: #38bdf8; margin-top: 4px;">{confidence}%</div>
+                    <div style="font-size: 10px; color: #38bdf8; font-weight: 700;">VERIFIED LINEAGE</div>
+                  </td>
+                  <td width="34%" style="text-align: center;">
+                    <div style="font-size: 10px; font-family: monospace; color: #64748b; text-transform: uppercase;">Time Horizon</div>
+                    <div style="font-size: 24px; font-weight: 900; color: #f1f5f9; margin-top: 4px;">2–4 wks</div>
+                    <div style="font-size: 10px; color: #94a3b8; font-weight: 700;">NEXT MILESTONE</div>
+                  </td>
+                </tr>
+              </table>
+
+              <div style="background-color: #0c1322; border-left: 3px solid #ff7a00; border-radius: 0 10px 10px 0; padding: 14px 18px; margin-bottom: 20px;">
+                <div style="font-size: 11px; font-family: monospace; color: #ff9838; font-weight: bold; text-transform: uppercase; margin-bottom: 4px;">EMERGING SIGNAL PATTERN</div>
+                <div style="font-size: 13px; color: #cbd5e1; line-height: 1.6;">{emerging_pattern}</div>
+              </div>
+
+              <div style="background-color: #0c1322; border-left: 3px solid #10b981; border-radius: 0 10px 10px 0; padding: 14px 18px; margin-bottom: 28px;">
+                <div style="font-size: 11px; font-family: monospace; color: #10b981; font-weight: bold; text-transform: uppercase; margin-bottom: 4px;">RECOMMENDED INTERVENTION PLAYBOOK</div>
+                <div style="font-size: 13px; color: #cbd5e1; line-height: 1.6;">{playbook_title}</div>
+              </div>
+
+              <table role="presentation" width="100%" border="0" cellspacing="0" cellpadding="0" style="margin-bottom: 20px;">
+                <tr>
+                  <td align="center">
+                    <a href="{dashboard_url}" target="_blank" style="display: inline-block; background: linear-gradient(135deg, #ff7a00 0%, #ea580c 100%); color: #000000; font-size: 14px; font-weight: 800; text-decoration: none; padding: 14px 32px; border-radius: 10px; box-shadow: 0 4px 15px rgba(255, 122, 0, 0.35);">
+                      Investigate in FailureOps Radar &rarr;
+                    </a>
+                  </td>
+                </tr>
+              </table>
+            </td>
+          </tr>
+          <tr>
+            <td style="padding: 24px 32px; background-color: #060a13; border-top: 1px solid #141f36; text-align: center; font-size: 11px; color: #475569;">
+              FailureOps X Continuous Intelligence Engine &bull; Dispatched via contact@shyxon.com<br />
+              Confidential Early Warning Telemetry Enclave
+            </td>
+          </tr>
+        </table>
+      </td>
+    </tr>
+  </table>
+</body>
+</html>"""
+
+    def send_critical_failure_alert(
+        self,
+        to_email: str,
+        project_name: str,
+        risk_score: int,
+        predicted_failure: str,
+        emerging_pattern: str,
+        confidence: int,
+        playbook_title: str,
+        dashboard_url: str = "https://failureops.shyxon.com/dashboard",
+    ) -> Dict[str, Any]:
+        """Dispatches an executive Sev-1 early-warning radar alert email."""
+        subject = f"[CRITICAL ALERT] FailureOps X Radar: {project_name}"
+        html_body = self.build_critical_failure_alert_html(
+            project_name=project_name,
+            risk_score=risk_score,
+            predicted_failure=predicted_failure,
+            emerging_pattern=emerging_pattern,
+            confidence=confidence,
+            playbook_title=playbook_title,
+            dashboard_url=dashboard_url,
+        )
+        text_body = f"[CRITICAL ALERT] FailureOps X Radar Alert for {project_name}\nPredicted Obstacle: {predicted_failure} (Risk: {risk_score}%, Confidence: {confidence}%)\nPattern: {emerging_pattern}\nAction: {playbook_title}\nView details: {dashboard_url}"
+        return self.send_email(to_email, subject, html_body, text_body)
+
 
 email_service = EmailService()
+
 
