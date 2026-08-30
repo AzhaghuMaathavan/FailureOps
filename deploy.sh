@@ -25,7 +25,16 @@ if [ -d ".git" ]; then
 fi
 
 echo "🐍 Updating Python virtualenv dependencies..."
-cd $APP_DIR/agentic-rag-main
+if [ -d "$APP_DIR/agentic-rag-main/venv" ] && [ ! -d "$APP_DIR/rag/venv" ]; then
+  mv "$APP_DIR/agentic-rag-main/venv" "$APP_DIR/rag/venv" || true
+fi
+if [ -d "$APP_DIR/agentic-rag-main/storage" ] && [ ! -d "$APP_DIR/rag/storage" ]; then
+  mv "$APP_DIR/agentic-rag-main/storage" "$APP_DIR/rag/storage" || true
+fi
+if [ -f "$APP_DIR/agentic-rag-main/.env" ] && [ ! -f "$APP_DIR/rag/.env" ]; then
+  cp "$APP_DIR/agentic-rag-main/.env" "$APP_DIR/rag/.env" || true
+fi
+cd $APP_DIR/rag
 ./venv/bin/pip install -r requirements.txt --quiet
 
 echo "🗄️ Verifying Database Tables..."

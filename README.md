@@ -51,10 +51,10 @@ Do not point the browser at PostgreSQL. The Next.js app on `:3000` calls the Fas
 
 ```bash
 # 1. PostgreSQL + pgvector
-docker compose -f agentic-rag-main/docker-compose.yml up -d postgres
+docker compose -f rag/docker-compose.yml up -d postgres
 
-# 2. Backend API (loads agentic-rag-main/.env for NVIDIA keys)
-cd agentic-rag-main
+# 2. Backend API (loads rag/.env for NVIDIA keys)
+cd rag
 python3 -m venv .venv
 source .venv/bin/activate
 pip install -r requirements.txt
@@ -76,7 +76,7 @@ RAG pipeline test (backend must be running):
 
 ```bash
 python3 tests/generate_aurora_docs.py
-cd agentic-rag-main && source .venv/bin/activate && cd ..
+cd rag && source .venv/bin/activate && cd ..
 pytest tests/test_foundation.py -q
 ```
 

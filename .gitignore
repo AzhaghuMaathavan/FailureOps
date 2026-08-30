@@ -28,17 +28,20 @@ yarn-error.log*
 .DS_Store
 *.pem
 
-# Python artifacts (if any)
+# Python artifacts
 __pycache__/
 *.py[cod]
 *$py.class
 .venv/
 venv/
+rag/.venv/
+rag/venv/
 .pytest_cache/
 storage/documents/
 storage/pages/
 storage/*.db
 storage/
+rag/storage/
 *_pages/
 *.tsbuildinfo
 

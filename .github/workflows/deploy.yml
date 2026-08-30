@@ -39,9 +39,10 @@ jobs:
           rsync -avz \
             --exclude '.git' \
             --exclude 'node_modules' \
-            --exclude '.next' \
-            --exclude 'agentic-rag-main/venv' \
-            --exclude 'agentic-rag-main/storage' \
+            --exclude 'agentic-rag-main' \
+            --exclude 'rag/venv' \
+            --exclude 'rag/.venv' \
+            --exclude 'rag/storage' \
             --exclude '.env*' \
             --exclude 'missing.pem' \
             ./ "$VPS_USER@$VPS_HOST:/home/ubuntu/failureops/"

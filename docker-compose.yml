@@ -2,7 +2,7 @@
 # RAG compose already defines postgres, rustfs, and rag on the failureops network.
 
 include:
-  - path: agentic-rag-main/docker-compose.yml
+  - path: rag/docker-compose.yml
 
 services:
   failureops:
