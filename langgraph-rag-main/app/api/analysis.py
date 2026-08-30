@@ -267,7 +267,25 @@ def start_project_analysis(
 ):
     """
     Starts an asynchronous FailureOps Evidence Intelligence analysis run for a project.
+    Idempotently returns existing running analysis if already in progress.
     """
+    # 1. Deduplicate concurrent requests: Check for an active running/queued analysis
+    existing_active = db.query(ProjectAnalysis).filter(
+        ProjectAnalysis.organization_id == org_id,
+        ProjectAnalysis.project_id == project_id,
+        ProjectAnalysis.status.in_(["QUEUED", "RUNNING", "PARSING_DOCUMENTS", "INDEXING", "RETRIEVING_EVIDENCE", "EVIDENCE_AGENT", "SIGNAL_AGENT", "RETRYING"])
+    ).order_by(ProjectAnalysis.created_at.desc()).first()
+
+    if existing_active:
+        logger.info(f"[API] Reusing active analysis {existing_active.id} for project {project_id} (status={existing_active.status})")
+        return StartAnalysisResponse(
+            analysis_id=existing_active.id,
+            project_id=project_id,
+            organization_id=org_id,
+            status=existing_active.status,
+            message="Reusing existing active analysis job"
+        )
+
     analysis_id = f"anl_{uuid.uuid4().hex[:12]}"
     
     db_analysis = ProjectAnalysis(
@@ -288,6 +306,7 @@ def start_project_analysis(
         organization_id=org_id,
         project_id=project_id
     )
+
 
     return StartAnalysisResponse(
         analysis_id=analysis_id,

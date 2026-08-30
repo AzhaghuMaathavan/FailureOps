@@ -10,7 +10,8 @@ interface RateLimitRecord {
 // In-memory token bucket rate limit store (isolated to server runtime)
 const rateLimitStore = new Map<string, RateLimitRecord>();
 
-export type RateLimitTier = 'general' | 'search' | 'analysis' | 'upload';
+export type RateLimitTier = 'general' | 'status' | 'search' | 'analysis' | 'upload';
+
 
 export interface RateLimitResult {
   success: boolean;

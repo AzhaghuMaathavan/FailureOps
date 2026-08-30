@@ -12,8 +12,9 @@ export async function GET(
 ) {
   try {
     const session = requireAuth(req);
-    const rate = checkRateLimit(req, 'general');
+    const rate = checkRateLimit(req, 'status');
     if (!rate.success) return apiRateLimitExceeded(rate.resetSeconds);
+
 
     const { runId } = await context.params;
     const run = getRun(runId);

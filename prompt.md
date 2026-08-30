@@ -1,2250 +1,1616 @@
-```text id="master-integration-prompt"
-MASTER IMPLEMENTATION PROMPT
-FAILUREOPS MAIN APPLICATION ↔️ LANGGRAPH/RAG INTELLIGENCE SERVICE INTEGRATION
+MASTER FORENSIC FIX
+FAILUREOPS ↔️ LANGGRAPH/RAG
+MULTI-DOCUMENT RATE LIMITING + PROVIDER FAILOVER + UNREACHABLE STATUS API
++ STUCK PIPELINE STATE + FRONTEND POLLING + RESUMABLE ANALYSIS
 
-We now have a separate, working LangGraph/RAG repository:
+We have now reproduced a real production integration failure.
 
-GitHub:
-https://github.com/Princewinston/langgraph-rag.git
+DO NOT PATCH ONLY THE SCREEN.
+DO NOT ADD FAKE PROGRESS.
+DO NOT HARD-CODE THE SAMPLE PROJECT.
+DO NOT HARD-CODE RETRY DELAYS.
+DO NOT SIMPLY ROTATE API KEYS.
+DO NOT HIDE 429 ERRORS.
+DO NOT CLAIM SUCCESS WITHOUT LIVE PROOF.
 
-Local project:
-P:\LangGraph_rag
+The goal is to fix the underlying architecture so future projects and future
+document uploads work correctly.
 
-This LangGraph/RAG service is intended to run independently from the main
-FailureOps application on a different port.
+============================================================
+CURRENT REAL FAILURE — MUST REPRODUCE AND FIX
+============================================================
 
-YOUR TASK:
-Integrate the existing FailureOps frontend/backend with this LangGraph/RAG
-service so that the main FailureOps application can use RAG + LangGraph as a
-real intelligence subsystem.
+The FailureOps application currently shows:
 
-DO NOT duplicate the RAG implementation in the main project.
+Stage:
+Blocked
 
-DO NOT replace the existing frontend.
+2 of 12
 
-DO NOT create fake/mock outputs.
+Last run:
+Failed
 
-DO NOT hardcode the sample screenshots/data.
+Backend stages:
+
+Document parsing:
+COMPLETED
+
+Chunking & embedding:
+COMPLETED
+
+Evidence retrieval:
+RUNNING
+
+Evidence Agent:
+WAITING / BLOCKED
+
+The browser console simultaneously shows repeated:
+
+FAILED TO LOAD RESOURCE:
+ /api/langgraph/run/lg_mtf4i1y_u73y
+HTTP 429 Too Many Requests
+
+and:
+
+FAILED TO LOAD RESOURCE:
+ /api/rag/pipeline?projectId=hello-gm
+HTTP 429 Too Many Requests
+
+and:
+
+Failed to load project documents:
+Error: Rate limit exceeded for this operation.
+Please try again in N seconds.
+
+and also:
+
+/api/analysis/status?projectId=hello-gm
+net::ERR_ADDRESS_UNREACHABLE
+
+There are repeated 429 requests from the frontend/status layer.
+
+This indicates at least TWO separate problems:
+
+A. LLM / LangGraph / RAG rate limiting is not being handled correctly.
+
+B. The analysis status/pipeline endpoint is not reliably reachable from the
+frontend.
+
+C. The frontend can continue polling/re-requesting while the backend is already
+blocked/failed.
+
+D. Backend stage state and frontend display state can become inconsistent.
+
+E. The system does not have a clean, centralized analysis/job lifecycle.
 
 FIRST AUDIT.
-THEN DESIGN.
 THEN IMPLEMENT.
-THEN TEST END-TO-END.
+THEN VERIFY END TO END.
 
 ============================================================
-0. ABSOLUTE RULES
+1. FORENSIC AUDIT — ABSOLUTELY FIRST
 ============================================================
 
-1. Inspect the existing main FailureOps backend and frontend BEFORE changing
-   anything.
+Before modifying production code, inspect the entire integration path.
 
-2. Inspect the existing LangGraph/RAG repository BEFORE changing anything.
+TRACE THESE EXACT REQUESTS:
 
-3. Reuse existing implementation wherever possible.
+/api/langgraph/run/*
+/api/rag/pipeline
+/api/analysis/status
+/api/analysis
+/api/projects/*
+any LangGraph proxy/BFF routes
+any RAG proxy routes
 
-4. If a screen already exists:
-   - KEEP the screen
-   - KEEP the current UX
-   - add/modify only the API integration needed
+Determine:
 
-5. If a screen does not exist:
-   - create it only when necessary
-   - follow the existing application's design system
+Browser
+  ↓
+FailureOps frontend
+  ↓
+Next.js/BFF or backend proxy
+  ↓
+FailureOps backend
+  ↓
+LangGraph/RAG
+  ↓
+LLM provider
+  ↓
+PostgreSQL / RustFS
 
-6. If an API already exists:
-   - preserve it unless there is a real architectural reason to extend it
-   - do not create duplicate endpoints
+For each hop determine:
 
-7. If integration endpoints do not exist:
-   - create a clean versioned service/API boundary
-
-8. No hardcoded sample output.
-
-9. No frontend fixture JSON.
-
-10. No direct database access from the frontend.
-
-11. No frontend direct access to PostgreSQL/RustFS.
-
-12. The LangGraph service owns:
-    - RAG retrieval
-    - evidence extraction
-    - event extraction
-    - claim extraction
-    - time-series normalization
-    - signal generation
-    - metric-aware risk scoring
-    - grounded intelligence result
-
-13. The main FailureOps application owns:
-    - product/project management
-    - user/member authorization
-    - project lifecycle
-    - downstream FailureOps engines
-    - Truth Engine
-    - Failure DNA
-    - Causal Analysis
-    - Prediction
-    - What-if
-    - Interventions
-    - Experiments
-    - Outcomes
-    - Radar
-    where those already exist in the main application.
-
-14. Do NOT move downstream FailureOps logic into the RAG service.
-
-15. The integration must work with arbitrary future projects/documents.
-
-============================================================
-1. FIRST AUDIT — DO NOT CODE YET
-============================================================
-
-Audit both repositories.
-
-MAIN FAILUREOPS APPLICATION:
-- backend framework
-- frontend framework
-- routing
-- project registration
-- organization/company model
-- privacy model
-- evidence model
-- project model
-- document model
-- RAG integration if any
-- current APIs
+- host
+- port
+- protocol
 - authentication
-- authorization
-- tenant isolation
-- RustFS/object storage integration
-- existing downstream engines
-- Truth Engine
-- Evidence Intelligence
-- Ask/Evidence
-- Pipeline Health
-- Failure DNA
-- Failure Radar
-- Causal Analysis
-- Prediction
-- What-if
-- Interventions
-
-LANGGRAPH/RAG SERVICE:
-- actual production endpoints
-- actual LangGraph graph
-- StateGraph/state schema
-- graph compile/invoke path
-- document upload
-- document parsing
-- chunking
-- embeddings
-- vector search
-- BM25
-- reranking
-- evidence agent
-- event/claim extraction
-- time-series engine
-- signal agent
-- metric-aware risk scoring
-- provenance model
-- PostgreSQL usage
-- RustFS usage
-- existing schemas
-- authentication headers
-- organization/project scoping
-
-Produce an audit table:
-
-FEATURE
-MAIN APP EXISTS?
-RAG SERVICE EXISTS?
-CURRENT API?
-CURRENT SCREEN?
-IMPLEMENTATION STATUS
-INTEGRATION NEEDED?
-
-DO NOT MODIFY CODE DURING THIS AUDIT PHASE.
+- timeout
+- retry
+- status code handling
+- response schema
+- ownership of state
+- whether the route is server-side or browser-side
 
 ============================================================
-2. ARCHITECTURAL GOAL
+2. AUDIT THE EXACT 429 SOURCE
 ============================================================
 
-Target architecture:
+Determine whether the 429 comes from:
 
-                MAIN FAILUREOPS APP
-                       |
-                       | authenticated service calls
-                       v
-              LANGGRAPH INTELLIGENCE
-                       |
-        +--------------+--------------+
-        |                             |
-       RAG                         LangGraph
-        |                             |
- ingestion/retrieval          orchestration
-        |                             |
-        +-------------+---------------+
-                      |
-                Structured Result
-                      |
-      +---------------+----------------+
-      |               |                |
-   Evidence        Signals        Events/Claims
-      |               |                |
-      +---------------+----------------+
-                      |
-             Main FailureOps Backend
-                      |
-      +---------------+----------------+
-      |               |                |
- Failure DNA     Truth Engine      Prediction...
-```
+A. frontend API route
+B. FailureOps backend
+C. LangGraph/RAG service
+D. LLM provider
+E. provider proxy
+F. rate limiter
+G. database/API intermediary
 
-The LangGraph service is a separate internal service.
+Do NOT assume.
 
-The main application must call it through HTTP/API.
+Trace the actual response headers/body.
+
+Determine:
+
+- provider
+- model
+- endpoint
+- retry-after
+- quota
+- request rate
+- concurrency
+- number of simultaneous requests
+- number of repeated browser polls
+
+Do not print API secrets.
 
 ============================================================
-3. SERVICE CONFIGURATION
-========================
+3. AUDIT THE ERR_ADDRESS_UNREACHABLE
+============================================================
 
-Introduce configuration such as:
+The browser reports:
 
-LANGGRAPH_RAG_URL=[http://127.0.0.1](http://127.0.0.1):<port>
+/api/analysis/status?projectId=hello-gm
+net::ERR_ADDRESS_UNREACHABLE
 
-or appropriate deployment URL.
+Find the exact reason.
 
-Never hardcode:
+Check:
+
+- frontend origin
+- backend origin
+- reverse proxy
+- Next.js rewrite/proxy
+- API base URL
+- hostname
+- port
+- Docker networking
+- localhost references
+- service binding address
+- CORS
+- environment variables
+- production vs local URLs
+
+Do not fix this by hardcoding one production IP.
+
+The correct solution must use environment configuration.
+
+============================================================
+4. EXPLICIT SERVICE / PORT ARCHITECTURE
+============================================================
+
+The system must remain split into independently running services.
+
+Example local architecture:
+
+FailureOps Frontend
+    port 5173
+
+        ↓ HTTP
+
+FailureOps Backend
+    port 8000
+
+        ↓ HTTP
+
+LangGraph/RAG Intelligence Service
+    port 8001
+
+        ↓
+
+PostgreSQL
+    port 5432
+
+        ↓ / object storage
+
+RustFS
+    API 9000
+    Console 9001
+
+Exact ports must come from environment/configuration.
+
+NEVER hardcode service addresses in application logic.
+
+Never allow:
+
+Frontend → PostgreSQL
+
+Frontend → RustFS admin credentials
+
+Frontend → internal LangGraph nodes
+
+The correct flow is:
+
+Frontend
+    ↓
+FailureOps Backend / BFF
+    ↓
+LangGraph/RAG Service
+    ↓
+Postgres / RustFS
+
+============================================================
+5. FIX API BASE URL CONFIGURATION
+============================================================
+
+Audit every frontend API call.
+
+Search for:
 
 localhost
-ports
-tokens
-organization IDs
-project IDs
+127.0.0.1
+5173
+8000
+8001
+hardcoded hostnames
+hardcoded production URLs
 
-Use environment configuration.
+Environment configuration must define service endpoints.
 
-Support:
+Frontend should call the correct frontend/BFF routes.
 
-development
-testing
-production
+Backend should call the internal LangGraph/RAG service.
 
-Do not expose internal service credentials to the browser.
+Do not expose internal service addresses unnecessarily.
 
-The browser should call the main FailureOps backend/BFF.
-
-MAIN BACKEND
-↓
-authenticated service call
-↓
-LANGGRAPH/RAG SERVICE
-
-NOT:
+For production:
 
 browser
-↓
-LangGraph internal service
+→ public FailureOps API
 
-unless the existing deployment architecture proves this is safe and intended.
-
-============================================================
-4. AUTHENTICATION + TENANT ISOLATION
-====================================
-
-This is CRITICAL.
-
-Every LangGraph request must carry enough trusted context to enforce:
-
-organization_id
-project_id
-user/member identity where required
-privacy scope
-request ID / correlation ID
-
-Never trust project_id from the client alone.
-
-The main backend must verify:
-
-authenticated user
-→ organization membership
-→ project membership
-→ requested project
-
-before calling LangGraph.
-
-LangGraph must ALSO validate the organization/project scope.
-
-Defense in depth.
-
-A user must NEVER retrieve another company's private documents.
+server-to-server
+→ internal LangGraph URL
 
 ============================================================
-5. DOCUMENT PRIVACY MODEL
-=========================
-
-Support two document visibility modes:
-
-PRIVATE
-GLOBAL_OPT_IN
-
-PRIVATE:
-
-Document may only be used for the owning organization/project according to
-normal authorization rules.
-
-It MUST NEVER appear in global similarity retrieval.
-
-GLOBAL_OPT_IN:
-
-Document may participate in global/shared retrieval only after explicit
-organization/user consent according to the main application's privacy policy.
-
-Global retrieval must NEVER allow a private document to leak into another
-organization's answer.
-
-Define a clear metadata field, for example:
-
-visibility_scope:
-PRIVATE
-GLOBAL
-
-or equivalent enum.
-
-Do not use arbitrary strings throughout the code.
-
-The visibility field must be enforced in retrieval itself, not just hidden in
-the UI.
-
+6. CREATE ONE AUTHORITATIVE ANALYSIS JOB MODEL
 ============================================================
-6. GLOBAL RETRIEVAL BEHAVIOR
-============================
 
-There are two separate concepts:
+There must be exactly ONE backend source of truth for analysis state.
 
-A. PRIVATE PROJECT RETRIEVAL
+Conceptually:
 
-Query only allowed project/org documents.
+AnalysisJob
 
-B. GLOBAL OPT-IN RETRIEVAL
+Fields should include where appropriate:
 
-Query:
-
-* current organization's allowed documents
-* globally opted-in documents
-
-BUT:
-
-GLOBAL retrieval must NEVER include:
-
-* private documents from another organization
-* documents without global consent
-* unauthorized projects
-
-Retrieval must enforce the metadata filters BEFORE ranking/result assembly.
-
-Do not retrieve everything first and filter afterward if that could leak
-metadata or content.
-
-Prefer database/vector-level filtering.
-
-============================================================
-7. PROJECT REGISTRATION
-=======================
-
-The main FailureOps project registration screen already exists.
-
-Do not rebuild it.
-
-Audit its current form.
-
-The registration metadata should become project metadata available to the
-LangGraph/RAG layer.
-
-Typical metadata:
-
-organization/company
-project name
-industry
-stage
-launch target
-target personas
-project description
-privacy settings
-evidence source categories
-other existing project metadata
-
-IMPORTANT:
-
-Metadata is an optional retrieval/calibration signal.
-
-It must NOT be required to make RAG work.
-
-Example:
-
-project metadata:
-industry = SaaS
-stage = Beta
-launch target = date
-
-This can help:
-
-* retrieval
-* interpretation
-* risk context
-* document classification
-
-but the actual answer must still come from uploaded evidence.
-
-Never fabricate missing metadata.
-
-============================================================
-8. DOCUMENT UPLOAD FLOW
-=======================
-
-The current upload screen already exists.
-
-Keep the current UX.
-
-When user uploads a document:
-
-MAIN APP:
-
-1. authenticate
-2. authorize project
-3. collect optional metadata
-4. determine visibility
-5. store/register document
-6. send document to LangGraph/RAG ingestion
-7. track processing status
-
-Optional metadata popup:
-
-Do NOT force metadata.
-
-Possible optional fields:
-
-document category
-effective date
-department/team
-project phase
-visibility
-source system
-document owner
-
-The RAG service should work correctly even when these values are blank.
-
-Use them as additional metadata filters only when present.
-
-============================================================
-9. OBJECT STORAGE — RUSTFS
-==========================
-
-Use RustFS/object storage for original document files.
-
-The database should store metadata and references.
-
-Do NOT put the full PDF/document binary directly into relational database
-records.
-
-Store:
-
-document_id
+analysis_id
 project_id
 organization_id
-object_storage_key
-filename
-content_type
-size
-checksum
-visibility
-metadata
-processing_status
+status
+current_stage
+stage_states
+created_at
+started_at
+completed_at
+failed_at
+error_code
+error_message
+retryable
+progress
+processed_count
+total_count
+last_updated_at
 
-The RAG service should receive a secure reference or authorized upload path.
-
-Never expose raw object-storage credentials to the browser.
-
-============================================================
-10. DOCUMENT PROCESSING
-=======================
-
-After upload, the UI must show the real processing lifecycle.
-
-Expected conceptual flow:
-
-UPLOAD
-↓
-OBJECT STORAGE
-↓
-PARSER
-↓
-CHUNKING
-↓
-EMBEDDING
-↓
-VECTOR STORAGE
-↓
-INDEX READY
-↓
-AVAILABLE FOR RAG
-↓
-OPTIONAL PROJECT INTELLIGENCE ANALYSIS
-
-Use real backend state.
-
-Do not make a fake progress animation.
-
-If the current main application has Pipeline Health already, reuse it.
-
-If it exists, connect the pipeline cards to actual status APIs.
-
-If it does not exist, create the minimum useful pipeline telemetry.
+Do not make the frontend infer state by combining several unrelated APIs.
 
 ============================================================
-11. LANGGRAPH PIPELINE
-======================
+7. ANALYSIS STATE MACHINE
+============================================================
 
-Use the existing production LangGraph pipeline.
+Define a deterministic state machine.
 
-Current graph:
+Overall status:
 
-validate_request
-→ retrieve_evidence
-→ evidence_agent
-→ validate_evidence
-→ signal_agent
-→ validate_signals
-→ finalize_output
+QUEUED
+RUNNING
+RETRYING
+PARTIAL
+COMPLETED
+FAILED
+CANCELLED
 
-Do NOT create a second competing graph for the same operation.
+Stage status:
 
-The main FailureOps application should call the LangGraph entrypoint.
+NOT_STARTED
+QUEUED
+RUNNING
+RETRYING
+COMPLETED
+PARTIAL
+FAILED
+SKIPPED
 
-Example conceptual API:
+A failed stage MUST NOT remain:
 
-POST /api/v1/intelligence/analyze
+RUNNING
 
-Request:
+forever.
 
-{
-"project_id": "...",
-"organization_id": "...",
-"query": "...",
-"document_ids": [...],
-"privacy_scope": "PRIVATE",
-"include_global_opt_in": false,
-"analysis_mode": "QUERY"
-}
+If Evidence Retrieval receives a fatal error:
 
-But:
+Evidence Retrieval = FAILED
 
-FIRST inspect the actual RAG service schema.
+If rate limited and retrying:
 
-If an existing compatible endpoint exists, use it.
+Evidence Retrieval = RETRYING
 
-Do not create a duplicate endpoint unnecessarily.
+If work is queued:
+
+Evidence Retrieval = QUEUED
+
+Never fake RUNNING.
 
 ============================================================
-12. REQUEST TYPES
-=================
+8. FIX THE EXACT SCREENSHOT INCONSISTENCY
+============================================================
 
-Support two major modes.
+Current UI:
 
-MODE A — USER QUESTION / RAG
+Overall:
+BLOCKED
+2/12
 
-User asks:
+but:
 
-"What evidence indicates release risk?"
+Evidence Retrieval:
+RUNNING
 
-Flow:
+This is invalid unless a backend state explicitly says:
 
-FailureOps backend
-→ LangGraph
-→ retrieval
-→ evidence
-→ answer
-→ citations
-→ response
+overall = BLOCKED
+current_stage = EVIDENCE_RETRIEVAL
+stage_status = RETRYING/RATE_LIMITED
 
-MODE B — AUTOMATIC PROJECT INTELLIGENCE
+If the operation has failed:
 
-User uploads documents.
+Overall = FAILED
+Evidence Retrieval = FAILED or RETRYING depending on actual state
 
-No question is required.
+The frontend must derive stage badges entirely from backend state.
 
-After ingestion/indexing becomes ready:
-
-FailureOps backend
-→ LangGraph project intelligence
-→ inspect all allowed project documents
-→ extract important metrics
-→ events
-→ claims
-→ evidence
-→ signals
-→ risk dimensions
-→ store structured intelligence
-
-This is NOT the same as a user asking a question.
-
-The automatic analysis should be explicitly triggered by:
-
-* upload completion
-* project analysis request
-* scheduled/background job
-  as appropriate.
-
-Do not make users type a question just to obtain baseline project intelligence.
+No frontend guesses.
 
 ============================================================
-13. AUTOMATIC PROJECT INTELLIGENCE
-==================================
+9. RATE LIMITING — CENTRALIZED
+============================================================
 
-For automatic analysis, LangGraph should determine what is important from the
-available project evidence.
+There must be ONE centralized LLM request scheduler.
 
-Do not require the user to specify:
+Every LLM call from:
 
-"find API latency"
-"find bugs"
-"find overtime"
+Evidence Agent
+Signal Agent
+Event/Claim extraction
+other LLM-powered LangGraph nodes
+
+must pass through the scheduler.
+
+Do not let individual chunks independently hammer the provider.
+
+No uncontrolled:
+
+asyncio.gather(all_chunks)
+
+No unbounded worker spawning.
+
+Use:
+
+global concurrency limit
++
+provider-specific concurrency limit
++
+queue
++
+rate pacing
+
+Configuration must come from environment.
+
+============================================================
+10. MULTI-PROVIDER / MULTI-KEY HANDLING
+============================================================
+
+Inspect the existing .env configuration.
+
+Determine:
+
+- providers
+- models
+- credential grouping
+- quota relationships
+
+Never print actual keys.
+
+Do NOT assume multiple keys equal multiple independent quotas.
+
+If multiple keys belong to the same provider/account, treat them according to
+actual provider quota semantics.
+
+Do not create:
+
+5 keys × 20 chunks = 100 simultaneous requests
 
 Instead:
 
-retrieve/analyze the allowed corpus
-→ identify relevant measurable metrics
-→ reconstruct time series
-→ extract important evidence
-→ extract events where actually present
-→ extract claims where actually present
-→ generate signals
-→ calculate metric-aware risks
-
-No hardcoded metric names.
-
-Do not assume every project has the same metrics.
+request queue
+→ scheduler
+→ provider selection
+→ bounded concurrency
+→ response
 
 ============================================================
-14. WHAT MUST BE STORED
-=======================
+11. PROVIDER FAILOVER
+============================================================
 
-Do not store giant raw LLM prompts/responses as the canonical project state.
+Implement controlled provider selection.
 
-Store structured, necessary intelligence.
+Provider states:
 
-Recommended persistent objects:
+HEALTHY
+THROTTLED
+UNAVAILABLE
+AUTH_FAILED
+DISABLED
 
-Analysis
-EvidenceItem
-EventItem
-ClaimItem
-SignalItem
-MetricSeries / metric observations where useful
-SourceReference
-RiskScoreResult
-AnalysisRun metadata
+When provider A returns 429:
 
-Each should contain only useful structured data.
+1. read Retry-After if available
+2. mark provider A THROTTLED
+3. apply cooldown
+4. route eligible work to another HEALTHY provider
+5. otherwise queue work
+6. do not hammer provider A
 
-Preserve lineage:
+Do not randomly rotate credentials.
 
+Do not retry immediately at full speed.
+
+============================================================
+12. RETRY WITH EXPONENTIAL BACKOFF
+============================================================
+
+Implement:
+
+exponential backoff
++
+jitter
++
+Retry-After support
+
+Configuration:
+
+MAX_RETRIES
+BASE_DELAY
+MAX_DELAY
+
+must be configurable.
+
+A rate-limited request should not generate dozens of identical requests.
+
+============================================================
+13. FRONTEND POLLING MUST NOT CAUSE A REQUEST STORM
+============================================================
+
+This screenshot strongly suggests repeated browser requests.
+
+Audit polling.
+
+Do NOT poll aggressively.
+
+Use a reasonable bounded polling interval.
+
+More importantly:
+
+When a job reaches:
+
+FAILED
+COMPLETED
+CANCELLED
+
+stop polling.
+
+When:
+
+RETRYING
+
+poll at a slower controlled interval.
+
+Do not have:
+
+three components
++
+three hooks
++
+two API routes
+
+all polling the same analysis.
+
+There must be one authoritative polling mechanism per active analysis.
+
+============================================================
+14. API REQUEST DEDUPLICATION
+============================================================
+
+Prevent duplicate concurrent calls for the same:
+
+project
++
 analysis_id
-project_id
-organization_id
-document_id
-document_name
-page/row/section
-chunk_id
-citation
-confidence
-
-============================================================
-15. EVIDENCE PACKET CONTRACT
-============================
-
-The LangGraph service should return a structured EvidencePacket or equivalent
-existing contract.
-
-Minimum conceptual information:
-
-project_id
-analysis_id
-organization_id
-generated_at
-evidence[]
-conflicts
-coverage
-metrics
-
-Evidence item must preserve:
-
-id
-category
-evidence_type
-statement
-normalized_value
-time_period
-source
-supporting_chunk_ids
-confidence
-verification_status
-privacy
-
-Do not send UI-only structures from the LangGraph service.
-
-Use stable backend contracts.
-
-============================================================
-16. SIGNAL PACKET CONTRACT
-==========================
-
-LangGraph should return structured signal output.
-
-Signals should include:
-
-signal_id
-name
-category
-signal_type
-polarity
-status
-severity
-summary
-metric_change
-signal_strength
-signal_confidence
-supporting_evidence_ids
-supporting_relationship_ids
-
-Also expose risk information separately and clearly.
-
-Do not mix:
-raw metric
-risk score
-metric change
-risk change
-
-These are different concepts.
-
-============================================================
-17. EVENTS AND CLAIMS
-=====================
-
-For narrative evidence:
-
-EVENT:
-
-deployment
-release
-outage
-incident
-milestone
-rollout
-state transition
-etc.
-
-CLAIM:
-
-stakeholder opinion
-customer statement
-recommendation
-belief
-subjective observation
-
-Pure telemetry is allowed to return:
-
-events = []
-claims = []
-
-Do NOT fabricate events/claims from pure numeric data.
-
-Every event/claim must carry source provenance.
-
-============================================================
-18. SOURCE PROVENANCE
-=====================
-
-This is REQUIRED.
-
-For every result that can be shown to the user:
-
-store and expose:
-
-source_document_id
-source_document_name
-document_version where applicable
-page_numbers
-row numbers where applicable
-section
-sheet name where applicable
-chunk_id
-citation
-confidence
++
+operation
 
 Examples:
 
-PDF:
-Page 7
+Five frontend refreshes must NOT create five LangGraph runs.
 
-XLSX:
-Sheet "Metrics", rows 20–30
+Use idempotency / request deduplication.
 
-CSV:
-Rows 12–25
+If an analysis is already running:
 
-DOCX:
-Section "Deployment Plan"
+POST analyze
 
-The UI should allow:
+should either:
 
-"Open source"
+return existing analysis_id
 
-and resolve the actual original source through the main application/RustFS.
+or
 
-Do not invent page numbers.
+explicitly reject duplicate execution.
+
+Do not start another LangGraph execution.
 
 ============================================================
-19. EVIDENCE INTELLIGENCE SCREEN
-================================
+15. LANGGRAPH RUN DEDUPLICATION
+============================================================
 
-The existing Evidence Intelligence screen should consume real LangGraph/RAG
-results.
+The endpoint:
 
-Existing UI pattern:
+/api/langgraph/run/<id>
 
-Sources
-Conflicts
-Citations
-Stale
+must correspond to one analysis execution.
 
-Keep the visual design.
+Do not generate new runs from:
 
-Populate it from backend data.
+frontend refresh
+status polling
+component remount
+route navigation
 
-Important:
+Polling must read state.
 
-"No completed analysis yet"
-should be shown only when there genuinely isn't one.
+Polling must NEVER trigger work.
 
-After analysis:
+IMPORTANT:
 
-show source counts
-citation counts
-conflicts
-freshness/staleness if supported
-evidence summaries
+GET status
+must never launch analysis.
 
 ============================================================
-20. ASK / EVIDENCE SCREEN
-=========================
+16. SEPARATE COMMAND APIs FROM QUERY APIs
+============================================================
 
-The existing Ask/Evidence screen should send a user question through the
-main backend to LangGraph.
+Commands:
 
-Flow:
+POST /analysis
+POST /analysis/retry
+POST /documents/upload
 
-User question
-→ FailureOps backend
-→ authorization/privacy calculation
-→ LangGraph RAG
-→ grounded answer
-→ citations
-→ evidence sources
+Queries:
 
-The response must contain:
+GET /analysis/{analysis_id}
+GET /analysis/{analysis_id}/status
+GET /analysis/{analysis_id}/result
+GET /pipeline/{project_id}
 
-answer
-confidence where available
-supporting evidence
-source documents
-page/row references
-analysis/request ID
+GET requests must be side-effect free.
 
-If evidence is insufficient:
-
-return an explicit insufficient-evidence result.
-
-Do NOT hallucinate.
+Never trigger LangGraph from a GET status call.
 
 ============================================================
-21. CROSS-SOURCE RETRIEVAL
-==========================
+17. FIX /api/rag/pipeline
+============================================================
 
-For a private project:
+Audit:
 
-retrieve from authorized project/org data.
+/api/rag/pipeline?projectId=hello-gm
 
-If global retrieval is enabled:
+Determine why it returns 429.
 
-retrieve from:
+It should represent pipeline health/state.
 
-* authorized private project data
-* globally opted-in shared data
+It should NOT independently initiate expensive LLM work.
 
-Never from another organization's private documents.
+Pipeline health should read persisted operational state.
 
-The UI should make it clear whether global knowledge was included.
+It must NOT call the LLM simply to answer:
+
+"what is the current pipeline state?"
+
+If current architecture does this, fix it.
+
+============================================================
+18. FIX /api/analysis/status
+============================================================
+
+The endpoint currently produces:
+
+ERR_ADDRESS_UNREACHABLE
+
+Make status retrieval reliable.
+
+Requirements:
+
+- correct backend URL
+- correct proxy/rewrite
+- correct environment config
+- correct auth
+- correct CORS where applicable
+- timeout
+- structured JSON response
+
+Example conceptual response:
+
+{
+  "analysis_id": "...",
+  "status": "RETRYING",
+  "current_stage": "EVIDENCE_AGENT",
+  "retry_after_seconds": 8,
+  "processed": 12,
+  "total": 30,
+  "retryable": true
+}
+
+Use actual existing schema conventions where possible.
+
+============================================================
+19. DO NOT DUPLICATE STATUS SYSTEMS
+============================================================
+
+If the system currently has:
+
+analysis status
+pipeline status
+LangGraph run status
+document status
+
+do not let each produce contradictory truth.
+
+Define relationships.
+
+Recommended:
+
+Document status:
+INGESTING / READY / FAILED
+
+Analysis status:
+QUEUED / RUNNING / RETRYING / PARTIAL / COMPLETED / FAILED
+
+Pipeline health:
+derived operational view
+
+LangGraph execution:
+internal execution details
+
+Frontend should consume a stable normalized status.
+
+============================================================
+20. EVIDENCE AGENT — BOUNDED WORK
+============================================================
+
+For multiple documents:
+
+documents
+↓
+retrieved chunks
+↓
+dedupe
+↓
+bounded queue
+↓
+Evidence Agent workers
+↓
+central LLM scheduler
+
+Do not launch one LLM request per chunk without bounds.
+
+If safe, batch related chunks.
+
+Preserve:
+
+document_id
+chunk_id
+page
+row
+section
+source
+
+============================================================
+21. RESUMABLE EVIDENCE PROCESSING
+============================================================
+
+Persist:
+
+successful chunk IDs
+pending chunk IDs
+failed chunk IDs
+
+If 50 chunks:
+
+40 successful
+10 rate limited
+
+do not restart all 50.
+
+Resume only remaining work.
+
+============================================================
+22. PARTIAL SUCCESS
+============================================================
+
+If some evidence is successfully extracted before rate limiting:
+
+preserve it.
+
+Return:
+
+PARTIAL
+
+rather than:
+
+empty result
+
+when appropriate.
 
 Example:
 
-Sources used:
-Project documents: 8
-Global opt-in sources: 3
+Evidence:
+40 extracted
 
-Do not expose private global-source identity/content where policy forbids it.
+Pending:
+8
+
+Failed:
+2
+
+The UI must clearly show this.
 
 ============================================================
-22. PIPELINE HEALTH SCREEN
-==========================
+23. TIMEOUTS
+============================================================
 
-The current Pipeline Health screen should show actual backend state.
+Every:
 
-Connect:
+HTTP service call
+LLM call
+database call
+RustFS operation
+
+must have explicit timeout handling.
+
+No infinite waits.
+
+============================================================
+24. ERROR NORMALIZATION
+============================================================
+
+Never send raw provider stack traces to frontend.
+
+Use structured errors:
+
+LLM_RATE_LIMITED
+LLM_PROVIDER_UNAVAILABLE
+LLM_AUTH_FAILED
+LLM_TIMEOUT
+LANGGRAPH_UNAVAILABLE
+ANALYSIS_TIMEOUT
+ANALYSIS_FAILED
+PIPELINE_UNAVAILABLE
+
+Include:
+
+retryable
+retry_after_seconds
+failed_stage
+
+where applicable.
+
+============================================================
+25. STATUS PAGE UX
+============================================================
+
+The current screen must accurately show states.
+
+For rate limiting:
+
+Evidence Agent
+
+RATE LIMITED / RETRYING
+
+Retrying in 8s
+
+Queue:
+12 chunks
+
+Provider:
+Provider B
+
+For failed:
+
+Evidence Agent
+FAILED
+
+Reason:
+LLM provider unavailable
+
+[Retry]
+
+For successful:
+
+Evidence Agent
+COMPLETED
+
+Do not show "RUNNING" while a request has already failed.
+
+============================================================
+26. STOP FRONTEND RETRIES AFTER TERMINAL FAILURE
+============================================================
+
+If backend says:
+
+FAILED
+retryable=false
+
+frontend must stop polling.
+
+If:
+
+FAILED
+retryable=true
+
+show retry option.
+
+If:
+
+RETRYING
+
+continue polling with controlled interval.
+
+============================================================
+27. ANALYSIS RETRY
+============================================================
+
+Retry should reuse the existing analysis context.
+
+Do not create duplicate:
+
+evidence
+signals
+events
+claims
+
+unless this is an intentional new version.
+
+Prefer:
+
+analysis attempt 1
+analysis attempt 2
+
+or equivalent attempt/version metadata.
+
+============================================================
+28. LANGGRAPH MUST REMAIN CENTRAL
+============================================================
+
+Do not bypass LangGraph.
+
+Main application:
+
+FailureOps Backend
+↓
+LangGraph service
+↓
+StateGraph
+↓
+retrieval
+↓
+Evidence Agent
+↓
+validation
+↓
+Signal Agent
+↓
+finalization
+
+The rate-limit scheduler belongs underneath the LLM service layer.
+
+Do not create an unrelated orchestration engine in the main application.
+
+============================================================
+29. PRESERVE CURRENT RAG CAPABILITIES
+============================================================
+
+Do NOT break:
+
+- document parsing
+- chunking
+- embeddings
+- pgvector
+- BM25
+- hybrid retrieval
+- reranking
+- provenance
+- time-series engine
+- event extraction
+- claim extraction
+- signal agent
+- metric-aware risk scoring
+
+The fix must be infrastructure/reliability focused.
+
+============================================================
+30. PRESERVE PRIVACY / TENANT ISOLATION
+============================================================
+
+All requests must retain:
+
+organization_id
+project_id
+document scope
+privacy scope
+
+Rate-limit retry/failover must NEVER change authorization scope.
+
+Never retry a request against a broader corpus.
+
+Never mix:
+
+private company A
+private company B
+
+Do not leak private document content into logs or provider errors.
+
+============================================================
+31. API CACHING / POLLING
+============================================================
+
+Status endpoints may be cached briefly where safe.
+
+Do not cache user-specific analysis across organizations.
+
+Cache keys should include:
+
+organization
+project
+analysis_id
+
+Results must remain tenant-isolated.
+
+============================================================
+32. RATE LIMIT TELEMETRY
+============================================================
+
+Expose safe diagnostics:
+
+llm_requests
+llm_successes
+llm_retries
+rate_limit_count
+provider_failovers
+queued_requests
+active_requests
+average_latency
+last_error
+analysis_duration
+
+Never expose credentials.
+
+============================================================
+33. PIPELINE HEALTH
+============================================================
+
+The Pipeline Health screen should show actual state:
 
 Documents
 Chunks
 Embeddings
-Vector storage
+Vector Storage
 Retrieval
 Evidence Agent
 Signal Agent
 
-and any other stages that genuinely exist.
+Do not have Pipeline Health itself cause LLM work.
 
-Do not animate fake progress.
-
-Use:
-
-pending
-processing
-ready
-failed
-not_started
-
-with real timestamps/errors where available.
+Health should query state.
 
 ============================================================
-23. TRUTH ENGINE
-================
+34. EXACT REPRODUCTION TEST
+============================================================
 
-The Truth Engine is a DOWNSTREAM consumer of grounded evidence.
+Reproduce:
 
-Flow:
+5 uploaded documents
+→ run analysis
 
-User/team claim
-↓
-Main FailureOps backend
-↓
-retrieve relevant evidence
-↓
-LangGraph/RAG if needed
-↓
-collect cross-source evidence
-↓
-Truth Engine
-↓
-TRUE / FALSE / INSUFFICIENT EVIDENCE
-↓
-supporting proof
-↓
-actual conflicting evidence
-↓
-source citations
+Then intentionally observe the previous failure conditions.
 
-IMPORTANT PRIVACY RULE:
+The system must NOT create a request storm.
 
-Truth Engine must respect the same privacy rules.
+Verify:
 
-Do NOT automatically use global data just because it exists.
-
-Global sources may only be used when the Truth Engine's policy allows them and
-they are explicitly opted into the relevant scope.
-
-For private claims, private project/org evidence is the default.
+- bounded concurrency
+- no duplicate analysis runs
+- no duplicate status polling
+- provider cooldown
+- failover or queue
+- correct job state
+- no stuck RUNNING stage
 
 ============================================================
-24. TRUTH ENGINE OUTPUT
-=======================
+35. TEST SINGLE DOCUMENT FIRST
+============================================================
 
-The UI should show:
+Run:
 
-Claim:
-"We are losing deals because price is too high."
+1 document
 
-Verdict:
-TRUE / FALSE / INSUFFICIENT EVIDENCE
+Verify:
 
-Confidence:
-X%
+upload
+→ parse
+→ chunk
+→ embed
+→ retrieval
+→ evidence
+→ signals
+→ completed
 
-Evidence supporting:
-...
+Then:
 
-Evidence contradicting:
-...
+3 documents
 
-What the evidence actually says:
-...
+Then:
 
-Sources:
-Document / page / section
+5 documents
 
-If FALSE:
-explicitly explain the evidence-supported alternative.
-
-If TRUE:
-show evidence supporting it.
-
-If insufficient:
-say what evidence is missing.
-
-Do not invent a verdict when evidence is insufficient.
+Only proceed once 1-document flow is stable.
 
 ============================================================
-25. FAILURE DNA
-===============
+36. TEST PROVIDER RATE LIMITING
+============================================================
 
-The existing Failure DNA screen should consume the structured intelligence
-returned by LangGraph/RAG.
+Use controlled testing where possible.
 
-It should not re-run RAG itself unless there is a deliberate reason.
+Simulate:
 
-Use:
+429
+Retry-After
+timeout
+provider unavailable
+invalid key
 
-signals
+Verify:
+
+retry
+cooldown
+fallback
+failure state
+recovery
+
+============================================================
+37. TEST STATUS FAILURE
+============================================================
+
+Test:
+
+backend unavailable
+LangGraph unavailable
+status endpoint unreachable
+frontend reload during analysis
+browser tab reopened
+duplicate Run Analysis clicks
+
+The system must remain consistent.
+
+============================================================
+38. TEST BROWSER REFRESH
+============================================================
+
+Start analysis.
+
+Refresh browser.
+
+Expected:
+
+same analysis_id
+same backend state
+no duplicate analysis
+no duplicate LLM calls
+
+============================================================
+39. TEST MULTI-TAB
+============================================================
+
+Open the same project in two browser tabs.
+
+Click Run Analysis.
+
+Expected:
+
+one analysis job
+
+not two.
+
+============================================================
+40. TEST RATE-LIMIT RECOVERY
+============================================================
+
+During an active analysis:
+
+Provider A returns 429.
+
+Expected:
+
+Evidence Agent:
+RETRYING / RATE LIMITED
+
+If provider B healthy:
+
+continue through provider B
+
+If no provider healthy:
+
+queue and wait
+
+If retries exhausted:
+
+FAILED / retryable
+
+Never:
+
+RUNNING forever
+
+============================================================
+41. TEST DOCUMENT PROVENANCE
+============================================================
+
+After recovery verify:
+
 evidence
-risk dimensions
 events
 claims
-metrics
+signals
 
-as inputs to the downstream Failure DNA engine.
+still contain:
 
-============================================================
-26. OTHER DOWNSTREAM FEATURES
-=============================
+document
+page/row
+chunk
+citation
+confidence
 
-Follow the same contract for:
-
-Causal Analysis
-Prediction
-Historical Memory
-What-If Simulation
-Interventions
-Experiments
-Outcomes
-Failure Radar
-
-Pattern:
-
-Main FailureOps backend
-→ retrieve stored structured intelligence
-→ invoke downstream engine
-→ persist result
-→ frontend renders result
-
-Avoid re-retrieving/reprocessing the same documents unnecessarily.
+No provenance loss during retries/failover.
 
 ============================================================
-27. CACHING AND EFFICIENCY
-==========================
+42. TEST PRIVACY AFTER FAILOVER
+============================================================
 
-Do not run a full LangGraph analysis on every page load.
+This is critical.
 
-Use:
+If private project A is being processed:
+
+all provider retries and failovers must receive exactly the same authorized
+retrieval scope.
+
+A rate-limit recovery must NEVER broaden retrieval scope.
+
+============================================================
+43. DATABASE / PERSISTENCE
+============================================================
+
+Persist analysis state so the frontend can reconnect.
+
+At minimum persist:
 
 analysis_id
 project_id
-document version/checksum
-query hash where applicable
-privacy scope
-analysis mode
+organization_id
+status
+current_stage
+stage statuses
+timestamps
+error
+retry state
 
-to identify reusable results.
-
-Recommended behavior:
-
-Upload document
-→ process once
-
-Project intelligence
-→ run once after corpus changes
-
-User question
-→ run per query, optionally cache repeated identical requests
-
-Page refresh
-→ read persisted results
+Persist structured successful intermediate results.
 
 ============================================================
-28. IDEMPOTENCY
-===============
+44. FRONTEND API ARCHITECTURE
+============================================================
 
-Document ingestion must be idempotent.
+Prefer:
 
-Use checksum/hash to avoid accidentally indexing the same file repeatedly.
+Browser
+→ FailureOps BFF/API
 
-Analysis requests should have request IDs/idempotency keys where appropriate.
+BFF
+→ FailureOps backend/internal APIs
+
+Backend
+→ LangGraph/RAG
+
+Do not scatter direct LangGraph calls throughout React components.
+
+Create a single integration client.
+
+Example concept:
+
+LangGraphClient
+
+Methods:
+
+ingestDocument()
+startAnalysis()
+getAnalysisStatus()
+getAnalysisResult()
+retryAnalysis()
+
+Keep provider logic out of UI.
 
 ============================================================
-29. VERSIONING
-==============
+45. FRONTEND DATA FETCHING
+============================================================
 
-Every persisted intelligence result should know:
+Audit whether multiple components fetch the same project/analysis state.
 
-analysis_id
-pipeline/version if applicable
-created_at
-source document versions
-risk-scoring version
+Centralize active analysis state.
 
-This prevents confusion when scoring logic changes later.
+Avoid:
+
+Overview polling
++
+Pipeline Health polling
++
+Analysis page polling
++
+LangGraph component polling
+
+all independently hitting the backend.
+
+Use one controlled status stream/query.
 
 ============================================================
-30. FAILURE HANDLING
-====================
+46. BACKEND SERVICE CLIENT
+============================================================
 
-If LangGraph/RAG is unavailable:
+Create/reuse a single LangGraph service client.
 
-Main app must return a clear service-unavailable state.
+Responsibilities:
 
-Do not fabricate a result.
+- base URL
+- auth header
+- timeout
+- retries
+- idempotency
+- correlation ID
+- request serialization
+- response validation
+- error normalization
 
-The frontend should show:
-
-"Intelligence service unavailable"
-
-with retry where appropriate.
-
-If only retrieval fails:
-
-show retrieval/indexing error.
-
-If LLM extraction fails:
-
-preserve deterministic evidence when possible.
-
-If one document is invalid:
-
-do not lose the entire project corpus.
+The rest of the main backend should not construct raw LangGraph HTTP requests
+everywhere.
 
 ============================================================
-31. TIMEOUTS
-============
-
-Set explicit service-to-service timeouts.
-
-Do not allow a request to hang indefinitely.
-
-For long-running analysis:
-
-prefer:
-
-POST → analysis_id / job ID
-GET → status
-GET → result
-
-rather than holding a browser request for a long LLM workflow when not
-necessary.
-
+47. CORRELATION IDs
 ============================================================
-32. OBSERVABILITY
-=================
 
-Every request should have correlation information:
+Propagate:
 
 request_id
 analysis_id
 project_id
 organization_id
 
-Log:
+through:
 
-ingestion started
-ingestion completed
+browser request
+→ FailureOps backend
+→ LangGraph
+→ provider layer
+
+Use these for logs.
+
+============================================================
+48. LOGGING
+============================================================
+
+Record:
+
+analysis started
+analysis queued
 retrieval started
 retrieval completed
-LangGraph started
-node execution
-LangGraph completed
-downstream processing
+LLM request
+LLM success
+LLM 429
+provider failover
+retry
+analysis completed
+analysis failed
 
-Do NOT log:
-
-* API keys
-* passwords
-* raw confidential document text
-* sensitive private content unnecessarily
+Do NOT log secrets or raw sensitive documents.
 
 ============================================================
-33. FRONTEND UX IMPROVEMENTS
-============================
+49. NO HARDCODED TEST VALUES
+============================================================
 
-Keep current design language.
+The screenshot's:
 
-Add where useful:
+hello-gm
+5 documents
+19 seconds
+specific API path IDs
 
-* processing status
-* last analysis time
-* source count
-* global/private retrieval indicator
-* analysis freshness
-* retry button
-* source drill-down
-* evidence confidence
-* "why this score?" explanation
-* "why this verdict?" explanation
-* analysis ID for support/debugging
+are reproduction evidence only.
 
-Avoid clutter.
+Do not hardcode them.
 
 ============================================================
-34. API CONTRACT STRATEGY
-=========================
-
-The main application should expose stable API contracts.
-
-Suggested conceptual categories:
-
-/api/v1/projects/{project_id}/documents
-/api/v1/projects/{project_id}/intelligence
-/api/v1/projects/{project_id}/intelligence/{analysis_id}
-/api/v1/projects/{project_id}/evidence/query
-/api/v1/projects/{project_id}/truth/check
-
-BUT:
-
-FIRST inspect existing routes.
-
-Reuse existing routes where possible.
-
-Do not create duplicate endpoints.
-
-The LangGraph service can remain internally versioned separately.
-
+50. ENVIRONMENT CONFIGURATION
 ============================================================
-35. DATA FLOW FOR UPLOAD
-========================
 
-Expected flow:
+Use environment variables for:
 
-User uploads file
-↓
-Main FailureOps backend
-↓
-authorization
-↓
-optional metadata popup
-↓
-privacy selection
-↓
-RustFS object storage
-↓
-document DB record
-↓
-LangGraph/RAG ingestion API
-↓
-parser
-↓
-chunks
-↓
-embeddings
-↓
-vector index
-↓
-BM25 index
-↓
-ready
-↓
-automatic intelligence analysis
-↓
-EvidencePacket
-↓
-SignalPacket
-↓
-persist structured intelligence
-↓
-FailureOps downstream engines
-
-============================================================
-36. DATA FLOW FOR USER QUESTION
-===============================
-
-Expected flow:
-
-User asks question
-↓
-Main backend validates project/user
-↓
-calculate allowed retrieval scope
-↓
-private/global filter
-↓
-LangGraph RAG endpoint
-↓
-retrieve
-↓
-rerank
-↓
-Evidence Agent
-↓
-structured grounded answer
-↓
-citations
-↓
-main backend
-↓
-frontend
-
-============================================================
-37. DATA FLOW FOR AUTOMATIC INTELLIGENCE
-========================================
-
-Expected flow:
-
-Documents ready
-↓
-LangGraph project analysis
-↓
-retrieve/analyze authorized corpus
-↓
-time-series reconstruction
-↓
-Evidence
-↓
-Events
-↓
-Claims
-↓
-Signals
-↓
-Metric-aware risk
-↓
-structured result
-↓
-database
-↓
-FailureOps engines
-
-No user query required.
-
-============================================================
-38. DATABASE DESIGN
-===================
-
-Audit existing models first.
-
-Reuse existing tables/models where possible.
-
-If new persistence is required, create proper migrations.
-
-Do NOT create duplicate document tables unless necessary.
-
-Recommended relational relationships:
-
-Organization
-↓
-Project
-↓
-Document
-↓
-Analysis
-├── EvidenceItem
-├── EventItem
-├── ClaimItem
-└── SignalItem
-
-All child records must retain organization/project scope.
-
-============================================================
-39. SECURITY TESTING
-====================
-
-Create automated tests for:
-
-1. user A can access project A
-2. user A cannot access project B
-3. org A cannot access org B
-4. private document cannot appear in global retrieval
-5. global opt-in document can be used when policy permits
-6. changing project_id in request does not bypass authorization
-7. missing auth rejected
-8. invalid service auth rejected
-9. source access respects authorization
-10. original document download respects authorization
-11. event/claim provenance cannot cross tenants
-12. cached analysis cannot cross tenants
-
-============================================================
-40. CORRECTNESS TESTING
-=======================
-
-Test:
-
-* simple RAG question
-* insufficient evidence
-* multi-document retrieval
-* duplicate documents
-* metadata present
-* metadata absent
-* private-only retrieval
-* global opt-in retrieval
-* automatic project analysis
-* pure telemetry → no fabricated events/claims
-* narrative document → events/claims
-* multi-chunk time series
-* reverse/out-of-order rows
-* metric-aware risk
-* provenance page references
-* source opening
-
-============================================================
-41. PERFORMANCE TESTING
-=======================
-
-Measure:
-
-document ingestion latency
-embedding latency
-retrieval latency
-reranking latency
-LangGraph total latency
-automatic project analysis time
-query response time
-
-Do not optimize prematurely.
-
-Reuse indexed documents rather than re-parsing them for every request.
-
-============================================================
-42. FAILUREOPS FRONTEND SCREENS
-===============================
-
-Audit the current screens represented by the screenshots.
-
-At minimum check:
-
-1. Product registration
-2. Evidence source configuration
-3. Privacy configuration
-4. Upload Evidence
-5. Pipeline Health
-6. Evidence Intelligence
-7. Evidence Ask
-8. Signal / intelligence output
-9. Truth Engine
-10. Downstream analysis screens
-
-For EACH screen:
-
-* determine whether it already exists
-* determine whether backend data is real
-* identify missing API
-* connect existing UI if possible
-* only create missing UI when genuinely necessary
-
-DO NOT rebuild an existing screen.
-
-============================================================
-43. IMPORTANT: THE UI IS NOT THE SOURCE OF TRUTH
-================================================
-
-The backend response is authoritative.
-
-Frontend must render:
-
-* actual evidence
-* actual signals
-* actual events/claims
-* actual risk scores
-* actual provenance
-
-Do not derive risk values in frontend.
-
-Do not calculate percentage changes again in frontend if backend already provides
-them.
-
-============================================================
-44. LANGGRAPH SHOULD REMAIN CENTRAL
-===================================
-
-Do not bypass LangGraph by directly calling individual EvidenceAgent or
-SignalAgent functions from the main application.
-
-The main application should call the LangGraph service entrypoint.
-
-The LangGraph graph should orchestrate the intelligence flow.
-
-Conceptually:
-
-Main FailureOps
-→ LangGraph API
-→ compiled StateGraph
-→ nodes
-→ structured output
-
-This keeps orchestration centralized and replaceable.
-
-============================================================
-45. CONTRACT ADAPTER
-====================
-
-If the current LangGraph API contract does not exactly match what the main
-application needs:
-
-create a thin adapter layer.
-
-Do NOT modify the core RAG pipeline unnecessarily.
-
-Adapter responsibilities:
-
-* request mapping
-* auth propagation
-* privacy scope
-* project metadata
-* response validation
-* retries/timeouts
-* error normalization
-
-Do not put business logic that belongs inside LangGraph into the main app
-adapter.
-
-============================================================
-46. SCHEMA VALIDATION
-=====================
-
-Validate all cross-service responses.
-
-Use strict schemas.
-
-Reject malformed:
-
-EvidencePacket
-SignalPacket
-EventItem
-ClaimItem
-RiskScoreResult
-
-Do not let malformed LLM output propagate into downstream systems.
-
-============================================================
-47. SECURITY OF SOURCE DOCUMENTS
-================================
-
-Original documents live in RustFS.
-
-A citation must reference a controlled source endpoint.
-
-Example conceptual flow:
-
-frontend asks:
-"open evidence source"
-
-↓
-main backend verifies authorization
-
-↓
-backend generates authorized download/view URL
-
-↓
-RustFS object retrieval
-
-Do not give unrestricted object-storage URLs.
-
-============================================================
-48. ADDITIONAL IDEA — ANALYSIS SNAPSHOT
-=======================================
-
-Implement an analysis snapshot/version concept if current architecture allows.
-
-A user should be able to know:
-
-Analysis:
-A-123
-
-Created:
-2026-08-30
-
-Documents:
-5
-
-Privacy scope:
-Private + 3 global opt-in sources
-
-Pipeline version:
-...
-
-Risk scoring version:
-...
-
-This makes downstream reproducibility much stronger.
-
-============================================================
-49. ADDITIONAL IDEA — FRESHNESS
-===============================
-
-Display:
-
-Last analyzed:
-...
-
-Documents changed since analysis:
-YES/NO
-
-Analysis stale:
-YES/NO
-
-If a new document arrives:
-
-mark project intelligence stale.
-
-Do not silently show old analysis as current.
-
-============================================================
-50. ADDITIONAL IDEA — SOURCE-FIRST EXPLANATIONS
-===============================================
-
-For every major conclusion:
-
-Conclusion
-↓
-Why
-↓
-Evidence
-↓
-Source
-↓
-Page/row
-↓
-Confidence
-
-This should become the central UX principle of FailureOps.
-
-============================================================
-51. DO NOT HARD-CODE SCREENSHOT DATA
-====================================
-
-The screenshots are UX references only.
-
-Never hardcode:
-
-project names
-company names
-metrics
-risk scores
-documents
-page numbers
-claims
-events
-statuses
-
-All data must come from backend state.
-
-============================================================
-52. DEVELOPMENT / PRODUCTION MODES
-==================================
-
-Support configuration such as:
-
+FAILUREOPS_BACKEND_URL
 LANGGRAPH_RAG_URL
 LANGGRAPH_SERVICE_TOKEN
 RAG_REQUEST_TIMEOUT
-ENABLE_GLOBAL_OPT_IN
-AUTO_ANALYSIS_ON_INGEST
+LLM_REQUEST_TIMEOUT
+LLM_MAX_CONCURRENCY
+LLM_PROVIDER_MAX_CONCURRENCY
+LLM_MAX_RETRIES
+LLM_RETRY_BASE_DELAY
+LLM_RETRY_MAX_DELAY
+ANALYSIS_POLL_INTERVAL
+ANALYSIS_TIMEOUT
 
-Never put secrets in frontend code.
+Names may follow existing project conventions.
 
-============================================================
-53. IMPLEMENTATION ORDER
-========================
+Update .env.example only with placeholders.
 
-Do not attempt everything at once.
-
-Implement in this order:
-
-PHASE 1
-Repository audit
-
-PHASE 2
-Service-to-service authentication
-
-PHASE 3
-Document upload → LangGraph ingestion
-
-PHASE 4
-Document status/pipeline tracking
-
-PHASE 5
-User question → LangGraph RAG
-
-PHASE 6
-Evidence + provenance persistence
-
-PHASE 7
-Automatic project intelligence
-
-PHASE 8
-Signals/risk persistence
-
-PHASE 9
-Truth Engine integration
-
-PHASE 10
-Downstream FailureOps integration
-
-PHASE 11
-Global opt-in retrieval
-
-PHASE 12
-Performance + observability
-
-Do not implement global retrieval by weakening private isolation.
+Never commit secrets.
 
 ============================================================
-54. TEST WITH REAL DATA
-=======================
+51. DOCUMENT THE FINAL ARCHITECTURE
+============================================================
 
-Use real uploaded test documents.
+Update integration documentation with:
 
-At minimum verify:
+Frontend
+  ↓
+FailureOps Backend
+  ↓
+LangGraph/RAG
+  ↓
+RAG retrieval
+  ↓
+LLM scheduler
+  ↓
+Evidence Agent
+  ↓
+Signal Agent
+  ↓
+structured intelligence
+  ↓
+FailureOps downstream
 
-PDF
-CSV
-XLSX
-DOCX if supported
+Also document:
 
-Use:
+rate-limit behavior
+provider failover
+job state
+polling
+retries
+resumption
+privacy
+ports
+environment variables
 
-* a telemetry document
-* a narrative document
-* a customer-feedback document
-* a multi-point time-series document
+============================================================
+52. ACCEPTANCE CRITERIA
+============================================================
 
-Verify:
+The implementation is considered successful ONLY when all are demonstrated:
 
-metrics
-events
-claims
-citations
-pages/rows
-signals
-risk
+A. 1-document analysis completes.
+
+B. 3-document analysis completes.
+
+C. 5-document analysis completes without request storm.
+
+D. Controlled 429 is handled gracefully.
+
+E. Another healthy provider can take work when appropriate.
+
+F. If all providers are unavailable, the job becomes RETRYING or FAILED
+   cleanly.
+
+G. No stage remains RUNNING forever.
+
+H. Browser refresh does not restart analysis.
+
+I. Duplicate Run Analysis clicks do not create duplicate jobs.
+
+J. Multiple browser tabs do not create duplicate jobs.
+
+K. /api/analysis/status is reachable and reliable.
+
+L. /api/rag/pipeline does not create LLM work.
+
+M. Pipeline Health reflects real backend state.
+
+N. Evidence Agent state matches actual state.
+
+O. Successful evidence is preserved during retries.
+
+P. Provenance remains correct.
+
+Q. Private retrieval remains private during retries/failover.
+
+R. Global opt-in rules remain unchanged.
+
+S. LangGraph remains the orchestration core.
+
+============================================================
+53. REQUIRED TEST RESULTS
+============================================================
+
+Run:
+
+backend unit tests
+backend integration tests
+security/tenant tests
+LangGraph tests
+rate-limit tests
+frontend tests
+frontend production build
+
+Then perform live:
+
+1-document
+3-document
+5-document
+rate-limit recovery
+provider failover
+browser refresh
+duplicate-click
+multi-tab
+status outage
 privacy
 
 ============================================================
-55. END-TO-END ACCEPTANCE TEST
-==============================
+54. FINAL REPORT
+============================================================
 
-Acceptance test:
+Return:
 
-A. Register a project.
-
-B. Configure private evidence.
-
-C. Upload documents.
-
-D. Optional metadata can be entered.
-
-E. Store originals in RustFS.
-
-F. LangGraph/RAG processes them.
-
-G. Pipeline UI updates using real state.
-
-H. Run automatic project intelligence without entering a query.
-
-I. Verify:
-
-* evidence
-* metrics
-* events
-* claims
-* signals
-* risk
-* source citations
-
-J. Ask a grounded question.
-
-K. Receive evidence-backed answer.
-
-L. Ask a question with insufficient evidence.
-
-M. Receive insufficient-evidence result.
-
-N. Use Truth Engine:
-provide a claim
-receive TRUE/FALSE/INSUFFICIENT
-receive supporting/contradicting evidence
-receive sources
-
-O. Test private data.
-
-P. Test global opt-in data.
-
-Q. Confirm private data NEVER appears in another organization's global result.
-
-R. Verify downstream FailureOps screens consume the same structured intelligence.
+1. Exact root cause of the 429 problem
+2. Exact root cause of ERR_ADDRESS_UNREACHABLE
+3. Exact request causing frontend request storm, if any
+4. Existing API topology
+5. Final service topology
+6. Frontend port
+7. Backend port
+8. LangGraph/RAG port
+9. PostgreSQL port
+10. RustFS ports
+11. LLM providers/models detected
+12. Key/quota grouping
+13. New scheduler design
+14. Concurrency limits
+15. Retry strategy
+16. Failover strategy
+17. Circuit breaker/cooldown strategy
+18. Job state machine
+19. Frontend polling architecture
+20. API deduplication/idempotency
+21. Resume strategy
+22. Partial success strategy
+23. Error schema
+24. Status endpoint fix
+25. Pipeline endpoint fix
+26. Files modified
+27. Files created
+28. Environment variables
+29. Tests added
+30. Test results
+31. Live 1-document result
+32. Live 3-document result
+33. Live 5-document result
+34. Controlled 429 result
+35. Failover result
+36. Refresh result
+37. Multi-tab result
+38. Privacy result
+39. Final screenshots/log evidence
+40. Remaining limitations
 
 ============================================================
-56. REQUIRED DOCUMENTATION
-==========================
-
-Create/update integration documentation explaining:
-
-MAIN APP
-↓
-API
-↓
-LANGGRAPH/RAG SERVICE
-↓
-RAG/LANGGRAPH
-↓
-STRUCTURED INTELLIGENCE
-
-Document:
-
-* architecture
-* endpoints
-* request schemas
-* response schemas
-* authentication
-* privacy
-* global opt-in
-* upload lifecycle
-* analysis lifecycle
-* error handling
-* local development
-* production configuration
-* testing
-
+55. FINAL NON-NEGOTIABLE RULE
 ============================================================
-57. FINAL DELIVERABLES
-======================
 
-After implementation provide:
+DO NOT say:
 
-1. AUDIT REPORT
-
-2. ARCHITECTURE DIAGRAM
-
-3. FILES CREATED
-
-4. FILES MODIFIED
-
-5. EXISTING FILES REUSED
-
-6. API ENDPOINTS ADDED/REUSED
-
-7. REQUEST/RESPONSE SCHEMAS
-
-8. AUTHENTICATION FLOW
-
-9. PRIVACY FLOW
-
-10. GLOBAL OPT-IN FLOW
-
-11. RUSTFS FLOW
-
-12. DOCUMENT INGESTION FLOW
-
-13. RAG QUERY FLOW
-
-14. AUTOMATIC INTELLIGENCE FLOW
-
-15. TRUTH ENGINE FLOW
-
-16. DOWNSTREAM FAILUREOPS FLOW
-
-17. DATABASE CHANGES
-
-18. FRONTEND CHANGES
-
-19. TESTS ADDED
-
-20. SECURITY TEST RESULTS
-
-21. END-TO-END TEST RESULTS
-
-22. PERFORMANCE RESULTS
-
-23. KNOWN LIMITATIONS
-
-24. NEXT STEPS
-
-============================================================
-58. IMPORTANT: DO NOT CLAIM SUCCESS WITHOUT PROOF
-=================================================
-
-Do not say:
-
-"fully integrated"
+"fixed"
 "production ready"
-"complete"
+"fully integrated"
 
-unless you have actually demonstrated:
+until the exact screenshot failure has been reproduced and resolved.
 
-main frontend
-→ main backend
-→ LangGraph service
-→ real RAG retrieval
-→ real structured result
-→ main backend persistence
-→ frontend rendering
+Specifically prove that this:
 
-with a real end-to-end test.
+5 documents
+→ retrieval
+→ 429
+→ frontend keeps polling
+→ status endpoint unreachable
+→ pipeline says RUNNING/BLOCKED inconsistently
 
-============================================================
-59. ASK QUESTIONS WHEN THERE IS A REAL BLOCKER
-==============================================
+has become:
 
-If you discover an architectural ambiguity that cannot safely be resolved from:
+5 documents
+→ bounded queue
+→ controlled LLM requests
+→ rate-limit aware retry/failover
+→ authoritative backend status
+→ accurate frontend status
+→ COMPLETED
 
-* existing code
-* existing schemas
-* existing APIs
-* existing screenshots
-* existing configuration
+OR, if no provider can recover:
 
-STOP and ask a concise clarification question.
+5 documents
+→ controlled queue
+→ RETRYING
+→ FAILED / retryable
 
-Do NOT invent behavior.
-
-============================================================
-60. FIRST RESPONSE
-==================
-
-Your FIRST response to this task should NOT be "implemented".
-
-First report:
-
-A. What already exists in main backend
-B. What already exists in main frontend
-C. What already exists in LangGraph/RAG
-D. Which APIs can be reused immediately
-E. Which APIs are missing
-F. What exact integration architecture you recommend
-G. Security/privacy risks discovered
-H. Files you plan to modify
-I. Files you plan to create
-J. Any blocking questions
-
-ONLY AFTER THE AUDIT SHOULD IMPLEMENTATION BEGIN.
+with NO infinite RUNNING state.
 
 ============================================================
-CORE PRINCIPLE
-==============
-
-The final system must behave like this:
-
-USER
-↓
-FAILUREOPS FRONTEND
-↓
-FAILUREOPS BACKEND
-↓
-AUTH + PROJECT + PRIVACY SCOPE
-↓
-LANGGRAPH/RAG SERVICE
-↓
-RAG RETRIEVAL
-↓
-LANGGRAPH ORCHESTRATION
-↓
-EVIDENCE / EVENTS / CLAIMS / TIME-SERIES / SIGNALS / RISK
-↓
-STRUCTURED INTELLIGENCE
-↓
-FAILUREOPS BACKEND
-↓
-DATABASE / DOWNSTREAM ENGINES
-↓
-FRONTEND
-
-The LangGraph/RAG layer is the intelligence core.
-
-The main FailureOps application is the product and downstream decision layer.
-
-Privacy boundaries must be enforced in the backend and retrieval layer.
-
-Evidence and source provenance are first-class data.
-
-No hardcoded demo behavior.
-
-No fake outputs.
-
-No cross-tenant leakage.
-
-No duplicate RAG implementation.
-
+FIRST RESPONSE REQUIREMENT
 ============================================================
-FINAL STOP CONDITION FOR THIS INITIAL AUDIT
-===========================================
 
-For now:
+Do NOT implement immediately.
 
-AUDIT FIRST.
+First return:
 
-DO NOT START LARGE-SCALE CODE CHANGES UNTIL THE AUDIT REPORT IS RETURNED.
+A. exact 429 source
+B. exact ERR_ADDRESS_UNREACHABLE source
+C. all affected endpoints
+D. current polling behavior
+E. current concurrency behavior
+F. current LLM provider configuration structure
+G. current job-state architecture
+H. recommended fix
+I. files to modify
+J. files to create
+K. any genuine blocking questions
 
-After the audit report, we will approve the implementation phases.
-
-````
-
-### The most important architectural point
-
-Your teammate should understand this distinction:
-
-```text
-Your LangGraph repo
-       =
-INTELLIGENCE ENGINE
-
-Main FailureOps project
-       =
-PRODUCT + USER MANAGEMENT + SECURITY + DOWNSTREAM ENGINES
-````
-
-So when someone asks:
-
-> “What is the evidence for this release risk?”
-
-the flow should be:
-
-```text
-FailureOps UI
-   ↓
-Main backend
-   ↓
-"Is this user allowed to ask this?"
-"Which project?"
-"Private or global?"
-   ↓
-LangGraph service
-   ↓
-RAG retrieval
-   ↓
-Evidence Agent
-   ↓
-Signal / risk
-   ↓
-structured response
-   ↓
-Main backend
-   ↓
-UI
-```
-
-And for upload:
-
-```text
-Upload
- ↓
-RustFS
- ↓
-Document metadata
- ↓
-LangGraph ingestion
- ↓
-Parser
- ↓
-Chunks
- ↓
-Embeddings
- ↓
-Vector + BM25
- ↓
-Ready
- ↓
-Automatic LangGraph analysis
- ↓
-EvidencePacket
-SignalPacket
-Events
-Claims
-Risk
- ↓
-DB
- ↓
-FailureOps downstream engines
-```
-
-That architecture will save you from the integration problem you hit earlier, because **the two projects communicate through a small, explicit contract instead of trying to merge their internals**.
-
-
-Exactly. **That is the architecture we should use**, and yes, I included the separate-service idea in the prompt, but I would make the port separation even more explicit so your teammate's agent cannot misunderstand it.
-
-### Your deployment should be
-
-```text
-┌──────────────────────┐
-│ FailureOps Frontend  │
-│ React / Next / Vite  │
-│ PORT: 5173           │
-└──────────┬───────────┘
-           │ HTTP
-           ▼
-┌──────────────────────┐
-│ FailureOps Backend   │
-│ FastAPI              │
-│ PORT: 8000           │
-└──────────┬───────────┘
-           │ HTTP
-           ▼
-┌──────────────────────────────┐
-│ LangGraph / RAG Intelligence │
-│ FastAPI + LangGraph          │
-│ PORT: 8001                   │
-└──────────┬───────────────────┘
-           │
-           ├──────────────► PostgreSQL
-           │                 PORT: 5432
-           │
-           └──────────────► RustFS
-                             API PORT: 9000
-                             Console: 9001
-```
-
-The exact port numbers can be changed, but **the services remain separate**.
-
-So the important rule is:
-
-```text
-Frontend ≠ Backend ≠ LangGraph/RAG ≠ PostgreSQL ≠ RustFS
-```
-
-The frontend should **not** directly talk to PostgreSQL or LangGraph internals.
-
-The normal request path is:
-
-```text
-Browser
-  ↓
-Frontend
-  ↓
-FailureOps Backend
-  ↓
-LangGraph/RAG Service
-  ↓
-PostgreSQL / RustFS
-```
-
-### Add this clarification to the agent prompt
-
-Give your teammate this addendum:
-
-```text
-IMPORTANT DEPLOYMENT / PORT ARCHITECTURE
-
-The system MUST remain split into independently running services.
-
-1. FAILUREOPS FRONTEND
-   - Runs on its own port
-   - Example: 5173
-   - Browser-facing
-   - Talks to the FailureOps backend only
-
-2. FAILUREOPS BACKEND
-   - Runs on a separate port
-   - Example: 8000
-   - Owns authentication, authorization, projects, organizations,
-     privacy policy, downstream FailureOps engines, and frontend-facing APIs
-   - Calls the LangGraph/RAG service over HTTP
-
-3. LANGGRAPH / RAG INTELLIGENCE SERVICE
-   - Runs on a separate port
-   - Example: 8001
-   - Owns RAG ingestion, retrieval, LangGraph orchestration, Evidence Agent,
-     Events, Claims, Time-Series Engine, Signal Agent, and Metric-Aware Risk
-   - Must be independently startable/deployable
-   - Main FailureOps backend communicates with it through versioned HTTP APIs
-
-4. POSTGRESQL
-   - Separate database service
-   - Example: 5432
-   - Never exposed directly to the browser
-   - Credentials must remain server-side
-
-5. RUSTFS / OBJECT STORAGE
-   - Separate object-storage service
-   - Example: API 9000 / console 9001
-   - Browser must not receive unrestricted storage credentials
-   - Main backend controls authorized document access
-
-CONFIGURATION MUST BE ENVIRONMENT-BASED:
-
-FAILUREOPS_FRONTEND_URL=...
-FAILUREOPS_BACKEND_URL=...
-LANGGRAPH_RAG_URL=...
-DATABASE_URL=...
-RUSTFS_ENDPOINT=...
-RUSTFS_ACCESS_KEY=...
-RUSTFS_SECRET_KEY=...
-
-DO NOT HARDCODE LOCALHOST OR PORT NUMBERS IN APPLICATION LOGIC.
-
-SERVICE CALL FLOW:
-
-Frontend
-    ↓
-FailureOps Backend
-    ↓ HTTP
-LangGraph/RAG Service
-    ↓
-PostgreSQL / RustFS
-
-NEVER:
-
-Frontend
-    ↓
-PostgreSQL
-
-Frontend
-    ↓
-RustFS with admin credentials
-
-Frontend
-    ↓
-LangGraph internal nodes directly
-
-The LangGraph service must expose a stable service/API boundary.
-The main backend must consume the contract, not import LangGraph source code.
-
-All services must be independently runnable for local development and
-independently deployable for production.
-```
-
-### Why this is actually better
-
-Think of it like a college campus:
-
-```text
-Frontend = reception desk
-Backend = administration office
-LangGraph = intelligence/research lab
-PostgreSQL = records room
-RustFS = document warehouse
-```
-
-The reception desk doesn't walk into the records room and grab files itself.
-
-That separation is especially important for your **private/global evidence model** because the backend can decide:
-
-```text
-Who is this user?
-        ↓
-Which company?
-        ↓
-Which project?
-        ↓
-Private only?
-        ↓
-Global opt-in allowed?
-        ↓
-What scope can LangGraph search?
-```
-
-Then LangGraph gets a **trusted retrieval scope**, rather than blindly trusting a browser request.
-
-So yes: **three application ports + database + object storage as separate services is the correct architecture for what you're building**, and I'd use the clarification above in addition to the big integration prompt.
+Then proceed with implementation.

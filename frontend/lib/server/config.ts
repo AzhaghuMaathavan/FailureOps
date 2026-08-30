@@ -14,10 +14,12 @@ interface ServerConfig {
   isProduction: boolean;
   rateLimits: {
     general: number;
+    status: number;
     search: number;
     analysis: number;
     upload: number;
   };
+
 }
 
 export const serverConfig: ServerConfig = {
@@ -28,11 +30,13 @@ export const serverConfig: ServerConfig = {
   sessionCookieName: process.env.SESSION_COOKIE_NAME || '__Host-failureops-session',
   isProduction: process.env.NODE_ENV === 'production',
   rateLimits: {
-    general: parseInt(process.env.RATE_LIMIT_GENERAL || '120', 10),
-    search: parseInt(process.env.RATE_LIMIT_SEARCH || '45', 10),
-    analysis: parseInt(process.env.RATE_LIMIT_ANALYSIS || '10', 10),
-    upload: parseInt(process.env.RATE_LIMIT_UPLOAD || '15', 10),
+    general: parseInt(process.env.RATE_LIMIT_GENERAL || '240', 10),
+    status: parseInt(process.env.RATE_LIMIT_STATUS || '600', 10),
+    search: parseInt(process.env.RATE_LIMIT_SEARCH || '60', 10),
+    analysis: parseInt(process.env.RATE_LIMIT_ANALYSIS || '30', 10),
+    upload: parseInt(process.env.RATE_LIMIT_UPLOAD || '30', 10),
   },
+
 };
 
 if (serverConfig.isProduction && serverConfig.authSecret.includes('dev_secret_key')) {

@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useEffect } from 'react';
+import React from 'react';
 import { useRouter, useParams } from 'next/navigation';
 import {
   Sparkles,
@@ -10,12 +10,12 @@ import {
   ArrowRight,
   Terminal,
   AlertTriangle,
+  RotateCw,
 } from 'lucide-react';
-import { RAG_ANALYSIS_STAGES } from '@/services/analysisService';
-import { AnalysisStage } from '@/types';
 import { useApp } from '@/context/AppContext';
-import { apiClient, isRagUnavailable } from '@/lib/api/client';
+import { apiClient } from '@/lib/api/client';
 import { KpiStat } from '@/components/evidence/KpiStat';
+import { useAnalysisStatus } from '@/hooks/useAnalysisStatus';
 
 export default function AnalysisProcessingPage() {
   const router = useRouter();
@@ -23,109 +23,44 @@ export default function AnalysisProcessingPage() {
   const projectId = (params?.id as string) || 'aurora';
   const { project, setAnalysisCompleted } = useApp();
 
-  const [stages, setStages] = useState<AnalysisStage[]>(RAG_ANALYSIS_STAGES);
-  const [currentStageIdx, setCurrentStageIdx] = useState<number>(0);
-  const [logs, setLogs] = useState<string[]>([]);
-  const [isFinished, setIsFinished] = useState<boolean>(false);
-  const [analysisError, setAnalysisError] = useState<string | null>(null);
-  const [progressPercent, setProgressPercent] = useState(0);
+  const {
+    analysisId,
+    status,
+    currentStage: activeStageName,
+    progressPercent,
+    stages,
+    isFinished,
+    isPolling,
+    error: analysisError,
+    metrics,
+    logs,
+    startAnalysis,
+  } = useAnalysisStatus({
+    projectId,
+    autoStart: true,
+    baseIntervalMs: 2000,
+    maxIntervalMs: 8000,
+  });
 
-  useEffect(() => {
-    let isCancelled = false;
-    let pollInterval: ReturnType<typeof setInterval> | null = null;
-    let lastLogKey = '';
-
-    async function runAnalysis() {
-      try {
-        setLogs([
-          `[${new Date().toISOString().slice(11, 19)}] Starting RAG analysis for project ${projectId}...`,
-        ]);
-
-        const startRes = await apiClient.startAnalysis(projectId, 'DEEP');
-        const anlId = startRes.analysisId || startRes.jobId;
-
-        setLogs((prev) => [
-          ...prev,
-          `[${new Date().toISOString().slice(11, 19)}] Analysis job registered: ${anlId}`,
-        ]);
-
-        pollInterval = setInterval(async () => {
-          if (isCancelled) return;
-          try {
-            const statusData = await apiClient.getAnalysisStatus(anlId, projectId);
-            if (statusData.stages?.length) {
-              setStages(statusData.stages);
-              const runningIdx = statusData.stages.findIndex((s) => s.status === 'RUNNING' || s.status === 'FAILED');
-              if (runningIdx !== -1) setCurrentStageIdx(runningIdx);
-            }
-            if (typeof statusData.progressPercent === 'number') {
-              setProgressPercent(statusData.progressPercent);
-            }
-
-            const logKey = `${statusData.status}:${statusData.currentStage}:${statusData.progressPercent}`;
-            if (logKey !== lastLogKey) {
-              lastLogKey = logKey;
-              setLogs((prev) => [
-                ...prev,
-                `[${new Date().toISOString().slice(11, 19)}] ${statusData.status} (${statusData.progressPercent || 0}%) ${statusData.currentStage || ''}`.trim(),
-              ]);
-            }
-
-            if (statusData.status === 'COMPLETED') {
-              if (pollInterval) clearInterval(pollInterval);
-              setStages((prev) => prev.map((s) => ({ ...s, status: 'COMPLETED' })));
-              setIsFinished(true);
-              setAnalysisCompleted(true);
-              const metrics = statusData.resultSummary;
-              setLogs((prev) => [
-                ...prev,
-                `[${new Date().toISOString().slice(11, 19)}] Analysis COMPLETED`,
-                metrics
-                  ? `  → chunks searched: ${metrics.total_chunks_searched ?? 'n/a'} · evidence: ${metrics.total_evidence_extracted ?? 'n/a'} · verified: ${metrics.verified_evidence_count ?? 'n/a'}`
-                  : '  → backend metrics not attached',
-              ]);
-            } else if (statusData.status === 'FAILED') {
-              if (pollInterval) clearInterval(pollInterval);
-              setAnalysisError(statusData.errorMessage || 'Analysis pipeline failed.');
-            }
-          } catch (pollErr: unknown) {
-            if (pollInterval) clearInterval(pollInterval);
-            setAnalysisError(
-              isRagUnavailable(pollErr)
-                ? 'RAG unavailable'
-                : pollErr instanceof Error
-                  ? pollErr.message
-                  : 'Unable to poll analysis status.'
-            );
-          }
-        }, 2000);
-      } catch (err: unknown) {
-        setAnalysisError(
-          isRagUnavailable(err)
-            ? 'RAG unavailable'
-            : err instanceof Error
-              ? err.message
-              : 'Failed to start project analysis'
-        );
-      }
+  React.useEffect(() => {
+    if (isFinished) {
+      setAnalysisCompleted(true);
     }
-
-    runAnalysis();
-
-    return () => {
-      isCancelled = true;
-      if (pollInterval) clearInterval(pollInterval);
-    };
-  }, [projectId, setAnalysisCompleted]);
+  }, [isFinished, setAnalysisCompleted]);
 
   const runningCount = stages.filter((s) => s.status === 'COMPLETED').length;
   const failedCount = stages.filter((s) => s.status === 'FAILED').length;
-  const currentStage = stages[currentStageIdx];
+  const currentStageIdx = stages.findIndex((s) => s.status === 'RUNNING' || s.status === 'FAILED');
+  const currentStage = currentStageIdx !== -1 ? stages[currentStageIdx] : stages[0];
+
   const stageLabel = isFinished
     ? 'Complete'
     : analysisError
       ? 'Blocked'
-      : currentStage?.name || 'Starting';
+      : status === 'RETRYING'
+        ? 'Retrying'
+        : currentStage?.name || 'In Progress';
+
   const etaLabel = isFinished
     ? 'Done'
     : analysisError
@@ -154,19 +89,11 @@ export default function AnalysisProcessingPage() {
             type="button"
             onClick={async () => {
               try {
-                setLogs((prev) => [...prev, `[${new Date().toISOString().slice(11, 19)}] Triggering simulated intelligence fixture...`]);
                 const simRes = await apiClient.simulateIntelligence(projectId);
-                setLogs((prev) => [
-                  ...prev,
-                  `[${new Date().toISOString().slice(11, 19)}] Simulated analysis complete: ${simRes.analysisId}`,
-                  `  → Fixture: ${simRes.fixtureVersion} · Evidence: ${simRes.metrics?.total_evidence_extracted ?? 5} · Signals: ${simRes.metrics?.total_signals ?? 5}`
-                ]);
-                setIsFinished(true);
                 setAnalysisCompleted(true);
-                setStages((prev) => prev.map((s) => ({ ...s, status: 'COMPLETED' })));
-                setProgressPercent(100);
+                router.push(`/projects/${projectId}/overview`);
               } catch (err: any) {
-                setAnalysisError(err.message || 'Simulated execution failed');
+                console.error('Simulation failed', err);
               }
             }}
             className="inline-flex cursor-pointer items-center gap-2 rounded-[10px] border border-amber-500/30 bg-amber-500/10 px-4 py-2.5 text-xs font-bold text-amber-300 transition-colors hover:bg-amber-500/20 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-amber-400"
@@ -186,13 +113,23 @@ export default function AnalysisProcessingPage() {
               <ArrowRight className="h-4 w-4" aria-hidden="true" />
             </button>
           ) : analysisError ? (
-            <button
-              type="button"
-              onClick={() => router.push(`/projects/${projectId}/overview`)}
-              className="inline-flex cursor-pointer items-center gap-2 rounded-[10px] border border-border bg-card px-4 py-2.5 text-xs font-bold text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
-            >
-              Back to Overview
-            </button>
+            <div className="flex items-center gap-2">
+              <button
+                type="button"
+                onClick={() => startAnalysis()}
+                className="inline-flex cursor-pointer items-center gap-2 rounded-[10px] bg-primary px-4 py-2.5 text-xs font-bold text-primary-foreground shadow-[0_0_18px_-4px_rgba(255,122,0,0.35)] transition-colors hover:bg-primary-hover focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+              >
+                <RotateCw className="h-4 w-4" aria-hidden="true" />
+                Retry Analysis
+              </button>
+              <button
+                type="button"
+                onClick={() => router.push(`/projects/${projectId}/overview`)}
+                className="inline-flex cursor-pointer items-center gap-2 rounded-[10px] border border-border bg-card px-4 py-2.5 text-xs font-bold text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+              >
+                Back to Overview
+              </button>
+            </div>
           ) : (
             <button
               type="button"
@@ -200,12 +137,11 @@ export default function AnalysisProcessingPage() {
               className="inline-flex cursor-not-allowed items-center gap-2 rounded-[10px] bg-primary px-4 py-2.5 text-xs font-bold text-primary-foreground opacity-80 shadow-[0_0_18px_-4px_rgba(255,122,0,0.35)]"
             >
               <Loader2 className="h-4 w-4 animate-spin motion-reduce:animate-none" aria-hidden="true" />
-              Pipeline running
+              Pipeline running ({progressPercent}%)
             </button>
           )}
         </div>
       </div>
-
 
       {analysisError && (
         <div
@@ -215,7 +151,7 @@ export default function AnalysisProcessingPage() {
         >
           <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0" aria-hidden="true" />
           <div>
-            <p className="font-bold">Analysis did not complete</p>
+            <p className="font-bold">Analysis paused or encountered an issue</p>
             <p className="mt-1 font-mono text-xs">{analysisError}</p>
           </div>
         </div>
@@ -251,96 +187,63 @@ export default function AnalysisProcessingPage() {
           </p>
         </div>
         <div className="rounded-[14px] border border-border bg-card p-[18px] shadow-[0_1px_0_0_rgba(13,20,36,0.8),0_8px_24px_-8px_rgba(0,0,0,0.35)]">
-          <p className="text-sm font-semibold text-foreground">When done</p>
-          <p className="mt-2 text-xs leading-relaxed text-muted-foreground">
-            Radar, prediction, and intervention ranking update together.
-          </p>
+          <p className="text-sm font-semibold text-foreground">Active analysis job</p>
+          <p className="mt-2 font-mono text-xs text-primary">{analysisId || 'Starting background worker...'}</p>
         </div>
       </div>
 
-      <div className="grid grid-cols-1 items-start gap-6 lg:grid-cols-12">
-        <div className="space-y-3 rounded-xl border border-border bg-card p-6 shadow-[0_1px_0_0_rgba(13,20,36,0.8),0_8px_24px_-8px_rgba(0,0,0,0.35)] lg:col-span-6">
-          <div className="flex items-center justify-between border-b border-border pb-3 font-mono text-xs">
-            <span className="font-bold uppercase text-muted-foreground">Backend stages</span>
-            <span className="font-bold text-primary" role="status" aria-atomic="true">
-              {isFinished ? `${stages.length}/${stages.length} COMPLETE` : `${runningCount}/${stages.length} · ${progressPercent}%`}
-            </span>
-          </div>
+      <div className="rounded-[14px] border border-border bg-card p-6 shadow-[0_1px_0_0_rgba(13,20,36,0.8),0_8px_24px_-8px_rgba(0,0,0,0.35)]">
+        <h2 className="text-sm font-semibold text-foreground">Pipeline Stages (12-stage reasoning)</h2>
+        <div className="mt-6 space-y-4">
+          {stages.map((st, idx) => {
+            const isCompleted = st.status === 'COMPLETED';
+            const isCurrent = st.status === 'RUNNING';
+            const isFailed = st.status === 'FAILED';
 
-          <div className="space-y-2">
-            {stages.map((stg) => {
-              const isCompleted = stg.status === 'COMPLETED';
-              const isRunning = stg.status === 'RUNNING';
-              const isFailed = stg.status === 'FAILED';
-
-              return (
-                <div
-                  key={stg.id}
-                  className={`flex items-center justify-between rounded-xl border p-2.5 transition-colors ${
-                    isFailed
-                      ? 'border-destructive/50 bg-destructive/10 text-foreground'
-                      : isRunning
-                        ? 'border-primary/60 bg-primary/10 text-foreground ring-1 ring-primary/40'
-                        : isCompleted
-                          ? 'border-success/20 bg-surface-feed/70 text-foreground/90'
-                          : 'border-border/40 bg-card/30 text-muted-foreground/60'
-                  }`}
-                >
-                  <div className="flex items-center gap-3">
-                    {isCompleted ? (
-                      <CheckCircle2 className="h-4 w-4 shrink-0 text-success" aria-hidden="true" />
-                    ) : isRunning ? (
-                      <Loader2 className="h-4 w-4 shrink-0 animate-spin text-primary motion-reduce:animate-none" aria-hidden="true" />
-                    ) : isFailed ? (
-                      <AlertTriangle className="h-4 w-4 shrink-0 text-destructive" aria-hidden="true" />
-                    ) : (
-                      <Circle className="h-4 w-4 shrink-0 text-border" aria-hidden="true" />
-                    )}
-                    <div>
-                      <span className="block text-xs font-bold tracking-tight">{stg.name}</span>
-                      <span className="block max-w-[240px] truncate text-[10px] text-muted-foreground">
-                        {stg.description}
-                      </span>
-                    </div>
-                  </div>
-                  <span
-                    className={`rounded px-2 py-0.5 font-mono text-[9px] font-bold uppercase ${
-                      isCompleted
-                        ? 'bg-surface-feed text-success'
-                        : isRunning
-                          ? 'bg-primary text-primary-foreground'
-                          : isFailed
-                            ? 'bg-destructive/20 text-destructive'
-                            : 'text-muted-foreground/50'
-                    }`}
-                  >
-                    {stg.status}
-                  </span>
+            return (
+              <div key={st.id || idx} className="flex items-start gap-4">
+                <div className="mt-0.5 flex h-6 w-6 shrink-0 items-center justify-center">
+                  {isCompleted ? (
+                    <CheckCircle2 className="h-5 w-5 text-emerald-400" aria-hidden="true" />
+                  ) : isFailed ? (
+                    <AlertTriangle className="h-5 w-5 text-rose-400" aria-hidden="true" />
+                  ) : isCurrent ? (
+                    <Loader2 className="h-5 w-5 animate-spin text-primary motion-reduce:animate-none" aria-hidden="true" />
+                  ) : (
+                    <Circle className="h-4 w-4 text-muted-foreground/40" aria-hidden="true" />
+                  )}
                 </div>
-              );
-            })}
-          </div>
-        </div>
+                <div className="flex-1 min-w-0">
+                  <div className="flex items-center justify-between">
+                    <p className={`text-sm font-medium ${isCompleted ? 'text-foreground' : isCurrent ? 'text-primary font-bold' : isFailed ? 'text-rose-400' : 'text-muted-foreground'}`}>
+                      {st.name}
+                    </p>
+                    <span className="text-xs font-mono text-muted-foreground">
+                      {isCompleted ? 'Done' : isCurrent ? 'Active' : isFailed ? 'Failed' : 'Pending'}
+                    </span>
 
-        <div className="flex h-[520px] flex-col justify-between rounded-xl border border-border bg-surface-feed p-6 shadow-[0_1px_0_0_rgba(13,20,36,0.8),0_8px_24px_-8px_rgba(0,0,0,0.35)] lg:col-span-6">
-          <div>
-            <div className="flex items-center justify-between border-b border-border/50 pb-3 font-mono text-xs">
-              <div className="flex items-center gap-2 font-bold text-primary">
-                <Terminal className="h-4 w-4" aria-hidden="true" />
-                <span>Backend status stream</span>
+                  </div>
+                  <p className="mt-0.5 text-xs text-muted-foreground line-clamp-1">
+                    {st.description}
+                  </p>
+                </div>
               </div>
+            );
+          })}
+        </div>
+      </div>
+
+      <div className="rounded-[14px] border border-border bg-card p-6 shadow-[0_1px_0_0_rgba(13,20,36,0.8),0_8px_24px_-8px_rgba(0,0,0,0.35)]">
+        <div className="flex items-center gap-2 pb-3 border-b border-border text-sm font-semibold text-foreground">
+          <Terminal className="h-4 w-4 text-primary" aria-hidden="true" />
+          Live Execution Stream
+        </div>
+        <div className="mt-4 font-mono text-xs space-y-1.5 max-h-48 overflow-y-auto text-muted-foreground">
+          {logs.map((log, idx) => (
+            <div key={idx} className="leading-relaxed">
+              {log}
             </div>
-            <div className="mt-4 max-h-[400px] space-y-1.5 overflow-y-auto pr-2 font-mono text-xs text-muted-foreground">
-              {logs.map((log, i) => (
-                <p key={i} className="leading-relaxed text-foreground/80">
-                  {log}
-                </p>
-              ))}
-              {!isFinished && !analysisError && (
-                <p className="font-bold text-primary motion-safe:animate-pulse">_ waiting for RAG worker...</p>
-              )}
-            </div>
-          </div>
+          ))}
         </div>
       </div>
     </div>

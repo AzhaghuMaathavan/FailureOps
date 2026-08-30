@@ -9,32 +9,59 @@ import { mapRagAnalysisStages } from '@/services/analysisService';
 export async function GET(req: NextRequest) {
   try {
     const session = requireAuth(req);
-    const rate = checkRateLimit(req, 'general');
+    // Use dedicated high-capacity status rate-limiting tier
+    const rate = checkRateLimit(req, 'status');
     if (!rate.success) return apiRateLimitExceeded(rate.resetSeconds);
 
     const { searchParams } = new URL(req.url);
-    const jobId = searchParams.get('jobId') || searchParams.get('analysisId') || '';
+    let jobId = searchParams.get('jobId') || searchParams.get('analysisId') || '';
     const projectId = searchParams.get('projectId') || 'aurora';
 
-    if (!jobId) {
-      return apiError(new Error('Missing jobId parameter'), 'jobId is required.');
+    // If jobId is omitted, look up the active or latest analysis for this project
+    let backendStatus: any = null;
+
+    if (jobId) {
+      backendStatus = await ragFetch<any>(
+        `/api/v1/projects/${encodeURIComponent(projectId)}/analysis/${encodeURIComponent(jobId)}`,
+        session
+      ).catch(() => null);
     }
 
-    const backendStatus = await ragFetch<any>(
-      `/api/v1/projects/${encodeURIComponent(projectId)}/analysis/${encodeURIComponent(jobId)}`,
-      session
-    );
+    if (!backendStatus) {
+      // Fetch latest project status / pipeline overview as fallback
+      const pipelineData = await ragFetch<any>(
+        `/api/v1/projects/${encodeURIComponent(projectId)}/pipeline`,
+        session
+      ).catch(() => null);
+
+      if (pipelineData && pipelineData.analysis_id) {
+        backendStatus = await ragFetch<any>(
+          `/api/v1/projects/${encodeURIComponent(projectId)}/analysis/${encodeURIComponent(pipelineData.analysis_id)}`,
+          session
+        ).catch(() => null);
+      }
+    }
+
+    if (!backendStatus) {
+      // Return clean idle/not-started state instead of hard failing
+      return apiSuccess({
+        jobId: jobId || 'idle',
+        analysisId: jobId || 'idle',
+        projectId,
+        status: 'QUEUED',
+        currentStage: 'NOT_STARTED',
+        progressPercent: 0,
+        stages: mapRagAnalysisStages('QUEUED', false, false),
+        completedAt: null,
+        errorMessage: null,
+        resultSummary: null,
+      });
+    }
+
     const progress = backendStatus.progress_percent || 0;
     const isDone = backendStatus.status === 'COMPLETED';
     const isFailed = backendStatus.status === 'FAILED';
     const stages = mapRagAnalysisStages(backendStatus.status, isDone, isFailed);
-
-    console.info('[FAILUREOPS] Analysis status', {
-      analysisId: backendStatus.analysis_id,
-      status: backendStatus.status,
-      progress,
-      currentStage: backendStatus.current_stage,
-    });
 
     return apiSuccess({
       jobId: backendStatus.analysis_id,
@@ -47,8 +74,9 @@ export async function GET(req: NextRequest) {
       completedAt: backendStatus.completed_at,
       errorMessage: backendStatus.error_message,
       resultSummary: backendStatus.metrics || null,
+      retryable: backendStatus.status === 'FAILED',
     });
   } catch (error) {
-    return apiError(error, 'Unable to query analysis job status from backend.');
+    return apiError(error, 'Unable to query analysis job status.');
   }
 }

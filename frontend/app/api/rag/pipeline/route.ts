@@ -9,8 +9,9 @@ import { ragFetch } from '@/lib/server/rag';
 export async function GET(req: NextRequest) {
   try {
     const session = requireAuth(req);
-    const rate = checkRateLimit(req, 'general');
+    const rate = checkRateLimit(req, 'status');
     if (!rate.success) return apiRateLimitExceeded(rate.resetSeconds);
+
 
     const { searchParams } = new URL(req.url);
     const projectId = searchParams.get('projectId') || 'aurora';

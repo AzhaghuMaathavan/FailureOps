@@ -40,75 +40,22 @@ def extract_json(text: str) -> Dict[str, Any]:
     raise ValueError("Failed to extract JSON from LLM response")
 
 def call_llm(system_prompt: str, user_prompt: str, json_mode: bool = False, timeout: float = 90.0, max_tokens: int = 2048, return_metrics: bool = False) -> Any:
-    from app.core.config import settings
-
-    payload = {
-        "model": settings.NVIDIA_LLM_MODEL,
-        "messages": [
-            {"role": "system", "content": system_prompt},
-            {"role": "user", "content": user_prompt}
-        ],
-        "temperature": 0.1,
-        "max_tokens": max_tokens,
-    }
-
-    if json_mode:
-        payload["response_format"] = {"type": "json_object"}
-
-    max_retries = max(3, len(key_manager.keys) + 1) if key_manager.keys else 2
-    for attempt in range(max_retries):
-        api_key = key_manager.get_next_key()
-        if not api_key:
-            raise ValueError("No valid NVIDIA API key available for LLM.")
-
-        key_label = key_manager.get_key_label(api_key)
-        logger.info(f"LLM Request [{attempt+1}/{max_retries}] -> {key_label}")
-
-        headers = {
-            "Authorization": f"Bearer {api_key}",
-            "Content-Type": "application/json"
-        }
-
-        try:
-            t_start = time.time()
-            with httpx.Client(timeout=timeout) as client:
-                with client.stream("POST", f"{settings.NVIDIA_BASE_URL}/chat/completions", headers=headers, json=payload) as resp:
-                    resp.raise_for_status()
-                    t_ttft = time.time()
-                    resp.read() # Load the rest of the body
-                    data = resp.json()
-                    t_end = time.time()
-
-            message = data["choices"][0]["message"]
-            content = message.get("content", "")
-            if return_metrics:
-                return content, t_ttft - t_start, t_end - t_ttft
-            return content
-
-        except httpx.HTTPStatusError as e:
-            status = e.response.status_code
-            if status == 429:
-                key_manager.mark_rate_limited(api_key, backoff_seconds=15.0)
-                if attempt == max_retries - 1:
-                    raise
-            elif status in (401, 403):
-                key_manager.mark_invalid(api_key)
-                if attempt == max_retries - 1:
-                    raise
-            elif status >= 500:
-                key_manager.mark_rate_limited(api_key, backoff_seconds=2.0)
-                if attempt == max_retries - 1:
-                    raise
-            else:
-                raise
-
-        except (httpx.TimeoutException, httpx.ReadTimeout) as e:
-            key_manager.mark_rate_limited(api_key, backoff_seconds=3.0)
-            if attempt == max_retries - 1:
-                if return_metrics:
-                    return "MODEL_TIMEOUT", 0.0, 0.0
-                return "MODEL_TIMEOUT"
-
+    from app.services.llm_scheduler import llm_scheduler
+    
+    t_start = time.time()
+    content = llm_scheduler.execute_chat_completion(
+        system_prompt=system_prompt,
+        user_prompt=user_prompt,
+        json_mode=json_mode,
+        timeout=timeout,
+        max_tokens=max_tokens
+    )
+    t_end = time.time()
+    
+    if return_metrics:
+        total = t_end - t_start
+        return content, total * 0.3, total * 0.7
+    return content
 
 def compress_tabular_evidence(evidence: List[Dict[str, Any]], targets: List[str]) -> List[Dict[str, Any]]:
     """
