@@ -309,8 +309,9 @@ def run_project_analysis_pipeline(
 
             # Persist individual canonical items for relational querying
             for idx, item in enumerate(evidence_packet.evidence):
+                raw_item_id = item.id if item.id else f"ev_{project_id}_{idx:03d}"
                 db_item = EvidenceItem(
-                    id=item.id if item.id else f"ev_{project_id}_{idx:03d}",
+                    id=f"{analysis_id}_{raw_item_id}_{uuid.uuid4().hex[:6]}",
                     analysis_id=analysis_id,
                     organization_id=organization_id,
                     project_id=project_id,
@@ -343,8 +344,9 @@ def run_project_analysis_pipeline(
                 db.add(db_item)
 
             for sig in signal_packet.signals:
+                raw_sig_id = sig.signal_id if sig.signal_id else f"sig_{project_id}_{idx:03d}"
                 db_sig = SignalItem(
-                    id=sig.signal_id if sig.signal_id else f"sig_{project_id}_{uuid.uuid4().hex[:8]}",
+                    id=f"{analysis_id}_{raw_sig_id}_{uuid.uuid4().hex[:6]}",
                     analysis_id=analysis_id,
                     organization_id=organization_id,
                     project_id=project_id,
