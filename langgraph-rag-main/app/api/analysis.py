@@ -1,11 +1,15 @@
 import os
 import uuid
+import logging
 from datetime import datetime, timezone
 from typing import List, Dict, Any, Optional
 from fastapi import APIRouter, Depends, UploadFile, File, Form, BackgroundTasks, HTTPException
 
+logger = logging.getLogger(__name__)
+
 from sqlalchemy.orm import Session
 from app.db.database import get_db
+
 from app.core.config import settings
 from app.core.tenant import get_tenant_context
 from app.models.document import Document, Page
