@@ -16,7 +16,7 @@ module.exports = {
       name: 'failureops-frontend',
       cwd: '/home/ubuntu/failureops/frontend',
       script: 'npm',
-      args: 'run start',
+      args: 'start',
       env: {
         NODE_ENV: 'production',
         PORT: '3000',
@@ -24,6 +24,7 @@ module.exports = {
       restart_delay: 2000,
       max_restarts: 10,
     },
+
 
   ],
 };
