@@ -33,8 +33,11 @@ CRITICAL OPERATIONAL RULES:
    - Cite the exact source chunk index.
 5. NO HALLUCINATION:
    - Never invent facts, dates, or numbers not present in the source text.
+6. MULTI-SOURCE COMPREHENSIVE COVERAGE:
+   - You MUST extract verified factual items across ALL provided chunk indices (customer feedback, metrics tables, team operations, engineering records, and product plans).
 
 OUTPUT STRICTLY A VALID JSON OBJECT with this schema:
+
 {
   "extracted_items": [
     {
