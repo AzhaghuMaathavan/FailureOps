@@ -1,19 +1,19 @@
 """Email and SMTP API routes for FailureOps X."""
 
-from fastapi import APIRouter, HTTPException, Depends
-from pydantic import BaseModel, EmailStr
-from typing import Optional, List, Dict, Any
+from fastapi import APIRouter, HTTPException
+from pydantic import BaseModel, Field
+from typing import Optional, Dict, Any
 from app.services.email_service import email_service
 
 router = APIRouter(prefix="/api/email", tags=["Email & Notifications"])
 
 
 class TestEmailRequest(BaseModel):
-    to_email: EmailStr
+    to_email: str = Field(..., description="Target recipient email address")
 
 
 class AlertEmailRequest(BaseModel):
-    to_email: EmailStr
+    to_email: str
     project_name: str
     risk_score: int
     predicted_failure: str
@@ -24,7 +24,7 @@ class AlertEmailRequest(BaseModel):
 
 
 class CustomEmailRequest(BaseModel):
-    to_email: EmailStr
+    to_email: str
     subject: str
     message: str
     project_name: Optional[str] = None
