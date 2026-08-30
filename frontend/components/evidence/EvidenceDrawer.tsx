@@ -1,7 +1,6 @@
 'use client';
 
 import React, { useEffect, useState } from 'react';
-import Link from 'next/link';
 import { EvidenceItem } from '@/types';
 import {
   X,
@@ -13,11 +12,12 @@ import {
   ExternalLink,
   ChevronDown,
   ChevronUp,
-  AlertTriangle,
   Sparkles,
-  CheckCircle2
+  CheckCircle2,
+  Bookmark,
 } from 'lucide-react';
 import { PrivacyBadge } from '@/components/common/PrivacyBadge';
+import { extractSectionAndFinding } from '@/components/evidence/EvidenceCard';
 
 interface EvidenceDrawerProps {
   evidence: EvidenceItem | null;
@@ -38,7 +38,6 @@ function parseTableRowsToMetrics(rawText: string): ParsedMetric[] {
   const lines = rawText.split('\n').filter((l) => l.trim().length > 0);
   if (lines.length < 2) return [];
 
-  // Look for key-value pairs like: key: value | key: value
   const parsedRows: Record<string, number>[] = [];
   for (const line of lines) {
     const parts = line.split('|');
@@ -90,36 +89,11 @@ function parseTableRowsToMetrics(rawText: string): ParsedMetric[] {
     }
   }
 
-  // Sort by highest absolute percentage change
   return metrics.sort((a, b) => {
     const pA = Math.abs(parseFloat(a.change) || 0);
     const pB = Math.abs(parseFloat(b.change) || 0);
     return pB - pA;
   });
-}
-
-function getCoreStatement(evidence: EvidenceItem, parsedMetrics: ParsedMetric[]): string {
-  const raw = evidence.statement || evidence.content || '';
-  const isRawTable = raw.includes('|') && (raw.includes('week_start:') || raw.includes('team_size:') || raw.includes('api_'));
-
-  if (!isRawTable && raw.trim().length > 0) {
-    return raw.trim();
-  }
-
-  if (evidence.metricName && evidence.baselineValue !== undefined && evidence.currentValue !== undefined) {
-    const change = evidence.baselineToCurrentChangePercent !== undefined && evidence.baselineToCurrentChangePercent !== null
-      ? `${evidence.baselineToCurrentChangePercent >= 0 ? '+' : ''}${evidence.baselineToCurrentChangePercent.toFixed(1)}%`
-      : '';
-    const unitStr = evidence.unit ? ` ${evidence.unit}` : '';
-    return `${evidence.metricName} shifted from ${evidence.baselineValue}${unitStr} to ${evidence.currentValue}${unitStr} (${change}) across the observed period.`;
-  }
-
-  if (parsedMetrics.length > 0) {
-    const topMetric = parsedMetrics[0];
-    return `${topMetric.name} changed by ${topMetric.change} (from ${topMetric.baseline} to ${topMetric.current}) indicating significant operational movement.`;
-  }
-
-  return `Operational telemetry observed in ${evidence.sourceFile}.`;
 }
 
 export const EvidenceDrawer: React.FC<EvidenceDrawerProps> = ({ evidence, onClose }) => {
@@ -140,16 +114,26 @@ export const EvidenceDrawer: React.FC<EvidenceDrawerProps> = ({ evidence, onClos
 
   if (!evidence) return null;
 
+  const rawTitle = evidence.statement || evidence.content || '';
+  const { section, finding } = extractSectionAndFinding(
+    rawTitle,
+    evidence.metricName,
+    evidence.sourceFile,
+    evidence.baselineValue,
+    evidence.currentValue,
+    evidence.unit
+  );
+
   const parsedMetrics = parseTableRowsToMetrics(evidence.snippetContext || evidence.content || '');
-  const coreStatement = getCoreStatement(evidence, parsedMetrics);
 
   // Build the list of key evidence items
   const keyEvidenceItems: ParsedMetric[] = [];
 
   if (evidence.metricName && evidence.currentValue !== undefined && evidence.currentValue !== null) {
-    const changeStr = evidence.baselineToCurrentChangePercent !== undefined && evidence.baselineToCurrentChangePercent !== null
-      ? `${evidence.baselineToCurrentChangePercent >= 0 ? '+' : ''}${evidence.baselineToCurrentChangePercent.toFixed(1)}%`
-      : '0.0%';
+    const changeStr =
+      evidence.baselineToCurrentChangePercent !== undefined && evidence.baselineToCurrentChangePercent !== null
+        ? `${evidence.baselineToCurrentChangePercent >= 0 ? '+' : ''}${evidence.baselineToCurrentChangePercent.toFixed(1)}%`
+        : '0.0%';
     const unitStr = evidence.unit ? ` ${evidence.unit}` : '';
     keyEvidenceItems.push({
       name: evidence.metricName,
@@ -189,7 +173,7 @@ export const EvidenceDrawer: React.FC<EvidenceDrawerProps> = ({ evidence, onClos
   } else if (evidence.rowNumbers && evidence.rowNumbers.length > 0) {
     locationLabel = `Rows: ${evidence.rowNumbers.join('–')}`;
   } else if (!locationLabel || locationLabel.startsWith('ev_') || locationLabel.startsWith('PAGE: null')) {
-    locationLabel = 'Rows: 1–13';
+    locationLabel = 'Lineage Trace';
   }
 
   const factType = evidence.factType || 'METRIC';
@@ -247,14 +231,22 @@ export const EvidenceDrawer: React.FC<EvidenceDrawerProps> = ({ evidence, onClos
             </span>
           </div>
 
-          {/* 1. CORE PROBLEM */}
-          <div className="rounded-xl border border-border bg-card p-4 shadow-[0_1px_0_0_rgba(13,20,36,0.8),0_8px_24px_-8px_rgba(0,0,0,0.35)] space-y-2">
-            <div className="flex items-center gap-1.5 font-mono text-[10px] font-bold uppercase tracking-wider text-primary">
-              <Sparkles className="h-3 w-3" />
-              <span>{problemTitle}</span>
+          {/* 1. CORE FINDING / PROBLEM */}
+          <div className="rounded-xl border border-border bg-card p-4 shadow-sm space-y-2">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-1.5 font-mono text-[10px] font-bold uppercase tracking-wider text-primary">
+                <Sparkles className="h-3 w-3" />
+                <span>{problemTitle}</span>
+              </div>
+              {section && (
+                <span className="inline-flex items-center gap-1 rounded bg-surface-feed border border-border px-2 py-0.5 font-mono text-[10px] text-muted-foreground">
+                  <Bookmark className="h-3 w-3 text-primary" />
+                  <span>{section}</span>
+                </span>
+              )}
             </div>
-            <p className="text-sm font-medium leading-relaxed text-foreground">
-              {coreStatement}
+            <p className="text-sm font-semibold leading-relaxed text-foreground">
+              {finding}
             </p>
           </div>
 
@@ -329,13 +321,15 @@ export const EvidenceDrawer: React.FC<EvidenceDrawerProps> = ({ evidence, onClos
             ) : (
               <div className="rounded-lg border border-border/80 bg-surface-feed p-3.5 space-y-2">
                 <div className="flex items-center justify-between">
-                  <span className={`inline-flex items-center gap-1 rounded px-1.5 py-0.5 font-mono text-[10px] font-bold uppercase ${
-                    factType === 'EVENT'
-                      ? 'border border-amber-500/30 bg-amber-500/10 text-amber-300'
-                      : factType === 'CLAIM'
-                      ? 'border border-sky-500/30 bg-sky-500/10 text-sky-300'
-                      : 'border border-primary/30 bg-primary/10 text-primary'
-                  }`}>
+                  <span
+                    className={`inline-flex items-center gap-1 rounded px-1.5 py-0.5 font-mono text-[10px] font-bold uppercase ${
+                      factType === 'EVENT'
+                        ? 'border border-amber-500/30 bg-amber-500/10 text-amber-300'
+                        : factType === 'CLAIM'
+                        ? 'border border-sky-500/30 bg-sky-500/10 text-sky-300'
+                        : 'border border-primary/30 bg-primary/10 text-primary'
+                    }`}
+                  >
                     {factType}
                   </span>
                   <span className="font-mono text-[10px] text-muted-foreground">
@@ -343,13 +337,13 @@ export const EvidenceDrawer: React.FC<EvidenceDrawerProps> = ({ evidence, onClos
                   </span>
                 </div>
                 <p className="text-xs leading-relaxed text-foreground font-medium">
-                  {evidence.statement || evidence.content || 'Document observation verified by source lineage.'}
+                  {finding}
                 </p>
               </div>
             )}
           </div>
 
-          {/* 3. SOURCE */}
+          {/* 3. SOURCE PROVENANCE */}
           <div className="space-y-2">
             <h4 className="font-mono text-[11px] font-bold uppercase tracking-wider text-muted-foreground">
               Source Provenance
@@ -382,7 +376,7 @@ export const EvidenceDrawer: React.FC<EvidenceDrawerProps> = ({ evidence, onClos
             </div>
           </div>
 
-          {/* 4. OPTIONAL: Collapsible Supporting Excerpt */}
+          {/* 4. Collapsible Supporting Excerpt */}
           <div className="border-t border-border/50 pt-3">
             <button
               type="button"
@@ -404,7 +398,7 @@ export const EvidenceDrawer: React.FC<EvidenceDrawerProps> = ({ evidence, onClos
             )}
           </div>
 
-          {/* 5. OPTIONAL: Collapsible Technical Details */}
+          {/* 5. Collapsible Technical Details */}
           <div className="border-t border-border/50 pt-2">
             <button
               type="button"
