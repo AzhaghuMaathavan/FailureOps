@@ -14,6 +14,7 @@ import {
 } from 'lucide-react';
 import { useApp } from '@/context/AppContext';
 import { UserProfileDropdown } from '@/components/profile/UserProfileDropdown';
+import { NotificationsDropdown } from '@/components/layout/NotificationsDropdown';
 
 const iconBtn =
   'inline-flex items-center justify-center size-8 rounded-lg bg-surface-feed border border-border text-muted-foreground hover:text-foreground hover:border-primary/40 transition-colors duration-150 cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring';
@@ -99,10 +100,7 @@ export const TopHeader: React.FC = () => {
           <span>Run Analysis</span>
         </Link>
 
-        <button type="button" className={`relative ${iconBtn}`} aria-label="Notifications" title="Notifications">
-          <Bell className="w-4 h-4" aria-hidden="true" />
-          <span className="absolute top-1.5 right-1.5 w-1.5 h-1.5 rounded-full bg-primary" aria-hidden="true" />
-        </button>
+        <NotificationsDropdown />
 
         <button
           type="button"
