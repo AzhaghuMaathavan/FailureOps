@@ -16,23 +16,85 @@ def extract_json(text: str) -> Dict[str, Any]:
     import json, re
     text = text.strip()
     
-    # 1. Direct parse attempt
+    # 1. Strip markdown code fences
+    clean = re.sub(r"^```(?:json)?\s*", "", text, flags=re.MULTILINE)
+    clean = re.sub(r"\s*```$", "", clean, flags=re.MULTILINE).strip()
+    
+    # 2. Direct parse
     try:
-        clean = re.sub(r"^```(?:json)?\s*", "", text, flags=re.MULTILINE)
-        clean = re.sub(r"\s*```$", "", clean, flags=re.MULTILINE)
-        return json.loads(clean.strip())
+        return json.loads(clean)
     except Exception:
         pass
-        
-    # 2. Extract {...} block
-    match = re.search(r'\{.*?\}', text, re.DOTALL)
+
+    # 3. Clean up trailing commas
+    no_trailing = re.sub(r',\s*([\]}])', r'\1', clean)
+    try:
+        return json.loads(no_trailing)
+    except Exception:
+        pass
+
+    # 4. Extract {...} block with trailing comma cleanup
+    match = re.search(r'\{.*\}', no_trailing, re.DOTALL)
     if match:
         try:
             return json.loads(match.group(0))
         except Exception:
             pass
+
+    # 5. Handle truncated JSON (attempt closing open brackets)
+    if "{" in clean:
+        bracket_start = clean.find("{")
+        sub = no_trailing[bracket_start:]
+        for trim_idx in range(len(sub), 0, -1):
+            chunk = sub[:trim_idx].rstrip().rstrip(",")
+            for suffix in ["}]}", "]}", "}", "]}", "}\n}"]:
+                try:
+                    res = json.loads(chunk + suffix)
+                    if isinstance(res, dict) and any(k in res for k in ["evidence", "events", "claims", "answer", "signals"]):
+                        return res
+                except Exception:
+                    pass
+
+    # 6. Plain text structured fallback (Evidence / Event / Claim / Metric blocks)
+    if any(header in text for header in ["Evidence:", "Event", "Claim", "statement:"]):
+        result = {"evidence": [], "events": [], "claims": []}
+        
+        # Parse Evidence items
+        ev_matches = re.finditer(r'statement:\s*([^\n]+)[\s\S]*?metric_name:\s*([^\n]+)[\s\S]*?current_value:\s*([0-9.]+)[\s\S]*?source_chunk_index:\s*([0-9]+)', text, re.IGNORECASE)
+        for m in ev_matches:
+            result["evidence"].append({
+                "statement": m.group(1).strip(),
+                "fact_type": "METRIC",
+                "metric_name": m.group(2).strip(),
+                "current_value": float(m.group(3)),
+                "source_chunk_index": int(m.group(4)),
+                "confidence": 0.95
+            })
             
-    # 3. Aggressive extraction if it got cut off (e.g., partial JSON)
+        # Parse Events
+        ev_event_matches = re.finditer(r'description:\s*([^\n]+)[\s\S]*?event_type:\s*([^\n]+)[\s\S]*?source_chunk_index:\s*([0-9]+)', text, re.IGNORECASE)
+        for m in ev_event_matches:
+            result["events"].append({
+                "description": m.group(1).strip(),
+                "event_type": m.group(2).strip(),
+                "source_chunk_index": int(m.group(3)),
+                "confidence": 0.90
+            })
+            
+        # Parse Claims
+        claim_matches = re.finditer(r'statement:\s*([^\n]+)[\s\S]*?(?:speaker|source_speaker):\s*([^\n]+)[\s\S]*?source_chunk_index:\s*([0-9]+)', text, re.IGNORECASE)
+        for m in claim_matches:
+            result["claims"].append({
+                "statement": m.group(1).strip(),
+                "source_speaker": m.group(2).strip(),
+                "source_chunk_index": int(m.group(3)),
+                "confidence": 0.85
+            })
+            
+        if result["evidence"] or result["events"] or result["claims"]:
+            return result
+
+    # 7. Aggressive extraction if it got cut off with answer
     match_answer = re.search(r'"answer"\s*:\s*"((?:[^"\\]|\\.)*)"', text, re.DOTALL | re.IGNORECASE)
     if match_answer:
         ans = match_answer.group(1).replace('\\"', '"').replace('\\n', '\n')

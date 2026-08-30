@@ -17,7 +17,7 @@ class TimePeriod(BaseModel):
 class EvidenceSource(BaseModel):
     document_id: str
     document_name: str
-    source_type: Optional[str] = "PRODUCT_PLAN" # PRODUCT_PLAN, CUSTOMER_FEEDBACK, PRODUCT_METRICS, ENGINEERING_METRICS, TEAM_OPERATIONS, INCIDENT_REPORTS, OTHER
+    source_type: Optional[str] = None
     location_type: Optional[str] = None # PAGE, SLIDE, SHEET, SECTION, ROW
     location_value: Optional[str] = None
 
@@ -33,10 +33,10 @@ class PrivacyMetadata(BaseModel):
 
 class EvidenceItemSchema(BaseModel):
     id: str
-    category: str # Semantic category: ADOPTION, CUSTOMER, PRODUCT, FINANCIAL, OPERATIONAL, TECHNICAL, DELIVERY, QUALITY, RESOURCE, TEAM, MARKET, STRATEGY, SECURITY, DEPENDENCY, PERFORMANCE, RISK, OTHER
-    evidence_category: Optional[str] = None # Explicit semantic category alias
-    source_type: str = "PRODUCT_PLAN" # Document source classification: PRODUCT_PLAN, CUSTOMER_FEEDBACK, PRODUCT_METRICS, ENGINEERING_METRICS, TEAM_OPERATIONS, INCIDENT_REPORTS, OTHER
-    evidence_type: str # METRIC, TREND, EVENT, CUSTOMER_FEEDBACK, INCIDENT, DECISION, OBSERVATION, GOAL, CONSTRAINT, COMPLAINT, MILESTONE, RESOURCE_SIGNAL, TECHNICAL_SIGNAL, RISK_STATEMENT, OTHER
+    category: str # ADOPTION, CUSTOMER, PRODUCT, FINANCIAL, OPERATIONAL, TECHNICAL, DELIVERY, QUALITY, RESOURCE, TEAM, MARKET, STRATEGY, SECURITY, DEPENDENCY, PERFORMANCE, RISK, OTHER
+    evidence_category: Optional[str] = None
+    source_type: Optional[str] = None
+    evidence_type: str = "METRIC" # METRIC, TREND, EVENT, CUSTOMER_FEEDBACK, INCIDENT, DECISION, OBSERVATION, GOAL, CONSTRAINT, COMPLAINT, MILESTONE, RESOURCE_SIGNAL, TECHNICAL_SIGNAL, RISK_STATEMENT, OTHER
     statement: str
     normalized_value: Optional[NormalizedMetric] = None
     time_period: Optional[TimePeriod] = None

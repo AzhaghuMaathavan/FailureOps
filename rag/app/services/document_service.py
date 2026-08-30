@@ -14,6 +14,56 @@ from app.core.storage import get_pages_dir
 
 logger = logging.getLogger(__name__)
 
+CANONICAL_SOURCE_TYPES = {
+    "PRODUCT_PLAN",
+    "CUSTOMER_FEEDBACK",
+    "PRODUCT_METRICS",
+    "ENGINEERING_METRICS",
+    "TEAM_OPERATIONS",
+    "INCIDENT_REPORTS",
+    "OTHER"
+}
+
+def classify_document_source_type(doc: Document) -> str:
+    """
+    Authoritative classification for document source_type.
+    Uses doc.document_type if valid, or extracts from doc metadata/filename/topics.
+    """
+    raw_type = (doc.document_type or "").strip().upper().replace(" ", "_").replace("-", "_")
+    if raw_type in CANONICAL_SOURCE_TYPES and raw_type != "STRING":
+        return raw_type
+
+    combined = f"{doc.filename or ''} {doc.title or ''} {doc.description or ''} {' '.join(doc.topics or [])}".lower().replace("_", "").replace("-", "").replace(" ", "")
+    
+    # 1. Engineering metrics (check before generic 'metric')
+    if any(k in combined for k in ["engineeringmetric", "engineering", "deploy", "cicd", "commit", "bug", "mttr", "latency", "architecture", "errorrate", "mlt", "testreport"]):
+        return "ENGINEERING_METRICS"
+
+    # 2. Team operations
+    if any(k in combined for k in ["teamoperation", "team", "workload", "sprint", "burnout", "overtime", "internship", "completion", "hr", "velocity", "operation"]):
+        return "TEAM_OPERATIONS"
+
+    # 3. Incident reports
+    if any(k in combined for k in ["incidentreport", "incident", "postmortem", "outage", "sev1", "sev2", "rootcause", "rollback"]):
+        return "INCIDENT_REPORTS"
+
+    # 4. Customer feedback
+    if any(k in combined for k in ["customerfeedback", "feedback", "survey", "csat", "nps", "interview", "review", "complaint", "customer"]):
+        return "CUSTOMER_FEEDBACK"
+
+    # 5. Product metrics / Telemetry
+    if any(k in combined for k in ["productmetric", "telemetry", "activation", "retention", "churn", "conversion", "dau", "mau", "growth", "metric"]):
+        return "PRODUCT_METRICS"
+
+    # 6. Product plan / Specs
+    if any(k in combined for k in ["productplan", "prd", "plan", "spec", "roadmap", "feature", "blackbox", "proposal", "requirement"]):
+        return "PRODUCT_PLAN"
+        
+    return "PRODUCT_PLAN"
+
+
+
+
 def extract_document_profile(db: Session, doc: Document):
     from app.models.chunk import Chunk
     chunks = db.query(Chunk).filter(Chunk.document_id == doc.id).order_by(Chunk.chunk_index).limit(4).all()

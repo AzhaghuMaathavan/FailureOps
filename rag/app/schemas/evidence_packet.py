@@ -17,6 +17,7 @@ class TimePeriod(BaseModel):
 class EvidenceSource(BaseModel):
     document_id: str
     document_name: str
+    source_type: Optional[str] = None
     location_type: Optional[str] = None # PAGE, SLIDE, SHEET, SECTION, ROW
     location_value: Optional[str] = None
 
@@ -32,11 +33,32 @@ class PrivacyMetadata(BaseModel):
 class EvidenceItemSchema(BaseModel):
     id: str
     category: str # ADOPTION, CUSTOMER, PRODUCT, FINANCIAL, OPERATIONAL, TECHNICAL, DELIVERY, QUALITY, RESOURCE, TEAM, MARKET, STRATEGY, SECURITY, DEPENDENCY, PERFORMANCE, RISK, OTHER
-    evidence_type: str # METRIC, TREND, EVENT, CUSTOMER_FEEDBACK, INCIDENT, DECISION, OBSERVATION, GOAL, CONSTRAINT, COMPLAINT, MILESTONE, RESOURCE_SIGNAL, TECHNICAL_SIGNAL, RISK_STATEMENT, OTHER
+    evidence_category: Optional[str] = None
+    source_type: Optional[str] = None
+    evidence_type: str = "METRIC" # METRIC, TREND, EVENT, CUSTOMER_FEEDBACK, INCIDENT, DECISION, OBSERVATION, GOAL, CONSTRAINT, COMPLAINT, MILESTONE, RESOURCE_SIGNAL, TECHNICAL_SIGNAL, RISK_STATEMENT, OTHER
     statement: str
+    fact_type: Optional[str] = None
+    metric_name: Optional[str] = None
+    baseline_value: Optional[float] = None
+    previous_value: Optional[float] = None
+    current_value: Optional[float] = None
+    unit: Optional[str] = None
+    direction: Optional[str] = None
+    baseline_timestamp: Optional[str] = None
+    previous_timestamp: Optional[str] = None
+    current_timestamp: Optional[str] = None
+    baseline_to_current_change_percent: Optional[float] = None
+    previous_to_current_change_percent: Optional[float] = None
+    source_document_id: Optional[str] = None
+    source_document_name: Optional[str] = None
+    source_chunk_id: Optional[str] = None
+    page_numbers: List[int] = Field(default_factory=list)
+    row_numbers: List[int] = Field(default_factory=list)
+    citation: Optional[str] = None
+    source_metadata: Dict[str, Any] = Field(default_factory=dict)
     normalized_value: Optional[NormalizedMetric] = None
     time_period: Optional[TimePeriod] = None
-    source: EvidenceSource
+    source: Optional[EvidenceSource] = None
     supporting_sources: List[SupportingSource] = Field(default_factory=list)
     supporting_chunk_ids: List[str] = Field(default_factory=list)
     evidence_confidence: float = Field(ge=0.0, le=1.0, default=0.90)
@@ -70,6 +92,8 @@ class EvidencePacket(BaseModel):
     organization_id: str
     generated_at: str = Field(default_factory=lambda: datetime.now(timezone.utc).isoformat())
     evidence: List[EvidenceItemSchema] = Field(default_factory=list)
+    events: List[Dict[str, Any]] = Field(default_factory=list)
+    claims: List[Dict[str, Any]] = Field(default_factory=list)
     conflicts: List[EvidenceConflictSchema] = Field(default_factory=list)
     coverage: Dict[str, str] = Field(default_factory=dict)
     metrics: EvidenceMetrics = Field(default_factory=EvidenceMetrics)

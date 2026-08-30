@@ -33,13 +33,8 @@ def validate_request_node(state: FailureOpsGraphState) -> Dict[str, Any]:
         }
 
     if not query:
-        node_latencies["validate_request"] = round(time.time() - t0, 4)
-        return {
-            "status": "failed",
-            "error_message": "Validation Error: 'query' must not be empty.",
-            "node_latencies": node_latencies,
-            "node_path": node_path
-        }
+        query = "Extract all operational telemetry metrics, incidents, deployments, and stakeholder claims"
+        logger.info(f"[ValidationNode] Query omitted; defaulted to automatic project intelligence extraction query for '{project_id}'.")
 
     verified_doc_ids = document_ids or []
     if db and document_ids:

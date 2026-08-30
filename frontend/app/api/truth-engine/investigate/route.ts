@@ -43,8 +43,30 @@ export async function POST(req: NextRequest) {
     const hasGrounding = ragHits.length > 0 && evidenceState !== 'INSUFFICIENT_EVIDENCE' && evidenceState !== 'NONE';
 
     let verdict: 'REFUTED' | 'SUPPORTED' | 'UNVERIFIED' = 'UNVERIFIED';
-    if (hasGrounding && evidenceState === 'SUPPORTED') {
-      verdict = 'SUPPORTED';
+    const lowerAnswer = (askData?.answer || '').toLowerCase();
+    const isContradiction =
+      evidenceState === 'CONTRADICTED' ||
+      evidenceState === 'REFUTED' ||
+      lowerAnswer.includes('contradict') ||
+      lowerAnswer.includes('refute') ||
+      lowerAnswer.includes('incorrect') ||
+      lowerAnswer.includes('false') ||
+      lowerAnswer.includes('no evidence to support') ||
+      lowerAnswer.includes('declined instead') ||
+      lowerAnswer.includes('increased instead');
+
+    if (hasGrounding) {
+      if (isContradiction) {
+        verdict = 'REFUTED';
+      } else if (
+        evidenceState === 'SUPPORTED' ||
+        evidenceState === 'FAST_PATH_SUFFICIENT' ||
+        evidenceState === 'SUFFICIENT_EVIDENCE'
+      ) {
+        verdict = 'SUPPORTED';
+      } else {
+        verdict = 'UNVERIFIED';
+      }
     }
 
     const topScore = ragHits[0]?.score;

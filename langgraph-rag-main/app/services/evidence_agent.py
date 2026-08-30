@@ -71,6 +71,10 @@ def resolve_chunk_source_type(chunk: Dict[str, Any]) -> str:
     ]:
         return source_type.upper()
 
+    doc_name = (lineage.get("document_name") or "").lower().replace(" ", "").replace("_", "").replace("-", "")
+    content = (chunk.get("content") or "").lower()
+    combined = f"{doc_name} {content}"
+
     # 1. Engineering metrics (check before generic 'metric')
     if any(k in combined for k in ["engineeringmetric", "engineering", "deploy", "cicd", "commit", "bug", "mttr", "latency", "architecture", "errorrate", "mlt", "testreport"]):
         return "ENGINEERING_METRICS"

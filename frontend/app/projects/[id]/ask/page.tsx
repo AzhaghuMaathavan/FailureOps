@@ -358,16 +358,19 @@ export default function EvidenceAskPage() {
                   <span className="text-[11px] text-muted-foreground">No specific document citations recorded.</span>
                 ) : (
                   turn.citations.map((c, idx) => (
-                    <Link
+                    <a
                       key={`${c.documentId || c.filename || idx}`}
-                      href={`/projects/${projectId}/evidence`}
+                      href={`/api/documents/${encodeURIComponent(c.documentId || c.filename || 'doc')}/download?projectId=${encodeURIComponent(projectId)}${c.page ? `#page=${c.page}` : ''}`}
+                      target="_blank"
+                      rel="noopener noreferrer"
                       className="inline-flex cursor-pointer items-center gap-1.5 rounded-lg border border-border bg-surface-feed px-2.5 py-1 font-mono text-[11px] text-primary hover:border-primary/50 hover:bg-card focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring transition-colors"
+                      title={`Open ${c.filename || 'Source Document'}`}
                     >
                       <FileText className="h-3.5 w-3.5" aria-hidden="true" />
                       <span>{c.filename || 'Source document'}</span>
                       {c.page ? <span className="text-[10px] text-muted-foreground">· p.{c.page}</span> : null}
                       <ExternalLink className="h-3 w-3 opacity-60" />
-                    </Link>
+                    </a>
                   ))
                 )}
               </div>

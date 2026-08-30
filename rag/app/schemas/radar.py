@@ -10,6 +10,9 @@ class RadarTopRisk(BaseModel):
     risk_score: int = Field(ge=0, le=100)
     confidence: float = Field(ge=0.0, le=1.0, default=0.0)
     primary_evidence_id: str
+    why_explanation: Optional[str] = None
+    contributing_signals: List[str] = Field(default_factory=list)
+    evidence_ids: List[str] = Field(default_factory=list)
 
 class RadarTrajectoryPoint(BaseModel):
     timestamp: str

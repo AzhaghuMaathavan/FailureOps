@@ -94,6 +94,27 @@ export interface Signal {
   signalStrength?: number;
   status?: string;
   signalType?: string;
+  riskScore?: number | null;
+  previousRiskScore?: number | null;
+  baselineRiskScore?: number | null;
+  riskChangePercent?: number | null;
+  riskTrend?: string | null;
+  scoringMethod?: string | null;
+  polarity?: string | null;
+  benchmarkTarget?: number | null;
+  benchmarkCritical?: number | null;
+  unit?: string | null;
+  baselineValue?: number | null;
+  previousValue?: number | null;
+  currentValue?: number | null;
+  baselineTimestamp?: string | null;
+  previousTimestamp?: string | null;
+  currentTimestamp?: string | null;
+  baselineToCurrentChangePercent?: number | null;
+  previousToCurrentChangePercent?: number | null;
+  metricChangePercent?: number | null;
+  metricTrend?: string | null;
+  explanation?: string | null;
 }
 
 

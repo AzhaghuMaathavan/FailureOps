@@ -122,6 +122,9 @@ export default function EvidenceIntelligencePage() {
 
   const categories = [
     { id: 'ALL', label: 'ALL' },
+    { id: 'TYPE_METRICS', label: 'METRICS' },
+    { id: 'TYPE_EVENTS', label: 'EVENTS' },
+    { id: 'TYPE_CLAIMS', label: 'CLAIMS' },
     { id: 'PRODUCT_PLAN', label: 'PRODUCT PLAN' },
     { id: 'CUSTOMER_FEEDBACK', label: 'CUSTOMER FEEDBACK' },
     { id: 'PRODUCT_METRICS', label: 'PRODUCT METRICS' },
@@ -132,12 +135,21 @@ export default function EvidenceIntelligencePage() {
 
   const getCategoryCount = (catId: string) => {
     if (catId === 'ALL') return evidenceList.length;
+    if (catId === 'TYPE_METRICS') return evidenceList.filter((e) => (e.factType || 'METRIC') === 'METRIC').length;
+    if (catId === 'TYPE_EVENTS') return evidenceList.filter((e) => e.factType === 'EVENT').length;
+    if (catId === 'TYPE_CLAIMS') return evidenceList.filter((e) => e.factType === 'CLAIM').length;
     return evidenceList.filter((e) => e.sourceType === catId).length;
   };
 
   const filteredList =
     selectedCategory === 'ALL'
       ? evidenceList
+      : selectedCategory === 'TYPE_METRICS'
+      ? evidenceList.filter((e) => (e.factType || 'METRIC') === 'METRIC')
+      : selectedCategory === 'TYPE_EVENTS'
+      ? evidenceList.filter((e) => e.factType === 'EVENT')
+      : selectedCategory === 'TYPE_CLAIMS'
+      ? evidenceList.filter((e) => e.factType === 'CLAIM')
       : evidenceList.filter((e) => e.sourceType === selectedCategory);
 
   const sourceCount = new Set(evidenceList.map((item) => item.sourceFile)).size;

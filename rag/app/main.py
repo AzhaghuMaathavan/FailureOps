@@ -43,6 +43,33 @@ async def startup_event():
         storage.get("endpoint_configured"),
     )
 
+    try:
+        from datetime import datetime, timezone, timedelta
+        from app.db.database import SessionLocal
+        from app.models.analysis import ProjectAnalysis
+        db = SessionLocal()
+        threshold = datetime.now(timezone.utc) - timedelta(minutes=10)
+        stale_jobs = db.query(ProjectAnalysis).filter(
+            ProjectAnalysis.status.in_([
+                "QUEUED", "PARSING_DOCUMENTS", "INDEXING", 
+                "RETRIEVING_EVIDENCE", "EXTRACTING_EVIDENCE", 
+                "GROUPING_EVIDENCE", "CORRELATING_PATTERNS", 
+                "SYNTHESIZING_SIGNALS", "CALCULATING_FAILURE_DNA",
+                "BUILDING_FAILURE_CHAIN", "RUNNING_SIMULATIONS", 
+                "SYNTHESIZING_DECISIONS", "PERSISTING_ANALYSIS"
+            ]),
+            ProjectAnalysis.created_at < threshold
+        ).all()
+        for j in stale_jobs:
+            j.status = "FAILED"
+            j.error_message = "Analysis timed out or interrupted across server restarts. Ready to retry."
+        db.commit()
+        db.close()
+        if stale_jobs:
+            logger.info(f"[STARTUP] Cleaned up {len(stale_jobs)} stale in-flight jobs older than 10m.")
+    except Exception as e:
+        logger.warning(f"[STARTUP] Stale job cleanup skipped: {e}")
+
 cors_origins = [origin.strip() for origin in (settings.FRONTEND_URL or "").split(",") if origin.strip()]
 for origin in ("http://localhost:3000", "http://127.0.0.1:3000"):
     if origin not in cors_origins:
@@ -50,16 +77,23 @@ for origin in ("http://localhost:3000", "http://127.0.0.1:3000"):
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=cors_origins,
+    allow_origins=cors_origins if cors_origins else ["*"],
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
 )
 
 from app.api import health, documents, retrieval, chat, conversations, analysis, foundation, email
+from app.intelligence.api import intelligence_router
 
+# Foundation & SMTP Endpoints
 app.include_router(foundation.router, prefix="/api", tags=["foundation"])
 app.include_router(email.router, tags=["Email & Notifications"])
+
+# LangGraph Intelligence Pipeline
+app.include_router(intelligence_router, prefix=settings.API_V1_STR + "/intelligence", tags=["intelligence"])
+
+# Core RAG & Analysis Endpoints
 app.include_router(health.router, prefix=settings.API_V1_STR, tags=["health"])
 app.include_router(documents.router, prefix=settings.API_V1_STR + "/documents", tags=["documents"])
 app.include_router(retrieval.router, prefix=settings.API_V1_STR + "/retrieval", tags=["retrieval"])
@@ -68,10 +102,13 @@ app.include_router(conversations.router, prefix=settings.API_V1_STR + "/conversa
 app.include_router(analysis.router, prefix=settings.API_V1_STR, tags=["analysis"])
 
 
-
 @app.get("/")
 def root():
-    return {"message": "FailureOps X RAG & Evidence Intelligence API", "status": "ONLINE"}
+    return {
+        "message": "FailureOps X RAG & LangGraph Evidence Intelligence API",
+        "status": "ONLINE",
+        "engine": "LangGraph StateGraph 7-Node Multi-Agent"
+    }
 
 
 @app.get("/health")

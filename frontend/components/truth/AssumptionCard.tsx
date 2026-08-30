@@ -137,9 +137,15 @@ export const AssumptionCard: React.FC<AssumptionCardProps> = ({ investigation })
           <FileCheck className="w-3.5 h-3.5" aria-hidden="true" />
           <span>Cross-verified against:</span>
           {investigation.evidenceSources.map(src => (
-            <span key={src} className="px-2 py-0.5 rounded bg-surface-feed border border-border text-[11px]">
+            <a
+              key={src}
+              href={`/api/documents/${encodeURIComponent(src)}/download?projectId=${encodeURIComponent(investigation.projectId)}`}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="px-2 py-0.5 rounded bg-surface-feed border border-border text-[11px] text-primary font-bold hover:underline hover:bg-card transition-colors cursor-pointer"
+            >
               {src}
-            </span>
+            </a>
           ))}
         </div>
       </div>

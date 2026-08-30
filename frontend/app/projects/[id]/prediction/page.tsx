@@ -134,12 +134,13 @@ export default function PredictionPage() {
             <InsightCard title="Supporting evidence">
               <div className="flex flex-wrap gap-2">
                 {pred.supporting_evidence_ids.map((evId: string) => (
-                  <span
+                  <Link
                     key={evId}
-                    className="rounded-lg border border-border bg-card px-2.5 py-1 font-mono text-xs font-semibold text-foreground"
+                    href={`/projects/${projectId}/evidence#${evId}`}
+                    className="inline-flex items-center gap-1 rounded-lg border border-primary/30 bg-primary/10 px-2.5 py-1 font-mono text-xs font-semibold text-primary hover:bg-primary/20 hover:underline transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary cursor-pointer"
                   >
-                    {evId}
-                  </span>
+                    <span>#{evId}</span>
+                  </Link>
                 ))}
               </div>
             </InsightCard>

@@ -1,888 +1,1665 @@
-You are working on the existing FailureOps X repository.
+MASTER FORENSIC FIX
+FAILUREOPS — END-TO-END EVIDENCE PROVENANCE, EXPLANATIONS, CLICKABLE SOURCES,
+FAILURE DNA, RADAR AND PREDICTION
 
-I need you to make the current application feel like a
-PRODUCTION-GRADE B2B SaaS product.
+============================================================
+PRIMARY OBJECTIVE
+============================================================
 
-IMPORTANT:
-Do not rebuild the application from scratch.
-Do not replace working backend/RAG/agent functionality.
-Inspect the existing implementation first, identify the current
-authentication flow and landing page, then modify them safely.
+The application already uses RAG + LangGraph and is producing:
 
-========================================================
-TASK 1 — FIX SIGN-IN PERSISTENCE
-========================================================
+- Evidence
+- Signals
+- Events
+- Claims
+- Risk scores
+- Failure DNA
+- Failure Radar
+- Predictions
+- Interventions
 
-CURRENT BUG:
+BUT the current UI has a major TRUST / TRACEABILITY problem.
 
-When I sign in successfully, the session/authentication is not
-persisted correctly.
+The system must be able to prove:
 
-Example current behavior:
+WHAT DID THE SYSTEM SAY?
+        ↓
+WHAT EVIDENCE CAUSED IT?
+        ↓
+WHICH DOCUMENT CONTAINS THAT EVIDENCE?
+        ↓
+WHERE IN THE DOCUMENT?
+        ↓
+CAN THE USER OPEN THE ACTUAL SOURCE?
 
-1. User opens FailureOps X.
-2. User signs in.
-3. User can access the application.
-4. User closes the browser/tab.
-5. User opens FailureOps X again.
-6. The application asks the user to sign in again.
+Every major intelligence output must be traceable back to real retrieved
+evidence.
 
-I need proper persistent authentication.
+NO MOCK DATA.
+NO DISPLAY-ONLY EVIDENCE IDs.
+NO BROKEN #ev_001 links.
+NO UNCLICKABLE SOURCE REFERENCES.
+NO UNSUPPORTED RISK EXPLANATIONS.
+NO "AI SAID THIS" WITHOUT PROOF.
 
-EXPECTED BEHAVIOR:
+============================================================
+0. DO NOT MODIFY THE SYSTEM BLINDLY
+============================================================
 
-1. User signs in.
-2. Authentication/session is persisted securely.
-3. User closes the browser.
-4. User opens FailureOps X later.
-5. The application restores the authenticated session.
-6. User is taken directly to the authenticated application.
-7. User should NOT have to log in again unless:
-   - they explicitly sign out
-   - the session expires
-   - authentication is revoked
-   - security policy requires reauthentication
+Before editing anything:
 
-IMPORTANT:
+AUDIT THE CURRENT IMPLEMENTATION.
 
-Do NOT solve this by simply putting a user object in localStorage.
+Trace one complete real example:
 
-Inspect the existing authentication implementation and determine
-what is currently being used.
+Document
+→ RAG retrieval
+→ LangGraph
+→ Evidence
+→ Signal
+→ Failure DNA
+→ Radar
+→ Prediction
+→ Intervention
+→ UI
 
-If there is already a backend authentication/session system,
-reuse it.
+Identify where provenance is lost.
 
-Use secure persistent authentication appropriate for a
-production web application.
+Also inspect:
 
-Prefer:
+- DB models
+- Pydantic schemas
+- API response models
+- frontend TypeScript types
+- frontend components
+- API client functions
+- source/download endpoint
+- RustFS object references
+- evidence IDs
+- document IDs
+- chunk IDs
+- page numbers
+- row/sheet location
+- analysis IDs
+- signal IDs
+- prediction IDs
 
-- secure HttpOnly cookies for session/token storage
-- SameSite protection
-- Secure cookies in production
-- server-side session validation
-- refresh/renewal where appropriate
-- proper logout/invalidation
-- authentication state restoration on application startup
+DO NOT GUESS.
 
-Do NOT store sensitive authentication tokens/passwords in:
-- localStorage
-- sessionStorage
-- plain client-side state
+At the start of the final report state:
 
-Passwords must NEVER be stored in plaintext.
+PROVENANCE BREAKPOINT:
+<exact place where linkage was being lost>
 
-========================================================
-AUTH FLOW
-========================================================
+============================================================
+1. ONE AUTHORITATIVE PROVENANCE MODEL
+============================================================
 
-Implement/repair this flow:
+Create/standardize ONE provenance contract used everywhere.
 
-PUBLIC USER
+Every grounded intelligence item must be able to reference:
 
-Landing page
-     ↓
-Sign in / Sign up
-     ↓
-Authentication
-     ↓
-Persistent session
-     ↓
-Authenticated app
-     ↓
-Dashboard
+{
+  "evidence_id": "...",
+  "source_document_id": "...",
+  "source_document_name": "...",
+  "source_document_type": "...",
+  "supporting_chunk_ids": [...],
+  "location_type": "PAGE | ROW | SHEET | SECTION | OFFSET",
+  "location_value": "...",
+  "page_numbers": [...],
+  "row_start": ...,
+  "row_end": ...,
+  "sheet_name": "...",
+  "citation": "...",
+  "confidence": ...
+}
 
-ON FUTURE VISIT:
+Only fields applicable to the source need to be populated.
 
-Open FailureOps X
-     ↓
-Check existing session
-     ↓
-Valid?
-   /     \
- YES      NO
- ↓        ↓
-Dashboard Login
+DO NOT create fake values.
 
-If session is expired:
+============================================================
+2. CRITICAL — #EV_001 PROBLEM
+============================================================
 
-Login page
-     ↓
-Sign in
-     ↓
-New persistent session
-     ↓
-Dashboard
+The UI currently displays values such as:
 
-LOGOUT:
+#ev_001
+#ev_002
+#ev_003
 
-Dashboard
- ↓
-Sign out
- ↓
-Invalidate session
- ↓
-Landing/Login
+in many places.
 
-========================================================
-AUTH GUARDS
-========================================================
+Some are not clickable.
 
-Protect authenticated routes.
+This must be fixed.
 
-Users who are not authenticated should NOT be able to access
-private project information by manually entering URLs.
+There is a difference between:
 
-Example:
+DISPLAY ID
 
-/app/dashboard
-/app/projects
-/app/projects/[id]
-/app/memory
-/app/settings
+and
 
-If unauthenticated:
+REAL DATABASE EVIDENCE ID.
 
-redirect → /login
+A display identifier such as:
 
-If authenticated:
+ev_001
 
-allow access.
+must NOT be the only thing used to open evidence.
 
-Also prevent authenticated users from unnecessarily seeing the
-login/signup page.
-
-If a valid session exists and they navigate to /login:
-
-redirect them to the application.
-
-========================================================
-SESSION RESTORATION
-========================================================
-
-The frontend must not briefly display:
-
-"Not logged in"
-
-while the application is checking an existing session.
-
-Implement a proper authentication loading state.
+Every evidence reference must resolve through the actual persisted evidence
+record / database ID or a stable backend evidence identifier.
 
 Example:
 
-Checking your workspace...
+signal
+→ evidence_id = "a6f..."
+→ GET evidence/a6f...
+→ source_document_id = "doc_123"
+→ GET document/doc_123/download
+→ fintech.pdf
 
-Then:
+============================================================
+3. EVIDENCE REFERENCES MUST BE CLICKABLE EVERYWHERE
+============================================================
 
-valid session → dashboard
+Search the entire frontend for:
 
-invalid session → login
+#ev_
+ev_001
+ev_002
+Evidence ID
+supporting evidence
+source evidence
+evidence references
 
-Avoid authentication flickering.
+Replace display-only references with actual clickable navigation.
 
-========================================================
-TASK 2 — REDESIGN LANDING PAGE
-========================================================
+Wherever the UI displays:
 
-The current landing page contains too many dashboard/internal
-product controls.
+#ev_001
 
-Remove unnecessary buttons and internal navigation from the
-public landing page.
+make it a real link/button.
 
-The landing page should look like a REAL PRODUCT WEBSITE.
+Clicking it must open:
 
-It should NOT look like someone accidentally exposed the internal
-dashboard.
+Evidence detail
 
-========================================================
-PUBLIC NAVIGATION
-========================================================
+or
 
-Create a clean professional navbar.
+Evidence Citation Record
 
-LEFT:
+with:
 
-FailureOps X logo
+- core evidence
+- source
+- location
+- confidence
+- supporting excerpt
+- Open Source
 
-CENTER / RIGHT:
+Do NOT navigate to a nonexistent route.
 
-Platform
-How it works
-Security
+============================================================
+4. SOURCE OPENING MUST USE DOCUMENT ID
+============================================================
 
-RIGHT:
+NEVER construct a source URL from:
 
-Sign in
-Get started
+filename
 
-On mobile:
+Example BAD:
 
-Logo
-Menu button
+/documents/fintech.pdf
 
-Opening the menu shows:
+Example GOOD:
 
-Platform
-How it works
-Security
-Sign in
-Get started
+/documents/{document_id}/download
 
-Do NOT put internal dashboard tabs in the public navbar.
+The chain must be:
 
-REMOVE things such as:
-
-Dashboard
-Live Aurora Demo
 Evidence
-Signals
-DNA
-Truth
-Radar
-Predict
-Intervene
-Verify
+→ evidence_id
+→ source_document_id
+→ authorized document endpoint
+→ storage reference
+→ RustFS
+→ actual file
 
-from the public navigation.
+Preserve project and organization authorization.
 
-Those belong inside the authenticated application.
+============================================================
+5. FIX "OPEN SOURCE"
+============================================================
 
-========================================================
-LANDING HERO
-========================================================
+Every:
 
-Replace the current hero with a clear product positioning.
+Open Source
 
-Use:
+button must actually open the source file.
 
-"Know where your project is heading
-before it gets there."
+Verify using browser Network tools.
 
-Supporting text:
+Expected:
 
-"FailureOps X turns fragmented project evidence into explainable
-risk intelligence — connecting signals, patterns, historical
-outcomes, and verified interventions."
+GET <document-download-endpoint>
+→ HTTP 200
+→ actual file
 
-Primary CTA:
+For PDF:
 
-"Get started"
+Content-Type = application/pdf
 
-Secondary CTA:
+and browser should open the real document.
 
-"See how it works"
+For CSV/XLSX/DOCX/etc. use correct MIME behavior.
 
-Small supporting line:
+If the evidence points to page 5:
 
-"Evidence-grounded • Explainable • Privacy-controlled"
+optionally open:
 
-Do NOT display fake:
+document.pdf#page=5
 
-- live telemetry
-- live timestamps
-- fake customer metrics
-- fake risk percentages
-- fake source counts
-- fake recovery percentages
+ONLY if the source is a PDF and the architecture supports it.
 
-Do not imply that a visitor is looking at real customer data.
+============================================================
+6. EVIDENCE INTELLIGENCE SCREEN
+============================================================
 
-========================================================
-REMOVE UNWANTED HERO ELEMENTS
-========================================================
+The Evidence Intelligence page must show useful evidence, not raw chunk
+dumps.
 
-Remove or redesign:
+DEFAULT VIEW:
 
-"Live Aurora Demo"
+CORE EVIDENCE
+<important statement>
 
-"82% Aurora failure risk"
+SOURCE
+engineeringmetrics.csv
 
-"+33pp Recovery after experiment"
+LOCATION
+Page 1 / Row X / Sheet Y
 
-"5 Evidence sources live"
+CONFIDENCE
+92%
 
-"AES-256 Zero-knowledge enclave"
+[Open Evidence]
+[Open Source]
 
-unless these are backed by real production functionality.
+Optional expanded:
 
-Do not make unsupported security claims.
+Supporting excerpt
+Chunk ID
+Technical details
 
-The landing page should communicate the PRODUCT,
-not pretend to show live customer telemetry.
+Do NOT show huge raw table text by default.
 
-========================================================
-PRODUCT PREVIEW
-========================================================
+============================================================
+7. EVERY SIGNAL NEEDS SUPPORTING EVIDENCE
+============================================================
 
-Instead of fake metrics, create an elegant product preview showing
-HOW FailureOps works.
+For every signal:
+
+Signal
+↓
+Supporting Evidence
+↓
+Source
 
 Example:
 
-PROJECT INTELLIGENCE
+API_P95_MS
+Risk: 54/100
+Severity: MEDIUM
+Trend: INCREASING
 
-Project Launch
+Supporting evidence:
+API P95 increased from 365 ms → 370 ms.
 
-Health
-68
+Source:
+engineeringmetrics.csv
 
-Risk trend
-Increasing
+Location:
+2026-08-24 row
 
-Signals
+Confidence:
+92%
 
-Adoption friction
-Execution delay
-Operational load
+[View Evidence]
+[Open Source]
 
-Historical similarity
-87%
+A signal must NEVER appear without a traceable evidence reference unless
+explicitly marked:
 
-Potential next failure
+INSUFFICIENT_EVIDENCE
 
-Low repeat usage
+============================================================
+8. SIGNAL EXPLORER MUST NOT SHOW GENERIC PLACEHOLDERS
+============================================================
 
-Why?
+CURRENT PROBLEM:
 
-Activation decline
-+
+Examples such as:
+
+"Adoption Observations — Observed anomaly"
+
+"Technical Observations — Observed anomaly"
+
+are too generic.
+
+The signal should describe the actual detected change.
+
+BAD:
+
+Technical Observations
+Observed anomaly
+
+GOOD:
+
+API_P95_MS
+365 ms → 370 ms
++1.37%
+INCREASING
+Risk: 54/100
+
+Supporting Evidence: 1
+
+[View Evidence]
+
+The signal title should come from the actual canonical metric / signal name.
+
+Do NOT hardcode metric names.
+
+============================================================
+9. SIGNAL EXPLANATION
+============================================================
+
+When a user clicks a signal, show:
+
+WHAT CHANGED?
+WHY DOES IT MATTER?
+WHAT IS THE RISK SCORE?
+WHAT EVIDENCE SUPPORTS IT?
+WHERE DID THE EVIDENCE COME FROM?
+
+Example:
+
+API_P95_MS increased from 365 ms to 370 ms.
+
+Risk:
+54 / 100 — MEDIUM
+
+Why:
+Current latency is above the configured target threshold.
+
+Evidence:
+engineeringmetrics.csv
+2026-08-24
+
+[View Evidence]
+[Open Source]
+
+============================================================
+10. FAILURE DNA
+============================================================
+
+CURRENT ISSUE:
+
+Failure DNA currently shows:
+
+Customer Risk Decomposition
+Score: 30/100
+Historical Correlation Verified
+
+but may then say:
+
+"No engine rationale was returned."
+
+This is not acceptable.
+
+Failure DNA must have a deterministic explanation.
+
+For each dimension:
+
+Adoption
+Technical
+Operational
+Execution
+Customer
+Financial
+Security
+Quality
+
+show:
+
+SCORE
+SEVERITY
+EVIDENCE DRIVERS
+WHY THE SCORE EXISTS
+SUPPORTING SIGNALS
+SUPPORTING EVIDENCE
+HISTORICAL STATUS
+
+============================================================
+11. FAILURE DNA EXPLANATION CONTRACT
+============================================================
+
+Example:
+
+CUSTOMER RISK
+Score: 30/100
+Severity: LOW
+
+WHY THIS SCORE EXISTS
+
+Customer-related evidence shows <actual supported observation>.
+
+DRIVERS
+
+• Customer feedback signal A
+• Signal B
+
+SUPPORTING EVIDENCE
+
+• customerfeedback.csv
+• feedback row/date
+
+[View Evidence]
+
+If there is no explanation available:
+
+do NOT write generic:
+
+"No engine rationale was returned."
+
+Instead say:
+
+"Insufficient evidence to explain this dimension."
+
+and show the evidence that does exist.
+
+============================================================
+12. DO NOT CLAIM HISTORICAL CORRELATION WITHOUT HISTORY
+============================================================
+
+This is critical.
+
+If there is no historical memory match:
+
+DO NOT display:
+
+Historical Correlation Verified
+
+instead display:
+
+No historical correlation available
+
+or:
+
+Novel pattern — no historical memory match
+
+Historical information must come from actual stored historical memory.
+
+Never fabricate it.
+
+============================================================
+13. FAILURE DNA SCORE MUST BE TRACEABLE
+============================================================
+
+For each dimension:
+
+dimension score
+        ↓
+contributing signals
+        ↓
+evidence items
+        ↓
+source documents
+
+Example:
+
+CUSTOMER = 30
+
+Drivers:
+Customer Observations
+
+Evidence:
+ev_xxx
+
+Source:
+customerfeedback.csv
+
+The user must be able to click through this entire chain.
+
+============================================================
+14. FAILURE RADAR
+============================================================
+
+CURRENT ISSUE:
+
+Top Failure Risks show:
+
+1. Adoption Stress
+2. Technical Stress
+3. Operational Stress
+
+but there is little/no detailed explanation.
+
+FIX THIS.
+
+Every top failure risk must have:
+
+Risk name
+Dimension
+Risk score
+Severity
+Why it is ranked here
+Main contributing signals
+Evidence
+Sources
+Trend
+Confidence
+
+Example:
+
+1. Technical Stress
+Risk: 54/100
+Severity: MEDIUM
+
+WHY:
+API latency is increasing and currently exceeds target threshold.
+
+SIGNALS:
+API_P95_MS
+
+EVIDENCE:
+engineeringmetrics.csv
+
+[View Evidence]
+
+============================================================
+15. TOP FAILURE RISKS MUST BE SORTABLE BY REAL DATA
+============================================================
+
+Do NOT create a static list.
+
+Ranking should derive from actual:
+
+risk score
+severity
+signal strength
+confidence
+trend
+corroboration
+
+Use the existing FailureOps ranking logic.
+
+Show the actual reason for the ranking.
+
+============================================================
+16. FAILURE RADAR — DETAILED RISK CARD
+============================================================
+
+Clicking a top failure risk should open:
+
+RISK
+
+<risk name>
+
+SCORE
+54/100
+
+SEVERITY
+MEDIUM
+
+WHY
+<actual deterministic explanation>
+
+CONTRIBUTING SIGNALS
+<signals>
+
+EVIDENCE
+<evidence items>
+
+SOURCES
+<document names + locations>
+
+CONFIDENCE
+92%
+
+[View Evidence]
+[Open Source]
+
+============================================================
+17. PREDICTED NEXT FAILURE
+============================================================
+
+CURRENT ISSUE:
+
+Prediction page says:
+
+"No Major Failure Predicted"
+
+but also displays:
+
+Why this path
+If ignored
+92% probability
+6+ months
+
+This can become misleading if no actual failure prediction exists.
+
+If there is no predicted failure:
+
+show:
+
+NO MAJOR FAILURE PREDICTED
+
+Then explain only what the evidence supports.
+
+Do NOT attach a fabricated failure narrative.
+
+If prediction exists:
+
+show:
+
+PREDICTED FAILURE
+PROBABILITY
+TIME WINDOW
+CONFIDENCE
+
+WHY THIS PREDICTION EXISTS
+
+<actual signals + evidence>
+
+IF IGNORED
+
+<evidence-supported consequence>
+
+SUPPORTING EVIDENCE
+
+<clickable evidence IDs>
+
+============================================================
+18. PREDICTION MUST BE EVIDENCE-LINKED
+============================================================
+
+Prediction:
+
+"Release instability may increase"
+
+must reference:
+
+Signal A
+Signal B
+Evidence A
+Evidence B
+
+Each clickable.
+
+Source documents visible.
+
+============================================================
+19. NO UNSUPPORTED PROBABILITIES
+============================================================
+
+Do NOT show:
+
+92%
+89%
+76%
+
+unless the current backend actually calculates/returns these values.
+
+Every probability must have a documented calculation/model source.
+
+If probability is unavailable:
+
+show:
+
+Not enough evidence to estimate probability.
+
+============================================================
+20. INTERVENTIONS
+============================================================
+
+Every intervention must be tied to:
+
+identified problem
+supporting signal
+evidence
+expected outcome
+
+Example:
+
+Problem:
 Onboarding friction
-+
-Similar historical trajectory
 
-[Inspect evidence]
+Evidence:
+customer_feedback.csv
 
-Clearly mark the preview as:
+Signal:
+Adoption stress
 
-"Illustrative product view"
+Recommendation:
+Streamline onboarding
 
-if it is not backed by real data.
+Do NOT show recommendations as disconnected AI advice.
 
-========================================================
-LANDING PAGE STRUCTURE
-========================================================
+============================================================
+21. INTERVENTION → EVIDENCE
+============================================================
 
-Use this structure:
+Each intervention should expose:
 
-1. Navbar
+WHY THIS ACTION?
 
-2. Hero
+Supporting signals
 
-3. Product preview
+Supporting evidence
 
-4. "From evidence to intelligence"
+Expected effect
 
-   Evidence
-      ↓
-   Signals
-      ↓
-   Patterns
-      ↓
-   Failure DNA
-      ↓
-   Historical intelligence
-      ↓
-   Failure Radar
-      ↓
-   Intervention
-      ↓
-   Verified learning
+Confidence
 
-5. Failure DNA section
+[View Evidence]
 
-Explain:
+============================================================
+22. EXPERIMENTS
+============================================================
 
-"Failure is rarely caused by a single event.
-FailureOps connects weak signals across multiple dimensions."
+The experiment hypothesis must come from a real intervention.
+
+Example:
+
+Hypothesis:
+"Streamlining onboarding will improve adoption."
 
 Show:
 
-Technical
-Operational
-Adoption
-Execution
-Financial
+Evidence driver
+→ Intervention
+→ Hypothesis
+→ Control
+→ Treatment
+→ Metric
+→ Outcome
 
-6. Truth Engine
+If there is no actual experiment running:
 
-Show how assumptions are tested against evidence.
+show:
+
+PLANNED
+
+Do not show fake progress or fake lift.
+
+============================================================
+23. OUTCOME VERIFICATION
+============================================================
+
+If no real experiment outcome exists:
+
+show:
+
+No verified outcome recorded yet.
+
+Do not create synthetic success.
+
+Once outcome exists:
+
+show:
+
+Baseline
+Treatment
+Observed difference
+Confidence
+Statistical result
+Evidence
+Source
+
+============================================================
+24. CROSS-SCREEN EVIDENCE CONSISTENCY
+============================================================
+
+CRITICAL:
+
+The SAME evidence record must remain the SAME evidence record across:
+
+Evidence Intelligence
+Signals
+Failure DNA
+Failure Radar
+Prediction
+Interventions
+Experiments
+Truth Engine
+
+Do not create:
+
+Evidence #1 in one screen
+and
+another duplicate evidence #1 in another screen.
+
+Use the same authoritative IDs.
+
+============================================================
+25. ANALYSIS PACKET
+============================================================
+
+When LangGraph finishes, persist one structured analysis packet:
+
+analysis_id
+project_id
+documents
+evidence
+events
+claims
+metrics
+signals
+risk_dimensions
+predictions
+interventions
+provenance
+confidence
+status
+
+All downstream screens should read from this structured packet.
+
+Do NOT rerun the LLM whenever the user opens a tab.
+
+============================================================
+26. LANGGRAPH OUTPUT
+============================================================
+
+LangGraph should produce structured data rather than only prose.
+
+Expected conceptual result:
+
+{
+  "analysis_id": "...",
+
+  "evidence": [...],
+
+  "events": [...],
+
+  "claims": [...],
+
+  "metrics": [...],
+
+  "signals": [...],
+
+  "risk_dimensions": [...],
+
+  "predictions": [...],
+
+  "interventions": [...],
+
+  "sources": [...]
+}
+
+Use the existing actual schemas where available.
+
+============================================================
+27. PROVENANCE MUST SURVIVE EVERY LANGGRAPH NODE
+============================================================
+
+Audit every node.
+
+validate_request
+retrieve_evidence
+evidence_agent
+validate_evidence
+signal_agent
+validate_signals
+finalize_output
+
+No node may accidentally discard:
+
+evidence_id
+document_id
+chunk_id
+page
+location
+citation
+confidence
 
 Example:
 
-ASSUMPTION
+retrieve_evidence
+→ chunk
 
-"Pricing is causing poor adoption."
+evidence_agent
+→ evidence
+
+signal_agent
+→ signal
+
+finalize_output
+→ signal + evidence reference
+
+Never flatten away the relationship.
+
+============================================================
+28. RAG RETRIEVAL
+============================================================
+
+Continue using:
+
+metadata/privacy filtering
++
+dense retrieval
++
+BM25
++
+RRF/hybrid fusion
++
+reranking
+
+Do not send thousands of chunks to the LLM.
+
+The important requirement is:
+
+retrieved chunk
+→ evidence
+→ source reference
+
+must remain intact.
+
+============================================================
+29. RAG QUERY ANSWERS
+============================================================
+
+For Evidence Ask:
+
+USER QUESTION
+↓
+RAG retrieval
+↓
+LangGraph
+↓
+structured evidence
+↓
+answer
+
+Response should be:
+
+ANSWER
+
+<answer>
 
 EVIDENCE
 
-Pricing complaints: low
-Onboarding complaints: high
-Activation decline: increasing
+<key evidence>
 
-RESULT
+SOURCES
 
-"Evidence more strongly supports onboarding friction."
+<source files + locations>
 
-7. Historical Intelligence
+[View Evidence]
+[Open Source]
 
-Explain:
+If insufficient evidence:
 
-"Compare a current project with approved historical cases."
+INSUFFICIENT EVIDENCE
+
+and explain what was missing.
+
+============================================================
+30. TRUTH ENGINE
+============================================================
+
+Truth Engine must produce:
+
+SUPPORTED
+CONTRADICTED
+INSUFFICIENT_EVIDENCE
+
+For:
+
+SUPPORTED:
+
+show evidence proving it.
+
+For:
+
+CONTRADICTED:
+
+show what the evidence actually says.
+
+For:
+
+INSUFFICIENT:
+
+state that evidence was insufficient.
+
+EVERY RESULT MUST HAVE CLICKABLE SOURCE PROVENANCE.
+
+============================================================
+31. SOURCE TYPES
+============================================================
+
+Support provenance for:
+
+PDF:
+page number
+
+CSV:
+row / date
+
+XLSX:
+sheet + cell/row
+
+DOCX:
+page/section if available
+
+TXT/MD:
+line/section if available
+
+JSON:
+path/key if available
+
+Do not force everything into "Page 1."
+
+============================================================
+32. RAW CHUNKS
+============================================================
+
+Raw chunks are technical evidence.
+
+They should be available through:
+
+View supporting excerpt
+
+but should NOT be the primary UI.
+
+Primary UI:
+
+claim
+metric
+event
+signal
+risk
+source
+
+Secondary:
+
+raw excerpt
+chunk ID
+technical metadata
+
+============================================================
+33. UI DESIGN REQUIREMENT
+============================================================
+
+Use this information hierarchy:
+
+WHAT
+↓
+WHY
+↓
+PROOF
+↓
+SOURCE
 
 Example:
 
-Current project
-     ↓
-Similarity search
-     ↓
-Historical patterns
-     ↓
-Past interventions
-     ↓
-Observed outcomes
+WHAT:
+API latency increased.
 
-8. Failure Radar
+WHY:
+Current P95 exceeds target.
 
-Explain that Failure Radar continuously evaluates emerging
-risk based on available project intelligence.
+PROOF:
+365 ms → 370 ms.
 
-9. Intervention
+SOURCE:
+engineeringmetrics.csv
+2026-08-24
 
-Show:
+[View Evidence]
+[Open Source]
 
-Detected risk
-     ↓
-Recommended intervention
-     ↓
-Experiment
-     ↓
-Outcome
-     ↓
-Verified learning
+This should be consistent throughout the application.
 
-10. Privacy
+============================================================
+34. REMOVE NON-FUNCTIONAL CLICK TARGETS
+============================================================
 
-Make this a major trust section.
-
-Show:
-
-PRIVATE
-Only your organization
-
-ORGANIZATION
-Approved internal knowledge
-
-GLOBAL SANITIZED
-Approved sanitized intelligence
-
-Explain that private source documents are not automatically exposed
-through global search.
-
-11. Final CTA
-
-"Turn project evidence into foresight."
-
-Button:
-
-"Get started"
-
-12. Professional footer
-
-========================================================
-IMPORTANT PRODUCT POSITIONING
-========================================================
-
-Do NOT position FailureOps as:
-
-"another RAG chatbot"
-
-Instead:
-
-"FailureOps transforms project evidence into continuously
-evolving failure intelligence."
-
-Make the difference clear:
-
-Traditional document AI:
-
-Ask
- ↓
-Retrieve
- ↓
-Answer
-
-FailureOps:
-
-Evidence
- ↓
-Signals
- ↓
-Patterns
- ↓
-Risk
- ↓
-Historical comparison
- ↓
-Prediction
- ↓
-Intervention
- ↓
-Verified learning
-
-========================================================
-TASK 3 — AUTHENTICATED APP VS PUBLIC WEBSITE
-========================================================
-
-Clearly separate the two experiences.
-
-PUBLIC:
-
-/
- /platform
- /how-it-works
- /security
- /login
- /signup
-
-AUTHENTICATED:
-
-/app
-/app/dashboard
-/app/projects
-/app/projects/[id]
-/app/search
-/app/memory
-/app/settings
-
-The public website should be marketing/product oriented.
-
-The authenticated application should be intelligence/workflow
-oriented.
-
-Do not mix the two.
-
-========================================================
-TASK 4 — LOGIN PAGE
-========================================================
-
-Make the login page production-grade.
-
-Layout:
-
-FailureOps X
-
-Welcome back
-
-Continue to your workspace.
-
-Work email
-Password
-
-[Sign in]
-
-Forgot password?
-
-Don't have an account?
-Create workspace
-
-Include:
-
-- validation
-- loading state
-- error state
-- disabled state during submission
-- accessible labels
-- keyboard navigation
-- password visibility toggle
-- responsive mobile layout
-
-Do not make it visually identical to the current internal
-dashboard.
-
-========================================================
-TASK 5 — SIGNUP
-========================================================
-
-Create:
-
-Create your workspace
-
-Full name
-Work email
-Password
-Organization name
-
-[Create workspace]
-
-After successful signup:
-
-Create account
- ↓
-Create/assign workspace
- ↓
-Create persistent session
- ↓
-Authenticated application
-
-The user should NOT need to sign in again immediately after
-successful signup.
-
-========================================================
-TASK 6 — PRODUCTION UX
-========================================================
-
-Every important action needs:
-
-Loading
-Success
-Error
-Empty
+Find every evidence reference that looks clickable but is not.
 
 Examples:
 
-Signing in:
+#ev_001
+#ev_002
+Evidence IDs
+Source labels
 
-"Signing you in..."
+Either:
 
-Success:
+make it functional
 
-"Welcome back."
+OR
 
-Invalid credentials:
+display it as plain text.
 
-"Unable to sign in. Check your email and password."
+NEVER visually imply a clickable action that does nothing.
 
-Network failure:
+============================================================
+35. API CONTRACT TEST
+============================================================
 
-"We couldn't reach FailureOps. Please try again."
+Every downstream endpoint must preserve provenance.
 
-Project loading:
+Examples:
 
-"Loading project intelligence..."
+GET signals
+GET evidence
+GET events
+GET claims
+GET DNA
+GET radar
+GET predictions
+GET interventions
 
-No projects:
+Inspect responses.
 
-"You haven't created a project yet."
+Verify the frontend can navigate:
 
-[Create project]
+signal → evidence
+evidence → document
+prediction → evidence
+intervention → evidence
+risk → signals → evidence
 
-========================================================
-TASK 7 — RESPONSIVE DESIGN
-========================================================
+============================================================
+36. DATABASE INTEGRITY
+============================================================
 
-The entire public website and authentication flow must work on:
+Verify foreign keys / identifiers where possible:
 
-390px mobile
-430px mobile
-768px tablet
-1024px laptop
-1440px desktop
-1920px desktop
+signal.evidence_id
+evidence.document_id
+evidence.chunk_id
+prediction.signal_id
+intervention.signal_id
 
-Requirements:
+Avoid storing copied source names as the only relationship.
 
-- no horizontal overflow
-- responsive typography
-- responsive navigation
-- mobile menu
-- responsive cards
-- responsive product preview
-- touch-friendly controls
-- proper spacing
-- accessible buttons
-- readable charts
-- no desktop-only assumptions
+IDs should be authoritative.
 
-Do not merely shrink the desktop design.
+============================================================
+37. NO DUPLICATE EVIDENCE
+============================================================
 
-========================================================
-TASK 8 — DESIGN QUALITY
-========================================================
+If the same source evidence is used by:
 
-Use a sophisticated enterprise intelligence aesthetic.
+Signal
+DNA
+Radar
+Prediction
 
-Keep FailureOps identity:
+reference the same evidence record.
 
-Dark neutral background
-Orange primary accent
-Subtle blue/teal information colors
-Clean typography
-Thin borders
-Subtle depth
-Controlled gradients
-Minimal glass effects
+Do NOT duplicate the entire evidence object unnecessarily.
 
-Avoid:
+============================================================
+38. REAL SOURCE VERIFICATION
+============================================================
 
-- excessive neon
-- excessive glow
-- huge gradients
-- fake telemetry
-- generic AI robot graphics
-- excessive animations
-- dashboard widgets on the marketing homepage
-- meaningless statistics
+For one live source:
 
-The website should feel like a serious enterprise SaaS product.
+Take:
 
-========================================================
-TASK 9 — DO NOT BREAK EXISTING FEATURES
-========================================================
+fintech.pdf
 
-Before modifying anything, inspect existing:
+or a current project document.
 
-- auth
-- API routes
-- middleware
-- cookies
-- context providers
-- project routes
-- RAG integration
-- agent integration
-- evidence
-- Failure DNA
-- Radar
-- historical search
-- privacy model
+Verify:
 
-Preserve all existing working functionality.
+Evidence
+→ source_document_id
+→ Open Source
+→ actual file
 
-If you discover an existing authentication mechanism, repair it
-rather than creating a second competing authentication system.
+Then verify the exact evidence exists in the file.
 
-========================================================
-TASK 10 — CODE QUALITY
-========================================================
+This is a hard acceptance criterion.
 
-Use reusable components.
+============================================================
+39. TEST MULTIPLE DOCUMENTS
+============================================================
 
-Do not duplicate:
+Use at least:
 
-Navbar
-Buttons
-Cards
-Forms
-Inputs
-Modal
-Drawer
-Loading states
-Error states
-
-Keep:
-
-TypeScript strongly typed
-clean component boundaries
-clean API/service boundaries
-accessible HTML
-responsive CSS
-minimal unnecessary dependencies
-
-========================================================
-TASK 11 — TEST THE AUTH BUG
-========================================================
-
-After implementation, explicitly test:
-
-TEST 1:
-Sign in → refresh page
+1 narrative document
+1 telemetry document
+1 feedback document
 
 Expected:
-Still authenticated.
 
-TEST 2:
-Sign in → close browser → reopen application
+Narrative
+→ Events / Claims
 
-Expected:
-Session restored if session is still valid.
+Telemetry
+→ Metrics / Signals
 
-TEST 3:
-Sign in → navigate directly to /app/dashboard
+Feedback
+→ Claims / supporting signals where appropriate
 
-Expected:
-Dashboard loads.
+Each should preserve its source.
 
-TEST 4:
-Sign out → close browser → reopen
+============================================================
+40. PRIVACY
+============================================================
 
-Expected:
-Login required.
+Every evidence/source lookup must enforce:
 
-TEST 5:
-Open /app/dashboard while logged out
+organization_id
+project_id
+privacy scope
+authorization
 
-Expected:
-Redirect to /login.
+Never allow:
 
-TEST 6:
-Valid session → visit /login
+Company B private evidence
+→ Company A signal
+→ Company A source access
 
-Expected:
-Redirect to dashboard/application.
+Global intelligence must only use explicitly authorized/anonymized knowledge.
 
-TEST 7:
-Invalid credentials
+============================================================
+41. FRONTEND PERFORMANCE
+============================================================
 
-Expected:
-Clear error message.
+Do not fetch the entire raw evidence corpus for every screen.
 
-TEST 8:
-Network/API failure
+Fetch:
 
-Expected:
-Graceful error state.
+summary lists
 
-TEST 9:
-Mobile login
+Then fetch:
 
-Expected:
-No overflow and usable form.
+detailed evidence
 
-TEST 10:
-Desktop login
+when the user expands/clicks.
 
-Expected:
-Production-quality layout.
+Do not rerun LangGraph on every tab.
 
-========================================================
-FINAL REQUIREMENT
-========================================================
+============================================================
+42. ERROR STATES
+============================================================
 
-DO NOT just change colors and spacing.
+Use truthful states:
 
-The result should represent a real product architecture:
+NO_ANALYSIS
+ANALYSIS_RUNNING
+ANALYSIS_COMPLETE
+INSUFFICIENT_EVIDENCE
+SOURCE_UNAVAILABLE
+UNAUTHORIZED
+ANALYSIS_FAILED
 
-PUBLIC WEBSITE
-      ↓
-AUTHENTICATION
-      ↓
-PERSISTENT SESSION
-      ↓
-WORKSPACE
-      ↓
-PROJECTS
-      ↓
+Do not use fake values to fill empty states.
+
+============================================================
+43. CURRENT SCREEN-SPECIFIC FIXES
+============================================================
+
+SCREEN 1 — SIGNAL EXPLORER
+
+Fix:
+
+- generic "Observed anomaly"
+- #ev_001 references
+- non-clickable evidence
+- missing detailed explanation
+
+Show:
+
+real signal
+real metric/change
+risk
+trend
+supporting evidence
+source
+
+------------------------------------------------------------
+
+SCREEN 2 — FAILURE DNA
+
+Fix:
+
+- generic/missing rationale
+- unsupported "Historical Correlation Verified"
+- unexplained dimension score
+
+Show:
+
+dimension score
+why
+drivers
+signals
+evidence
+historical status
+
+------------------------------------------------------------
+
+SCREEN 3 — FAILURE DNA DECOMPOSITION
+
+Fix:
+
+"No engine rationale was returned."
+
+Replace with:
+
+actual deterministic rationale
+
+OR
+
+"Insufficient evidence to explain this dimension."
+
+Then show evidence drivers.
+
+------------------------------------------------------------
+
+SCREEN 4 — FAILURE RADAR
+
+Fix:
+
+Top failure risks currently appear without enough detail.
+
+For every top risk show:
+
+risk
+score
+severity
+why
+contributing signals
+evidence
+source
+confidence
+
+------------------------------------------------------------
+
+SCREEN 5 — PREDICTION
+
+Fix:
+
+- unsupported narrative
+- non-clickable evidence IDs
+- missing explanation
+
+Show:
+
+prediction
+probability only if supported
+time window only if supported
+why
+signals
+evidence
+sources
+
+============================================================
+44. TEST THE EXACT USER JOURNEY
+============================================================
+
+Run:
+
+UPLOAD DOCUMENT
+↓
+RAG INGESTION
+↓
+LANGGRAPH ANALYSIS
+↓
 EVIDENCE
-      ↓
-FAILURE INTELLIGENCE
+↓
+SIGNALS
+↓
+FAILURE DNA
+↓
+RADAR
+↓
+PREDICTION
+↓
+INTERVENTION
 
-The public website sells/explains the product.
+At every stage verify:
 
-The authenticated application operates the product.
+Can I answer:
 
-The authentication layer securely connects both.
+"WHY DID THE SYSTEM SAY THIS?"
 
-First inspect the existing repository and report:
+And:
 
-1. Current authentication mechanism
-2. Why session persistence is currently failing
-3. Current landing-page routes/components
-4. Components that can be reused
-5. Components that should be redesigned
-6. Files you intend to modify
+"SHOW ME THE DOCUMENT THAT PROVES IT."
 
-Then implement the changes incrementally.
+If any screen cannot answer those two questions, the implementation is not
+complete.
 
-After every major change, run the appropriate type checks,
-lint/tests/build checks and fix any regressions before continuing.
+============================================================
+45. BROWSER CLICK-THROUGH TEST
+============================================================
+
+Perform this manually:
+
+Signal
+→ click evidence
+
+Evidence
+→ click source
+
+Source
+→ actual document
+
+Then:
+
+Failure DNA
+→ click driver
+
+Driver
+→ evidence
+
+Evidence
+→ source
+
+Then:
+
+Radar risk
+→ supporting signal
+
+Signal
+→ evidence
+
+Evidence
+→ source
+
+Then:
+
+Prediction
+→ supporting evidence
+
+Evidence
+→ source
+
+All paths must work.
+
+============================================================
+46. AUTOMATED TESTS
+============================================================
+
+Add tests for:
+
+- evidence ID resolution
+- evidence → document relationship
+- clickable source URL generation
+- document authorization
+- signal provenance
+- DNA provenance
+- radar provenance
+- prediction provenance
+- intervention provenance
+- missing evidence
+- missing document
+- unauthorized document
+- stale evidence
+- nonexistent evidence
+- duplicate evidence
+- no historical memory
+- insufficient evidence
+- source download
+
+============================================================
+47. GOLDEN END-TO-END ASSERTION
+============================================================
+
+Given:
+
+Document D
+Chunk C
+Evidence E
+Signal S
+Risk R
+Prediction P
+
+assert:
+
+S references E
+
+E references D
+
+E references C
+
+R references S/E
+
+P references S/E
+
+and:
+
+D can actually be opened by authorized user.
+
+============================================================
+48. FINAL ACCEPTANCE TABLE
+============================================================
+
+Return:
+
+| Screen | Real Data | Explanation | Evidence Link | Source Link |
+|---|---|---|---|---|
+| Evidence | PASS/FAIL | PASS/FAIL | PASS/FAIL | PASS/FAIL |
+| Signals | PASS/FAIL | PASS/FAIL | PASS/FAIL | PASS/FAIL |
+| Failure DNA | PASS/FAIL | PASS/FAIL | PASS/FAIL | PASS/FAIL |
+| Radar | PASS/FAIL | PASS/FAIL | PASS/FAIL | PASS/FAIL |
+| Prediction | PASS/FAIL | PASS/FAIL | PASS/FAIL | PASS/FAIL |
+| Interventions | PASS/FAIL | PASS/FAIL | PASS/FAIL | PASS/FAIL |
+| Experiments | PASS/FAIL | PASS/FAIL | PASS/FAIL | PASS/FAIL |
+| Truth Engine | PASS/FAIL | PASS/FAIL | PASS/FAIL | PASS/FAIL |
+
+============================================================
+49. REQUIRED FINAL REPORT
+============================================================
+
+Return:
+
+1. Exact provenance bug
+2. Where evidence IDs were being converted/lost
+3. Backend schema changes
+4. API changes
+5. Frontend changes
+6. Source opening fix
+7. RustFS/document access verification
+8. Signal explanation fix
+9. Failure DNA explanation fix
+10. Radar explanation fix
+11. Prediction explanation fix
+12. Privacy verification
+13. Historical memory verification
+14. Tests added
+15. Backend tests
+16. Frontend build
+17. Live browser click-through
+18. Example complete chain
+
+Include one real example:
+
+QUESTION / SIGNAL:
+...
+
+EVIDENCE:
+...
+
+DOCUMENT:
+...
+
+LOCATION:
+...
+
+CLICK:
+...
+
+SOURCE:
+...
+
+HTTP:
+200
+
+ACTUAL DOCUMENT:
+opened
+
+============================================================
+FINAL PRINCIPLE
+============================================================
+
+FailureOps must never ask the user to simply TRUST the system.
+
+It must allow the user to VERIFY the system.
+
+The fundamental chain is:
+
+RAG
+→ retrieved chunk
+→ verified evidence
+→ event / claim / metric
+→ signal
+→ risk
+→ prediction
+→ intervention
+
+and at every step:
+
+"SHOW ME THE EVIDENCE."
+
+Every major intelligence statement must therefore be:
+
+TRACEABLE
+CLICKABLE
+SOURCE-BACKED
+PRIVACY-SAFE
+NON-FABRICATED
+
+The desired user experience is:
+
+WHAT?
+→ WHY?
+→ PROOF?
+→ SOURCE?
+
+If the answer cannot be traced back to a real source document,
+the UI must explicitly say:
+
+INSUFFICIENT EVIDENCE.
+
+Do not replace missing proof with generated text.
+
+User scrolls sidebar down
+        ↓
+Clicks "Validated Learnings"
+        ↓
+Route changes
+        ↓
+Sidebar/component re-renders
+        ↓
+scrollTop resets to 0
+        ↓
+Sidebar jumps back to top

@@ -38,6 +38,18 @@ export const AppSidebar: React.FC = () => {
   const pathname = usePathname();
   const { project, user, logout } = useApp();
   const projectId = project.id;
+  const navRef = React.useRef<HTMLElement>(null);
+
+  React.useEffect(() => {
+    const saved = sessionStorage.getItem('sidebar_scroll_pos');
+    if (saved && navRef.current) {
+      navRef.current.scrollTop = parseInt(saved, 10);
+    }
+  }, [pathname]);
+
+  const handleScroll = (e: React.UIEvent<HTMLElement>) => {
+    sessionStorage.setItem('sidebar_scroll_pos', String(e.currentTarget.scrollTop));
+  };
 
   const initials = user?.name
     ? user.name
@@ -108,7 +120,12 @@ export const AppSidebar: React.FC = () => {
         </Link>
       </div>
 
-      <nav className="flex-1 min-h-0 overflow-y-auto no-scrollbar px-2 py-1 space-y-4" aria-label="Primary">
+      <nav
+        ref={navRef}
+        onScroll={handleScroll}
+        className="flex-1 min-h-0 overflow-y-auto no-scrollbar px-2 py-1 space-y-4"
+        aria-label="Primary"
+      >
         {navigation.map((section) => (
           <div key={section.group} className="space-y-0.5">
             <h5 className="px-2.5 pb-1 text-[9px] font-bold tracking-[0.08em] text-subtle uppercase">

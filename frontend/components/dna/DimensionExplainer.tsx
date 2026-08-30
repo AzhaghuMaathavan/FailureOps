@@ -1,6 +1,8 @@
 'use client';
 
 import React from 'react';
+import Link from 'next/link';
+import { useParams } from 'next/navigation';
 import { FailureDNADimension } from '@/types';
 import { ShieldAlert, AlertTriangle, History } from 'lucide-react';
 import { RiskBadge } from '@/components/common/RiskBadge';
@@ -9,7 +11,32 @@ interface DimensionExplainerProps {
   dimension: FailureDNADimension;
 }
 
+function renderTextWithEvidenceLinks(text: string, projectId: string) {
+  if (!text) return null;
+  const parts = text.split(/(#?ev_[a-zA-Z0-9_-]+)/g);
+  return parts.map((part, index) => {
+    const match = part.match(/^#?(ev_[a-zA-Z0-9_-]+)$/);
+    if (match) {
+      const evId = match[1];
+      return (
+        <Link
+          key={index}
+          href={`/projects/${projectId}/evidence#${evId}`}
+          className="inline-flex items-center font-mono font-bold text-primary hover:underline hover:text-primary-hover px-1 py-0.5 rounded bg-primary/10 border border-primary/20 transition-colors mx-0.5 cursor-pointer"
+        >
+          #{evId}
+        </Link>
+      );
+    }
+    return part;
+  });
+}
+
 export const DimensionExplainer: React.FC<DimensionExplainerProps> = ({ dimension }) => {
+  const params = useParams();
+  const projectId = (params?.id as string) || 'aurora';
+  const hasHistory = dimension.historicalCorrelation && dimension.historicalCorrelation !== 'No historical correlation recorded.' && !dimension.historicalCorrelation.includes('No historical');
+
   return (
     <div
       id="dimension-explainer"
@@ -35,7 +62,7 @@ export const DimensionExplainer: React.FC<DimensionExplainerProps> = ({ dimensio
 
         <div className="hidden sm:flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-surface-feed border border-border text-xs font-mono text-muted-foreground shrink-0">
           <History className="w-3.5 h-3.5 text-primary" aria-hidden="true" />
-          <span>Historical Correlation Verified</span>
+          <span>{hasHistory ? 'Historical Vector Match' : 'Novel pattern — no historical memory match'}</span>
         </div>
       </div>
 
@@ -45,7 +72,7 @@ export const DimensionExplainer: React.FC<DimensionExplainerProps> = ({ dimensio
             Root Dynamic (Why this score exists)
           </h4>
           <p className="text-sm text-foreground/90 leading-relaxed p-4 rounded-xl bg-surface-feed border border-border font-medium">
-            {dimension.whyExplanation}
+            {renderTextWithEvidenceLinks(dimension.whyExplanation, projectId)}
           </p>
         </div>
 
@@ -61,14 +88,14 @@ export const DimensionExplainer: React.FC<DimensionExplainerProps> = ({ dimensio
                   className="flex items-start gap-2.5 p-3 rounded-lg bg-card border border-border text-xs text-foreground font-medium"
                 >
                   <AlertTriangle className="w-4 h-4 text-warning shrink-0 mt-0.5" aria-hidden="true" />
-                  <span className="leading-relaxed">{driver}</span>
+                  <span className="leading-relaxed">{renderTextWithEvidenceLinks(driver, projectId)}</span>
                 </div>
               ))}
             </div>
           </div>
         )}
 
-        {dimension.historicalCorrelation && (
+        {hasHistory && (
           <div className="p-3.5 rounded-xl bg-magic/10 border border-magic/30 flex items-start gap-2.5 text-xs text-magic">
             <History className="w-4 h-4 shrink-0 mt-0.5" aria-hidden="true" />
             <div>

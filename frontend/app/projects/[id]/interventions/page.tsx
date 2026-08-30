@@ -183,12 +183,13 @@ export default function InterventionsPage() {
                       <div className="mt-4 flex flex-wrap items-center gap-1.5">
                         <span className="font-mono text-[10px] uppercase text-muted-foreground">Grounding:</span>
                         {evidenceIds.map((eid: string) => (
-                          <span
+                          <Link
                             key={eid}
-                            className="rounded-md border border-border bg-surface-feed px-2 py-0.5 font-mono text-[10px] text-primary"
+                            href={`/projects/${projectId}/evidence#${eid}`}
+                            className="rounded-md border border-primary/30 bg-primary/10 px-2 py-0.5 font-mono text-[10px] font-semibold text-primary hover:bg-primary/20 hover:underline transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary cursor-pointer"
                           >
-                            {eid}
-                          </span>
+                            #{eid}
+                          </Link>
                         ))}
                       </div>
                     )}

@@ -45,6 +45,8 @@ export default function FailureRadarPage() {
   const recoveryDelta = snapshot?.best_historical_recovery_delta || null;
   const trajectory = snapshot?.risk_trajectory_history || snapshot?.trajectory || [];
 
+  const [selectedRisk, setSelectedRisk] = useState<any | null>(null);
+
   return (
     <div className="space-y-5">
       <div className="flex flex-col sm:flex-row sm:items-start justify-between gap-4">
@@ -102,20 +104,91 @@ export default function FailureRadarPage() {
           <TrajectoryChart data={trajectory} />
         </div>
         <div className={`flex flex-col gap-2 p-[18px] rounded-[14px] bg-card border border-border ${cardShadow}`}>
-          <h2 className="text-sm font-semibold text-foreground">Top failure risks</h2>
+          <div className="flex items-center justify-between">
+            <h2 className="text-sm font-semibold text-foreground">Top failure risks</h2>
+            <span className="text-[10px] font-mono text-muted-foreground">Click for details</span>
+          </div>
           {topRisks.length === 0 ? (
             <p className="text-xs text-muted-foreground">No ranked failure risks yet.</p>
           ) : (
             <ol className="space-y-2">
-              {topRisks.slice(0, 5).map((risk: any, idx: number) => (
-                <li key={idx} className="flex items-start justify-between gap-3 text-xs">
-                  <span className="text-muted-foreground leading-relaxed">
-                    <span className="font-semibold text-foreground">{idx + 1}. {risk.name}</span>
-                    {risk.dimension ? ` — ${risk.dimension}` : ''}
-                  </span>
-                  <RiskBadge level={risk.risk_level || 'HIGH'} />
-                </li>
-              ))}
+              {topRisks.slice(0, 5).map((risk: any, idx: number) => {
+                const isExpanded = selectedRisk?.name === risk.name;
+                const evIds = risk.evidence_ids || (risk.primary_evidence_id ? [risk.primary_evidence_id] : []);
+                return (
+                  <li key={idx} className="rounded-xl border border-border bg-surface-feed/60 p-2.5 transition-all">
+                    <button
+                      type="button"
+                      onClick={() => setSelectedRisk(isExpanded ? null : risk)}
+                      className="w-full flex items-start justify-between gap-3 text-xs text-left cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary"
+                    >
+                      <span className="text-muted-foreground leading-relaxed">
+                        <span className="font-semibold text-foreground">{idx + 1}. {risk.name}</span>
+                        {risk.dimension ? ` — ${risk.dimension}` : ''}
+                      </span>
+                      <div className="flex items-center gap-2 shrink-0">
+                        {risk.risk_score !== undefined && (
+                          <span className="font-mono text-[11px] font-bold text-foreground">
+                            {risk.risk_score}/100
+                          </span>
+                        )}
+                        <RiskBadge level={risk.risk_level || 'HIGH'} />
+                      </div>
+                    </button>
+
+                    {isExpanded && (
+                      <div className="mt-3 pt-3 border-t border-border space-y-2.5 text-xs">
+                        {risk.why_explanation && (
+                          <div>
+                            <span className="font-bold text-primary block text-[11px] uppercase tracking-wider mb-1">
+                              Why Ranked Here:
+                            </span>
+                            <p className="text-foreground/90 leading-relaxed font-medium bg-card p-2 rounded-lg border border-border">
+                              {risk.why_explanation}
+                            </p>
+                          </div>
+                        )}
+
+                        {risk.contributing_signals && risk.contributing_signals.length > 0 && (
+                          <div>
+                            <span className="font-bold text-muted-foreground block text-[10px] uppercase tracking-wider mb-1">
+                              Contributing Signals:
+                            </span>
+                            <div className="flex flex-wrap gap-1.5">
+                              {risk.contributing_signals.map((sig: string, sIdx: number) => (
+                                <span key={sIdx} className="px-2 py-0.5 rounded-md bg-card border border-border text-[11px] font-mono text-foreground">
+                                  {sig}
+                                </span>
+                              ))}
+                            </div>
+                          </div>
+                        )}
+
+                        <div className="flex flex-wrap items-center justify-between gap-2 pt-1">
+                          <div className="flex flex-wrap items-center gap-1.5">
+                            <span className="font-mono text-[10px] text-muted-foreground">Evidence:</span>
+                            {evIds.map((eid: string) => (
+                              <Link
+                                key={eid}
+                                href={`/projects/${projectId}/evidence#${eid}`}
+                                className="px-2 py-0.5 rounded-md bg-primary/10 border border-primary/30 font-mono text-[10px] font-bold text-primary hover:underline hover:bg-primary/20 transition-colors cursor-pointer"
+                              >
+                                #{eid}
+                              </Link>
+                            ))}
+                          </div>
+                          <Link
+                            href={`/projects/${projectId}/evidence`}
+                            className="text-[11px] font-semibold text-primary hover:underline flex items-center gap-1"
+                          >
+                            View Evidence →
+                          </Link>
+                        </div>
+                      </div>
+                    )}
+                  </li>
+                );
+              })}
             </ol>
           )}
         </div>

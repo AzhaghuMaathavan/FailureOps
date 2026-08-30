@@ -12,7 +12,7 @@ class AnalysisRequest(BaseModel):
     analysis_id: str = Field(default_factory=lambda: str(uuid.uuid4()))
     project_id: str
     company_id: Optional[str] = None
-    query: str
+    query: Optional[str] = None
     document_ids: Optional[List[str]] = None
     options: Dict[str, Any] = Field(default_factory=dict)
 

@@ -52,7 +52,10 @@ def synthesize_failure_radar_snapshot(
                     risk_level=lvl,
                     risk_score=dim.risk_score or 0,
                     confidence=dim.confidence,
-                    primary_evidence_id=evidence_id
+                    primary_evidence_id=evidence_id,
+                    why_explanation=dim.why_explanation,
+                    contributing_signals=dim.primary_drivers,
+                    evidence_ids=dim.evidence_ids
                 )
             )
 
