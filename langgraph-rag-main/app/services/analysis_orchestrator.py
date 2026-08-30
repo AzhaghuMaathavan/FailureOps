@@ -299,20 +299,18 @@ def run_project_analysis_pipeline(
                     category=item.category,
                     evidence_type=item.evidence_type,
                     statement=item.statement,
-                    metric_name=item.normalized_value.metric if item.normalized_value else None,
-                    metric_before=item.normalized_value.before if item.normalized_value else None,
-                    metric_after=item.normalized_value.after if item.normalized_value else None,
-                    metric_unit=item.normalized_value.unit if item.normalized_value else None,
-                    direction=item.normalized_value.direction if item.normalized_value else None,
-                    document_id=item.source.document_id if item.source else None,
-                    location_type=item.source.location_type if item.source else None,
-                    location_value=item.source.location_value if item.source else None,
+                    normalized_value=item.normalized_value.model_dump() if item.normalized_value else None,
+                    time_period=item.time_period.model_dump() if item.time_period else None,
+                    source_lineage=item.source.model_dump() if item.source else {},
+                    supporting_sources=[s.model_dump() for s in item.supporting_sources] if item.supporting_sources else [],
+                    supporting_chunk_ids=item.supporting_chunk_ids or [],
                     evidence_confidence=item.evidence_confidence,
                     verification_status=item.verification_status,
-                    visibility=item.privacy.visibility,
-                    global_learning_allowed=item.privacy.global_learning_allowed
+                    visibility=item.privacy.visibility if item.privacy else "PRIVATE",
+                    global_learning_allowed=item.privacy.global_learning_allowed if item.privacy else False
                 )
                 db.add(db_item)
+
 
             for sig in signal_packet.signals:
                 db_sig = SignalItem(
