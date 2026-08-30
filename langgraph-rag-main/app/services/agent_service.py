@@ -14,6 +14,9 @@ def extract_json(text: str) -> Dict[str, Any]:
     import json, re
     text = text.strip()
     
+    # 0. Strip <think>...</think> if present
+    text = re.sub(r'<think>[\s\S]*?</think>', '', text).strip()
+    
     # 1. Direct parse attempt
     try:
         clean = re.sub(r"^```(?:json)?\s*", "", text, flags=re.MULTILINE)
@@ -22,13 +25,20 @@ def extract_json(text: str) -> Dict[str, Any]:
     except Exception:
         pass
         
-    # 2. Extract {...} block
-    match = re.search(r'\{.*?\}', text, re.DOTALL)
-    if match:
+    # 2. Extract outermost {...} block
+    first_brace = text.find('{')
+    last_brace = text.rfind('}')
+    if first_brace != -1 and last_brace > first_brace:
+        candidate = text[first_brace : last_brace + 1]
         try:
-            return json.loads(match.group(0))
+            return json.loads(candidate)
         except Exception:
-            pass
+            # Try removing trailing commas
+            cleaned_candidate = re.sub(r',\s*([\]}])', r'\1', candidate)
+            try:
+                return json.loads(cleaned_candidate)
+            except Exception:
+                pass
             
     # 3. Aggressive extraction if it got cut off (e.g., partial JSON)
     match_answer = re.search(r'"answer"\s*:\s*"((?:[^"\\]|\\.)*)"', text, re.DOTALL | re.IGNORECASE)
@@ -36,8 +46,17 @@ def extract_json(text: str) -> Dict[str, Any]:
         ans = match_answer.group(1).replace('\\"', '"').replace('\\n', '\n')
         return {"answer": ans, "cited_evidence_ids": []}
 
-    print(f"FAILED TO EXTRACT JSON FROM: {text!r}")
+    match_extracted = re.search(r'"extracted_items"\s*:\s*(\[[\s\S]*?\])', text)
+    if match_extracted:
+        try:
+            items = json.loads(match_extracted.group(1))
+            return {"extracted_items": items}
+        except Exception:
+            pass
+
+    logger.warning(f"Could not parse valid JSON from response: {text[:200]}...")
     raise ValueError("Failed to extract JSON from LLM response")
+
 
 def call_llm(system_prompt: str, user_prompt: str, json_mode: bool = False, timeout: float = 90.0, max_tokens: int = 2048, return_metrics: bool = False) -> Any:
     from app.services.llm_scheduler import llm_scheduler
