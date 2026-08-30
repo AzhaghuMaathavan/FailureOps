@@ -175,72 +175,350 @@ class EmailService:
         """
         return self.send_email(to_email, subject, html_body)
 
-    def send_critical_failure_alert(
+    def build_verification_email_html(
         self,
-        to_email: str,
-        project_name: str,
-        risk_score: int,
-        predicted_failure: str,
-        emerging_pattern: str,
-        confidence: int,
-        playbook_title: str,
-        dashboard_url: str = "https://failureops.shyxon.com/dashboard",
-    ) -> Dict[str, Any]:
-        """Sends an executive early-warning risk alert email."""
-        subject = f"[CRITICAL ALERT] FailureOps X Radar Trigger: {project_name} (Risk {risk_score}/100)"
-        html_body = f"""
-<!DOCTYPE html>
-<html>
+        code: str,
+        recipient_name: Optional[str] = None,
+        action_url: Optional[str] = None,
+        expires_minutes: int = 15
+    ) -> str:
+        """Generates a high-precision, executive dark-mode HTML email for verification codes."""
+        greeting_name = recipient_name.strip() if recipient_name else "Intelligence Lead"
+        direct_url = action_url or f"https://failureops.shyxon.com/verify?code={code}"
+
+        return f"""<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
+<html xmlns="http://www.w3.org/1999/xhtml">
 <head>
-  <meta charset="utf-8">
-  <style>
-    body {{ font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; background-color: #070b14; color: #f1f5f9; margin: 0; padding: 24px; }}
-    .container {{ max-width: 600px; margin: 0 auto; background: #0f172a; border: 1px solid #1e293b; border-radius: 16px; padding: 32px; box-shadow: 0 10px 25px -5px rgba(0,0,0,0.5); }}
-    .header {{ border-bottom: 1px solid #1e293b; padding-bottom: 20px; margin-bottom: 20px; }}
-    .logo-badge {{ background: #ff7a00; color: #000; font-family: monospace; font-weight: 900; font-size: 14px; padding: 6px 12px; border-radius: 8px; }}
-    .alert-banner {{ background: rgba(239, 68, 68, 0.15); border: 1px solid rgba(239, 68, 68, 0.4); border-radius: 12px; padding: 16px; margin: 20px 0; }}
-    .risk-tag {{ display: inline-block; background: #ef4444; color: #ffffff; font-weight: 800; font-size: 12px; padding: 4px 8px; border-radius: 6px; }}
-    .card {{ background: #141c2c; border: 1px solid #1e293b; border-radius: 12px; padding: 16px; margin: 16px 0; }}
-    .cta-btn {{ display: inline-block; background: #ff7a00; color: #000000; font-weight: 800; font-size: 13px; text-decoration: none; padding: 12px 24px; border-radius: 10px; margin-top: 16px; }}
-    .footer {{ margin-top: 32px; border-top: 1px solid #1e293b; padding-top: 16px; font-size: 11px; color: #64748b; text-align: center; }}
+  <meta http-equiv="Content-Type" content="text/html; charset=UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>FailureOps X Security Verification</title>
+  <style type="text/css">
+    body {{ margin: 0; padding: 0; background-color: #030712; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; -webkit-font-smoothing: antialiased; }}
+    table {{ border-collapse: separate; }}
+    a, a:link, a:visited {{ text-decoration: none; color: #ff7a00; }}
+    @media only screen and (max-width: 600px) {{
+      .wrapper {{ width: 100% !important; padding: 12px !important; }}
+      .card-inner {{ padding: 24px 16px !important; }}
+      .code-display {{ font-size: 30px !important; letter-spacing: 8px !important; padding: 16px 8px !important; }}
+    }}
   </style>
 </head>
-<body>
-  <div class="container">
-    <div class="header">
-      <span class="logo-badge">FX</span>
-      <h1 style="display:inline; margin-left: 10px; font-size: 20px; font-weight: 800; color: #ffffff;">FAILUREOPS <span style="color:#ff7a00;">X</span></h1>
-    </div>
+<body style="margin: 0; padding: 0; background-color: #030712; color: #f1f5f9;">
+  <!-- Outer Center Wrapper -->
+  <table role="presentation" width="100%" border="0" cellspacing="0" cellpadding="0" style="background-color: #030712; padding: 40px 10px 48px 10px;">
+    <tr>
+      <td align="center">
+        <!-- Main Card Container (Max 580px) -->
+        <table role="presentation" class="wrapper" width="100%" border="0" cellspacing="0" cellpadding="0" style="max-width: 580px; background-color: #090e1a; border: 1px solid #1e293b; border-radius: 16px; overflow: hidden; box-shadow: 0 25px 60px -15px rgba(0, 0, 0, 0.9);">
+          
+          <!-- Top Gradient Cyber Accent Line -->
+          <tr>
+            <td height="4" style="background: linear-gradient(90deg, #ff7a00 0%, #ea580c 45%, #38bdf8 100%); line-height: 4px; font-size: 0px;">&nbsp;</td>
+          </tr>
 
-    <div class="alert-banner">
-      <div style="display: flex; justify-content: space-between; align-items: center;">
-        <span class="risk-tag">SEV-1 RADAR ALERT</span>
-        <span style="font-family: monospace; font-size: 13px; color: #f87171; font-weight: bold;">Risk Score: {risk_score}/100</span>
-      </div>
-      <h2 style="color: #f87171; font-size: 18px; margin: 12px 0 4px 0;">{predicted_failure}</h2>
-      <p style="color: #cbd5e1; font-size: 13px; margin: 0;">Project Enclave: <strong>{project_name}</strong> (Confidence: {confidence}%)</p>
-    </div>
+          <!-- Header Section -->
+          <tr>
+            <td style="padding: 28px 32px 20px 32px; border-bottom: 1px solid #141f36;">
+              <table role="presentation" width="100%" border="0" cellspacing="0" cellpadding="0">
+                <tr>
+                  <td align="left" style="vertical-align: middle;">
+                    <table role="presentation" border="0" cellspacing="0" cellpadding="0">
+                      <tr>
+                        <td style="background-color: #ff7a00; color: #030712; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', monospace; font-size: 13px; font-weight: 900; padding: 5px 10px; border-radius: 6px; letter-spacing: 1px;">
+                          FX
+                        </td>
+                        <td style="padding-left: 12px; font-size: 18px; font-weight: 900; letter-spacing: 1px; color: #ffffff;">
+                          FAILUREOPS <span style="color: #ff7a00;">X</span>
+                        </td>
+                      </tr>
+                    </table>
+                  </td>
+                  <td align="right" style="vertical-align: middle;">
+                    <span style="display: inline-block; background-color: rgba(16, 185, 129, 0.12); border: 1px solid rgba(16, 185, 129, 0.35); color: #10b981; font-family: 'SF Mono', Consolas, monospace; font-size: 11px; font-weight: 700; padding: 4px 10px; border-radius: 20px; letter-spacing: 0.5px;">
+                      &#9679; SECURE ENCLAVE
+                    </span>
+                  </td>
+                </tr>
+              </table>
+            </td>
+          </tr>
 
-    <div class="card">
-      <p style="color: #94a3b8; font-size: 11px; font-weight: bold; text-transform: uppercase; margin: 0 0 6px 0;">Emerging Failure Pattern</p>
-      <p style="color: #f1f5f9; font-size: 14px; font-weight: 600; margin: 0 0 12px 0;">{emerging_pattern}</p>
-      
-      <p style="color: #94a3b8; font-size: 11px; font-weight: bold; text-transform: uppercase; margin: 0 0 6px 0;">Prescribed Intervention Playbook</p>
-      <p style="color: #38bdf8; font-size: 13px; font-weight: bold; margin: 0;">{playbook_title}</p>
-    </div>
+          <!-- Main Content Body -->
+          <tr>
+            <td class="card-inner" style="padding: 32px 32px 24px 32px;">
+              <h2 style="margin: 0 0 12px 0; font-size: 22px; font-weight: 800; color: #ffffff; letter-spacing: -0.3px;">
+                Single-Use Verification Code
+              </h2>
+              <p style="margin: 0 0 24px 0; font-size: 14px; line-height: 1.6; color: #94a3b8;">
+                Hello <strong style="color: #f1f5f9;">{greeting_name}</strong>, a security authentication request was initiated for your FailureOps X intelligence workspace. Enter the 6-digit access code below to complete verification:
+              </p>
 
-    <center>
-      <a href="{dashboard_url}" class="cta-btn">Inspect Evidence & Execute Playbook &rarr;</a>
-    </center>
+              <!-- Central Monospace OTP Box -->
+              <table role="presentation" width="100%" border="0" cellspacing="0" cellpadding="0" style="margin: 24px 0 28px 0;">
+                <tr>
+                  <td align="center" style="background: #0d1527; border: 1px solid rgba(255, 122, 0, 0.4); border-radius: 12px; padding: 24px 16px; box-shadow: 0 0 30px rgba(255, 122, 0, 0.12) inset;">
+                    <div style="font-size: 11px; font-family: 'SF Mono', Consolas, monospace; color: #ff9838; letter-spacing: 1.5px; font-weight: 700; text-transform: uppercase; margin-bottom: 8px;">
+                      AUTHENTICATION PIN
+                    </div>
+                    <div class="code-display" style="font-family: 'SF Mono', Monaco, Consolas, 'Liberation Mono', 'Courier New', monospace; font-size: 38px; font-weight: 900; letter-spacing: 12px; color: #ff7a00; text-indent: 12px; padding: 8px 0;">
+                      {code}
+                    </div>
+                    <div style="font-size: 11px; color: #64748b; margin-top: 6px;">
+                      &#128274; Single-use security token &bull; Expires in {expires_minutes} minutes
+                    </div>
+                  </td>
+                </tr>
+              </table>
 
-    <div class="footer">
-      FailureOps X Continuous Project Intelligence • Automated Early-Warning Dispatch
-    </div>
-  </div>
+              <!-- Direct Action Button -->
+              <table role="presentation" width="100%" border="0" cellspacing="0" cellpadding="0" style="margin-bottom: 28px;">
+                <tr>
+                  <td align="center">
+                    <a href="{direct_url}" target="_blank" style="display: inline-block; background: linear-gradient(135deg, #ff7a00 0%, #ea580c 100%); color: #000000; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; font-size: 14px; font-weight: 800; text-decoration: none; padding: 14px 32px; border-radius: 10px; box-shadow: 0 4px 15px rgba(255, 122, 0, 0.35); letter-spacing: 0.3px;">
+                      Verify &amp; Access Enclave &rarr;
+                    </a>
+                  </td>
+                </tr>
+              </table>
+
+              <!-- Security Metadata Grid -->
+              <table role="presentation" width="100%" border="0" cellspacing="0" cellpadding="0" style="background-color: #0c1322; border: 1px solid #19263f; border-radius: 10px; padding: 16px; margin-bottom: 24px;">
+                <tr>
+                  <td width="50%" style="padding: 6px 12px; font-size: 12px; color: #64748b; font-family: 'SF Mono', Consolas, monospace;">
+                    <span style="color: #94a3b8; font-weight: bold;">SECURITY LEVEL:</span> RESTRICTED
+                  </td>
+                  <td width="50%" style="padding: 6px 12px; font-size: 12px; color: #64748b; font-family: 'SF Mono', Consolas, monospace;">
+                    <span style="color: #94a3b8; font-weight: bold;">ENCRYPTION:</span> TLS 1.3 / AES-256
+                  </td>
+                </tr>
+                <tr>
+                  <td width="50%" style="padding: 6px 12px; font-size: 12px; color: #64748b; font-family: 'SF Mono', Consolas, monospace;">
+                    <span style="color: #94a3b8; font-weight: bold;">GATEWAY:</span> SMTP SSL-465
+                  </td>
+                  <td width="50%" style="padding: 6px 12px; font-size: 12px; color: #64748b; font-family: 'SF Mono', Consolas, monospace;">
+                    <span style="color: #94a3b8; font-weight: bold;">DOMAIN:</span> failureops.shyxon.com
+                  </td>
+                </tr>
+              </table>
+
+              <!-- Security Advisory Notice -->
+              <table role="presentation" width="100%" border="0" cellspacing="0" cellpadding="0" style="background-color: rgba(245, 158, 11, 0.08); border-left: 3px solid #f59e0b; border-radius: 0 8px 8px 0; padding: 12px 16px;">
+                <tr>
+                  <td style="font-size: 12px; color: #cbd5e1; line-height: 1.5;">
+                    <strong style="color: #f59e0b;">Security Notice:</strong> FailureOps automated systems will never request your PIN or credentials. If you did not initiate this request, you can safely disregard this message.
+                  </td>
+                </tr>
+              </table>
+
+            </td>
+          </tr>
+
+          <!-- Footer Section -->
+          <tr>
+            <td style="padding: 24px 32px 32px 32px; background-color: #060a13; border-top: 1px solid #141f36; text-align: center;">
+              <p style="margin: 0 0 8px 0; font-size: 12px; font-weight: 700; color: #94a3b8;">
+                FAILUREOPS X &bull; AUTONOMOUS FAILURE INTELLIGENCE ENCLAVE
+              </p>
+              <p style="margin: 0; font-size: 11px; color: #475569; line-height: 1.5;">
+                Dispatched by FailureOps X SMTP Gateway (contact@shyxon.com)<br />
+                &copy; 2026 FailureOps X Technologies. All rights reserved. Confidential &amp; Proprietary.
+              </p>
+            </td>
+          </tr>
+
+        </table>
+      </td>
+    </tr>
+  </table>
 </body>
-</html>
-        """
-        return self.send_email(to_email, subject, html_body)
+</html>"""
+
+    def build_password_reset_email_html(
+        self,
+        code: str,
+        recipient_name: Optional[str] = None,
+        action_url: Optional[str] = None,
+        expires_minutes: int = 15
+    ) -> str:
+        """Generates a high-precision, executive dark-mode HTML email for password recovery."""
+        greeting_name = recipient_name.strip() if recipient_name else "Intelligence Lead"
+        direct_url = action_url or f"https://failureops.shyxon.com/forgot-password?code={code}"
+
+        return f"""<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
+<html xmlns="http://www.w3.org/1999/xhtml">
+<head>
+  <meta http-equiv="Content-Type" content="text/html; charset=UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>FailureOps X Password Recovery</title>
+  <style type="text/css">
+    body {{ margin: 0; padding: 0; background-color: #030712; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; }}
+    @media only screen and (max-width: 600px) {{
+      .wrapper {{ width: 100% !important; padding: 12px !important; }}
+      .code-display {{ font-size: 30px !important; letter-spacing: 8px !important; padding: 16px 8px !important; }}
+    }}
+  </style>
+</head>
+<body style="margin: 0; padding: 0; background-color: #030712; color: #f1f5f9;">
+  <table role="presentation" width="100%" border="0" cellspacing="0" cellpadding="0" style="background-color: #030712; padding: 40px 10px 48px 10px;">
+    <tr>
+      <td align="center">
+        <table role="presentation" class="wrapper" width="100%" border="0" cellspacing="0" cellpadding="0" style="max-width: 580px; background-color: #090e1a; border: 1px solid #1e293b; border-radius: 16px; overflow: hidden; box-shadow: 0 25px 60px -15px rgba(0, 0, 0, 0.9);">
+          <tr>
+            <td height="4" style="background: linear-gradient(90deg, #f59e0b 0%, #ff7a00 50%, #ef4444 100%); line-height: 4px; font-size: 0px;">&nbsp;</td>
+          </tr>
+          <tr>
+            <td style="padding: 28px 32px 20px 32px; border-bottom: 1px solid #141f36;">
+              <table role="presentation" width="100%" border="0" cellspacing="0" cellpadding="0">
+                <tr>
+                  <td align="left" style="vertical-align: middle;">
+                    <table role="presentation" border="0" cellspacing="0" cellpadding="0">
+                      <tr>
+                        <td style="background-color: #ff7a00; color: #030712; font-family: monospace; font-size: 13px; font-weight: 900; padding: 5px 10px; border-radius: 6px;">FX</td>
+                        <td style="padding-left: 12px; font-size: 18px; font-weight: 900; letter-spacing: 1px; color: #ffffff;">FAILUREOPS <span style="color: #ff7a00;">X</span></td>
+                      </tr>
+                    </table>
+                  </td>
+                  <td align="right" style="vertical-align: middle;">
+                    <span style="display: inline-block; background-color: rgba(239, 68, 68, 0.12); border: 1px solid rgba(239, 68, 68, 0.35); color: #f87171; font-family: monospace; font-size: 11px; font-weight: 700; padding: 4px 10px; border-radius: 20px;">
+                      &#9888; CREDENTIAL RESET
+                    </span>
+                  </td>
+                </tr>
+              </table>
+            </td>
+          </tr>
+          <tr>
+            <td style="padding: 32px 32px 24px 32px;">
+              <h2 style="margin: 0 0 12px 0; font-size: 22px; font-weight: 800; color: #ffffff;">Password Recovery Request</h2>
+              <p style="margin: 0 0 24px 0; font-size: 14px; line-height: 1.6; color: #94a3b8;">
+                Hello <strong style="color: #f1f5f9;">{greeting_name}</strong>, a request was submitted to reset your account password. Use the following verification PIN to authorize password reset:
+              </p>
+              <table role="presentation" width="100%" border="0" cellspacing="0" cellpadding="0" style="margin: 24px 0 28px 0;">
+                <tr>
+                  <td align="center" style="background: #0d1527; border: 1px solid rgba(255, 122, 0, 0.4); border-radius: 12px; padding: 24px 16px;">
+                    <div style="font-size: 11px; font-family: monospace; color: #ff9838; letter-spacing: 1.5px; font-weight: 700; text-transform: uppercase; margin-bottom: 8px;">RECOVERY PIN</div>
+                    <div class="code-display" style="font-family: monospace; font-size: 38px; font-weight: 900; letter-spacing: 12px; color: #ff7a00; text-indent: 12px;">{code}</div>
+                    <div style="font-size: 11px; color: #64748b; margin-top: 6px;">Valid for {expires_minutes} minutes</div>
+                  </td>
+                </tr>
+              </table>
+              <table role="presentation" width="100%" border="0" cellspacing="0" cellpadding="0" style="margin-bottom: 28px;">
+                <tr>
+                  <td align="center">
+                    <a href="{direct_url}" target="_blank" style="display: inline-block; background: linear-gradient(135deg, #ff7a00 0%, #ea580c 100%); color: #000000; font-size: 14px; font-weight: 800; text-decoration: none; padding: 14px 32px; border-radius: 10px;">
+                      Reset Password Now &rarr;
+                    </a>
+                  </td>
+                </tr>
+              </table>
+            </td>
+          </tr>
+          <tr>
+            <td style="padding: 24px 32px; background-color: #060a13; border-top: 1px solid #141f36; text-align: center; font-size: 11px; color: #475569;">
+              FailureOps X Security Enclave &bull; Dispatched via contact@shyxon.com
+            </td>
+          </tr>
+        </table>
+      </td>
+    </tr>
+  </table>
+</body>
+</html>"""
+
+    def build_executive_report_html(
+        self,
+        project_name: str,
+        message: str,
+        dashboard_url: str = "https://failureops.shyxon.com/dashboard"
+    ) -> str:
+        """Generates an advanced executive intelligence briefing HTML email."""
+        return f"""<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
+<html xmlns="http://www.w3.org/1999/xhtml">
+<head>
+  <meta http-equiv="Content-Type" content="text/html; charset=UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>FailureOps X Executive Intelligence Brief</title>
+  <style type="text/css">
+    body {{ margin: 0; padding: 0; background-color: #030712; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; }}
+    @media only screen and (max-width: 600px) {{
+      .wrapper {{ width: 100% !important; padding: 12px !important; }}
+    }}
+  </style>
+</head>
+<body style="margin: 0; padding: 0; background-color: #030712; color: #f1f5f9;">
+  <table role="presentation" width="100%" border="0" cellspacing="0" cellpadding="0" style="background-color: #030712; padding: 40px 10px 48px 10px;">
+    <tr>
+      <td align="center">
+        <table role="presentation" class="wrapper" width="100%" border="0" cellspacing="0" cellpadding="0" style="max-width: 600px; background-color: #090e1a; border: 1px solid #1e293b; border-radius: 16px; overflow: hidden; box-shadow: 0 25px 60px -15px rgba(0, 0, 0, 0.9);">
+          <tr>
+            <td height="4" style="background: linear-gradient(90deg, #ff7a00 0%, #38bdf8 100%); line-height: 4px; font-size: 0px;">&nbsp;</td>
+          </tr>
+          <tr>
+            <td style="padding: 28px 32px 20px 32px; border-bottom: 1px solid #141f36;">
+              <table role="presentation" width="100%" border="0" cellspacing="0" cellpadding="0">
+                <tr>
+                  <td align="left" style="vertical-align: middle;">
+                    <table role="presentation" border="0" cellspacing="0" cellpadding="0">
+                      <tr>
+                        <td style="background-color: #ff7a00; color: #030712; font-family: monospace; font-size: 13px; font-weight: 900; padding: 5px 10px; border-radius: 6px;">FX</td>
+                        <td style="padding-left: 12px; font-size: 18px; font-weight: 900; letter-spacing: 1px; color: #ffffff;">FAILUREOPS <span style="color: #ff7a00;">X</span></td>
+                      </tr>
+                    </table>
+                  </td>
+                  <td align="right" style="vertical-align: middle;">
+                    <span style="display: inline-block; background-color: rgba(56, 189, 248, 0.12); border: 1px solid rgba(56, 189, 248, 0.35); color: #38bdf8; font-family: monospace; font-size: 11px; font-weight: 700; padding: 4px 10px; border-radius: 20px;">
+                      INTELLIGENCE BRIEF
+                    </span>
+                  </td>
+                </tr>
+              </table>
+            </td>
+          </tr>
+          <tr>
+            <td style="padding: 32px 32px 24px 32px;">
+              <h2 style="margin: 0 0 8px 0; font-size: 22px; font-weight: 800; color: #ffffff;">Executive Intelligence Summary</h2>
+              <div style="font-size: 13px; color: #38bdf8; font-weight: 700; margin-bottom: 20px; font-family: monospace;">
+                PROJECT: {project_name.upper()}
+              </div>
+              <div style="background-color: #0d1527; border: 1px solid #19263f; border-radius: 12px; padding: 20px; margin-bottom: 28px;">
+                <p style="margin: 0; font-size: 14px; line-height: 1.7; color: #cbd5e1; white-space: pre-wrap;">{message}</p>
+              </div>
+              <table role="presentation" width="100%" border="0" cellspacing="0" cellpadding="0" style="margin-bottom: 24px;">
+                <tr>
+                  <td align="center">
+                    <a href="{dashboard_url}" target="_blank" style="display: inline-block; background: linear-gradient(135deg, #ff7a00 0%, #ea580c 100%); color: #000000; font-size: 14px; font-weight: 800; text-decoration: none; padding: 14px 32px; border-radius: 10px;">
+                      Open Workspace Dashboard &rarr;
+                    </a>
+                  </td>
+                </tr>
+              </table>
+            </td>
+          </tr>
+          <tr>
+            <td style="padding: 24px 32px; background-color: #060a13; border-top: 1px solid #141f36; text-align: center; font-size: 11px; color: #475569;">
+              FailureOps X Continuous Intelligence Engine &bull; Dispatched via contact@shyxon.com
+            </td>
+          </tr>
+        </table>
+      </td>
+    </tr>
+  </table>
+</body>
+</html>"""
+
+    def send_verification_code_email(
+        self,
+        to_email: str,
+        code: str,
+        recipient_name: Optional[str] = None,
+        action_url: Optional[str] = None
+    ) -> Dict[str, Any]:
+        """Dispatches an executive verification code email."""
+        subject = f"Your FailureOps X Verification Code: {code}"
+        html_body = self.build_verification_email_html(code, recipient_name, action_url)
+        text_body = f"Your FailureOps X 6-digit verification code is: {code}. It expires in 15 minutes."
+        return self.send_email(to_email, subject, html_body, text_body)
 
 
 email_service = EmailService()
+

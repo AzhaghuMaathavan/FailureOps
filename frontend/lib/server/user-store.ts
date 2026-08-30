@@ -118,8 +118,226 @@ function persistUsers(): void {
   }
 }
 
+function renderVerificationEmailHtml(code: string, name: string, email: string, isResend: boolean = false): string {
+  const directUrl = `https://failureops.shyxon.com/verify?email=${encodeURIComponent(email)}&code=${encodeURIComponent(code)}`;
+  const title = isResend ? 'New Verification PIN' : 'Verify Your Intelligence Workspace';
+  const subtitle = isResend 
+    ? 'A new verification code was requested for your account.' 
+    : 'Welcome to FailureOps X. Please verify your email to activate your autonomous reasoning enclave:';
+
+  return `<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
+<html xmlns="http://www.w3.org/1999/xhtml">
+<head>
+  <meta http-equiv="Content-Type" content="text/html; charset=UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>FailureOps X Security Verification</title>
+  <style type="text/css">
+    body { margin: 0; padding: 0; background-color: #030712; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; -webkit-font-smoothing: antialiased; }
+    table { border-collapse: separate; }
+    a, a:link, a:visited { text-decoration: none; color: #ff7a00; }
+    @media only screen and (max-width: 600px) {
+      .wrapper { width: 100% !important; padding: 12px !important; }
+      .card-inner { padding: 24px 16px !important; }
+      .code-display { font-size: 30px !important; letter-spacing: 8px !important; padding: 16px 8px !important; }
+    }
+  </style>
+</head>
+<body style="margin: 0; padding: 0; background-color: #030712; color: #f1f5f9;">
+  <table role="presentation" width="100%" border="0" cellspacing="0" cellpadding="0" style="background-color: #030712; padding: 40px 10px 48px 10px;">
+    <tr>
+      <td align="center">
+        <table role="presentation" class="wrapper" width="100%" border="0" cellspacing="0" cellpadding="0" style="max-width: 580px; background-color: #090e1a; border: 1px solid #1e293b; border-radius: 16px; overflow: hidden; box-shadow: 0 25px 60px -15px rgba(0, 0, 0, 0.9);">
+          <tr>
+            <td height="4" style="background: linear-gradient(90deg, #ff7a00 0%, #ea580c 45%, #38bdf8 100%); line-height: 4px; font-size: 0px;">&nbsp;</td>
+          </tr>
+          <tr>
+            <td style="padding: 28px 32px 20px 32px; border-bottom: 1px solid #141f36;">
+              <table role="presentation" width="100%" border="0" cellspacing="0" cellpadding="0">
+                <tr>
+                  <td align="left" style="vertical-align: middle;">
+                    <table role="presentation" border="0" cellspacing="0" cellpadding="0">
+                      <tr>
+                        <td style="background-color: #ff7a00; color: #030712; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', monospace; font-size: 13px; font-weight: 900; padding: 5px 10px; border-radius: 6px; letter-spacing: 1px;">FX</td>
+                        <td style="padding-left: 12px; font-size: 18px; font-weight: 900; letter-spacing: 1px; color: #ffffff;">FAILUREOPS <span style="color: #ff7a00;">X</span></td>
+                      </tr>
+                    </table>
+                  </td>
+                  <td align="right" style="vertical-align: middle;">
+                    <span style="display: inline-block; background-color: rgba(16, 185, 129, 0.12); border: 1px solid rgba(16, 185, 129, 0.35); color: #10b981; font-family: 'SF Mono', Consolas, monospace; font-size: 11px; font-weight: 700; padding: 4px 10px; border-radius: 20px; letter-spacing: 0.5px;">
+                      &#9679; SECURE ENCLAVE
+                    </span>
+                  </td>
+                </tr>
+              </table>
+            </td>
+          </tr>
+          <tr>
+            <td class="card-inner" style="padding: 32px 32px 24px 32px;">
+              <h2 style="margin: 0 0 12px 0; font-size: 22px; font-weight: 800; color: #ffffff; letter-spacing: -0.3px;">${title}</h2>
+              <p style="margin: 0 0 24px 0; font-size: 14px; line-height: 1.6; color: #94a3b8;">
+                Hello <strong style="color: #f1f5f9;">${name}</strong>, ${subtitle}
+              </p>
+              <table role="presentation" width="100%" border="0" cellspacing="0" cellpadding="0" style="margin: 24px 0 28px 0;">
+                <tr>
+                  <td align="center" style="background: #0d1527; border: 1px solid rgba(255, 122, 0, 0.4); border-radius: 12px; padding: 24px 16px; box-shadow: 0 0 30px rgba(255, 122, 0, 0.12) inset;">
+                    <div style="font-size: 11px; font-family: 'SF Mono', Consolas, monospace; color: #ff9838; letter-spacing: 1.5px; font-weight: 700; text-transform: uppercase; margin-bottom: 8px;">
+                      AUTHENTICATION PIN
+                    </div>
+                    <div class="code-display" style="font-family: 'SF Mono', Monaco, Consolas, 'Liberation Mono', 'Courier New', monospace; font-size: 38px; font-weight: 900; letter-spacing: 12px; color: #ff7a00; text-indent: 12px; padding: 8px 0;">
+                      ${code}
+                    </div>
+                    <div style="font-size: 11px; color: #64748b; margin-top: 6px;">
+                      &#128274; Single-use security token &bull; Expires in 15 minutes
+                    </div>
+                  </td>
+                </tr>
+              </table>
+              <table role="presentation" width="100%" border="0" cellspacing="0" cellpadding="0" style="margin-bottom: 28px;">
+                <tr>
+                  <td align="center">
+                    <a href="${directUrl}" target="_blank" style="display: inline-block; background: linear-gradient(135deg, #ff7a00 0%, #ea580c 100%); color: #000000; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; font-size: 14px; font-weight: 800; text-decoration: none; padding: 14px 32px; border-radius: 10px; box-shadow: 0 4px 15px rgba(255, 122, 0, 0.35); letter-spacing: 0.3px;">
+                      Verify &amp; Access Enclave &rarr;
+                    </a>
+                  </td>
+                </tr>
+              </table>
+              <table role="presentation" width="100%" border="0" cellspacing="0" cellpadding="0" style="background-color: #0c1322; border: 1px solid #19263f; border-radius: 10px; padding: 16px; margin-bottom: 24px;">
+                <tr>
+                  <td width="50%" style="padding: 6px 12px; font-size: 12px; color: #64748b; font-family: 'SF Mono', Consolas, monospace;">
+                    <span style="color: #94a3b8; font-weight: bold;">SECURITY LEVEL:</span> RESTRICTED
+                  </td>
+                  <td width="50%" style="padding: 6px 12px; font-size: 12px; color: #64748b; font-family: 'SF Mono', Consolas, monospace;">
+                    <span style="color: #94a3b8; font-weight: bold;">ENCRYPTION:</span> TLS 1.3 / AES-256
+                  </td>
+                </tr>
+                <tr>
+                  <td width="50%" style="padding: 6px 12px; font-size: 12px; color: #64748b; font-family: 'SF Mono', Consolas, monospace;">
+                    <span style="color: #94a3b8; font-weight: bold;">GATEWAY:</span> SMTP SSL-465
+                  </td>
+                  <td width="50%" style="padding: 6px 12px; font-size: 12px; color: #64748b; font-family: 'SF Mono', Consolas, monospace;">
+                    <span style="color: #94a3b8; font-weight: bold;">DOMAIN:</span> failureops.shyxon.com
+                  </td>
+                </tr>
+              </table>
+              <table role="presentation" width="100%" border="0" cellspacing="0" cellpadding="0" style="background-color: rgba(245, 158, 11, 0.08); border-left: 3px solid #f59e0b; border-radius: 0 8px 8px 0; padding: 12px 16px;">
+                <tr>
+                  <td style="font-size: 12px; color: #cbd5e1; line-height: 1.5;">
+                    <strong style="color: #f59e0b;">Security Notice:</strong> FailureOps automated systems will never request your PIN or credentials. If you did not initiate this request, you can safely disregard this message.
+                  </td>
+                </tr>
+              </table>
+            </td>
+          </tr>
+          <tr>
+            <td style="padding: 24px 32px 32px 32px; background-color: #060a13; border-top: 1px solid #141f36; text-align: center;">
+              <p style="margin: 0 0 8px 0; font-size: 12px; font-weight: 700; color: #94a3b8;">FAILUREOPS X &bull; AUTONOMOUS FAILURE INTELLIGENCE ENCLAVE</p>
+              <p style="margin: 0; font-size: 11px; color: #475569; line-height: 1.5;">
+                Dispatched by FailureOps X SMTP Gateway (contact@shyxon.com)<br />
+                &copy; 2026 FailureOps X Technologies. All rights reserved. Confidential &amp; Proprietary.
+              </p>
+            </td>
+          </tr>
+        </table>
+      </td>
+    </tr>
+  </table>
+</body>
+</html>`;
+}
+
+function renderPasswordResetEmailHtml(code: string, name: string, email: string): string {
+  const directUrl = `https://failureops.shyxon.com/forgot-password?email=${encodeURIComponent(email)}&code=${encodeURIComponent(code)}`;
+
+  return `<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
+<html xmlns="http://www.w3.org/1999/xhtml">
+<head>
+  <meta http-equiv="Content-Type" content="text/html; charset=UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>FailureOps X Password Recovery</title>
+  <style type="text/css">
+    body { margin: 0; padding: 0; background-color: #030712; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; }
+    @media only screen and (max-width: 600px) {
+      .wrapper { width: 100% !important; padding: 12px !important; }
+      .code-display { font-size: 30px !important; letter-spacing: 8px !important; padding: 16px 8px !important; }
+    }
+  </style>
+</head>
+<body style="margin: 0; padding: 0; background-color: #030712; color: #f1f5f9;">
+  <table role="presentation" width="100%" border="0" cellspacing="0" cellpadding="0" style="background-color: #030712; padding: 40px 10px 48px 10px;">
+    <tr>
+      <td align="center">
+        <table role="presentation" class="wrapper" width="100%" border="0" cellspacing="0" cellpadding="0" style="max-width: 580px; background-color: #090e1a; border: 1px solid #1e293b; border-radius: 16px; overflow: hidden; box-shadow: 0 25px 60px -15px rgba(0, 0, 0, 0.9);">
+          <tr>
+            <td height="4" style="background: linear-gradient(90deg, #f59e0b 0%, #ff7a00 50%, #ef4444 100%); line-height: 4px; font-size: 0px;">&nbsp;</td>
+          </tr>
+          <tr>
+            <td style="padding: 28px 32px 20px 32px; border-bottom: 1px solid #141f36;">
+              <table role="presentation" width="100%" border="0" cellspacing="0" cellpadding="0">
+                <tr>
+                  <td align="left" style="vertical-align: middle;">
+                    <table role="presentation" border="0" cellspacing="0" cellpadding="0">
+                      <tr>
+                        <td style="background-color: #ff7a00; color: #030712; font-family: monospace; font-size: 13px; font-weight: 900; padding: 5px 10px; border-radius: 6px;">FX</td>
+                        <td style="padding-left: 12px; font-size: 18px; font-weight: 900; letter-spacing: 1px; color: #ffffff;">FAILUREOPS <span style="color: #ff7a00;">X</span></td>
+                      </tr>
+                    </table>
+                  </td>
+                  <td align="right" style="vertical-align: middle;">
+                    <span style="display: inline-block; background-color: rgba(239, 68, 68, 0.12); border: 1px solid rgba(239, 68, 68, 0.35); color: #f87171; font-family: monospace; font-size: 11px; font-weight: 700; padding: 4px 10px; border-radius: 20px;">
+                      &#9888; CREDENTIAL RESET
+                    </span>
+                  </td>
+                </tr>
+              </table>
+            </td>
+          </tr>
+          <tr>
+            <td style="padding: 32px 32px 24px 32px;">
+              <h2 style="margin: 0 0 12px 0; font-size: 22px; font-weight: 800; color: #ffffff;">Password Recovery Request</h2>
+              <p style="margin: 0 0 24px 0; font-size: 14px; line-height: 1.6; color: #94a3b8;">
+                Hello <strong style="color: #f1f5f9;">${name}</strong>, a request was submitted to reset your account password. Use the following verification PIN to authorize password reset:
+              </p>
+              <table role="presentation" width="100%" border="0" cellspacing="0" cellpadding="0" style="margin: 24px 0 28px 0;">
+                <tr>
+                  <td align="center" style="background: #0d1527; border: 1px solid rgba(255, 122, 0, 0.4); border-radius: 12px; padding: 24px 16px;">
+                    <div style="font-size: 11px; font-family: monospace; color: #ff9838; letter-spacing: 1.5px; font-weight: 700; text-transform: uppercase; margin-bottom: 8px;">RECOVERY PIN</div>
+                    <div class="code-display" style="font-family: monospace; font-size: 38px; font-weight: 900; letter-spacing: 12px; color: #ff7a00; text-indent: 12px;">${code}</div>
+                    <div style="font-size: 11px; color: #64748b; margin-top: 6px;">Valid for 15 minutes</div>
+                  </td>
+                </tr>
+              </table>
+              <table role="presentation" width="100%" border="0" cellspacing="0" cellpadding="0" style="margin-bottom: 28px;">
+                <tr>
+                  <td align="center">
+                    <a href="${directUrl}" target="_blank" style="display: inline-block; background: linear-gradient(135deg, #ff7a00 0%, #ea580c 100%); color: #000000; font-size: 14px; font-weight: 800; text-decoration: none; padding: 14px 32px; border-radius: 10px;">
+                      Reset Password Now &rarr;
+                    </a>
+                  </td>
+                </tr>
+              </table>
+            </td>
+          </tr>
+          <tr>
+            <td style="padding: 24px 32px; background-color: #060a13; border-top: 1px solid #141f36; text-align: center; font-size: 11px; color: #475569;">
+              FailureOps X Security Enclave &bull; Dispatched via contact@shyxon.com
+            </td>
+          </tr>
+        </table>
+      </td>
+    </tr>
+  </table>
+</body>
+</html>`;
+}
+
 // Dispatch email via internal API / SMTP gateway
-async function sendAuthEmail(toEmail: string, subject: string, htmlBody: string, textBody: string): Promise<boolean> {
+async function sendAuthEmail(
+  toEmail: string,
+  subject: string,
+  htmlBody: string,
+  textBody: string,
+  options?: { verificationCode?: string; recipientName?: string; actionUrl?: string; emailType?: string }
+): Promise<boolean> {
   try {
     const internalUrl = process.env.RAG_INTERNAL_URL || 'http://127.0.0.1:8000';
     const response = await fetch(`${internalUrl}/api/email/share-report`, {
@@ -129,7 +347,12 @@ async function sendAuthEmail(toEmail: string, subject: string, htmlBody: string,
         to_email: toEmail,
         subject,
         message: textBody,
+        html_body: htmlBody,
         project_name: 'FailureOps X Security',
+        verification_code: options?.verificationCode,
+        recipient_name: options?.recipientName,
+        action_url: options?.actionUrl,
+        email_type: options?.emailType,
       }),
     });
     return response.ok;
@@ -138,6 +361,7 @@ async function sendAuthEmail(toEmail: string, subject: string, htmlBody: string,
     return false;
   }
 }
+
 
 export const userStore = {
   getUserByEmail(email: string): UserRecord | null {
@@ -207,28 +431,19 @@ export const userStore = {
     persistUsers();
 
     // Send verification email
-    const html = `
-      <div style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; background: #070b14; color: #f1f5f9; padding: 32px; border-radius: 12px; max-width: 540px; margin: 0 auto; border: 1px solid #1e293b;">
-        <div style="text-align: center; margin-bottom: 24px;">
-          <h1 style="color: #ff7a00; font-size: 24px; font-weight: 800; margin: 0;">FAILUREOPS X</h1>
-          <p style="color: #94a3b8; font-size: 13px; margin-top: 4px;">Organizational Failure Intelligence & Decision Enclave</p>
-        </div>
-        <div style="background: #0f172a; border: 1px solid #334155; padding: 24px; border-radius: 8px; text-align: center;">
-          <h2 style="color: #f8fafc; font-size: 18px; margin-top: 0;">Verify Your Email Address</h2>
-          <p style="color: #cbd5e1; font-size: 14px; line-height: 1.5;">Hello <strong>${newUser.name}</strong>, please use the following 6-digit verification code to activate your intelligence workspace:</p>
-          <div style="background: #1e293b; border: 2px solid #ff7a00; padding: 16px; border-radius: 8px; margin: 20px 0; font-family: monospace; font-size: 32px; font-weight: bold; letter-spacing: 8px; color: #ff7a00;">
-            ${verificationCode}
-          </div>
-          <p style="color: #94a3b8; font-size: 12px;">This code will expire in 15 minutes. If you did not request this, please ignore this email.</p>
-        </div>
-      </div>
-    `;
+    const html = renderVerificationEmailHtml(verificationCode, newUser.name, cleanEmail, false);
 
     await sendAuthEmail(
       cleanEmail,
       `Your FailureOps X Verification Code: ${verificationCode}`,
       html,
-      `Your FailureOps X 6-digit verification code is: ${verificationCode}. It expires in 15 minutes.`
+      `Your FailureOps X 6-digit verification code is: ${verificationCode}. It expires in 15 minutes.`,
+      {
+        verificationCode,
+        recipientName: newUser.name,
+        actionUrl: `https://failureops.shyxon.com/verify?email=${encodeURIComponent(cleanEmail)}&code=${verificationCode}`,
+        emailType: 'VERIFICATION',
+      }
     );
 
     return { user: newUser, verificationCode };
@@ -286,27 +501,19 @@ export const userStore = {
     usersCache.set(cleanEmail, user);
     persistUsers();
 
-    const html = `
-      <div style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; background: #070b14; color: #f1f5f9; padding: 32px; border-radius: 12px; max-width: 540px; margin: 0 auto; border: 1px solid #1e293b;">
-        <div style="text-align: center; margin-bottom: 24px;">
-          <h1 style="color: #ff7a00; font-size: 24px; font-weight: 800; margin: 0;">FAILUREOPS X</h1>
-        </div>
-        <div style="background: #0f172a; border: 1px solid #334155; padding: 24px; border-radius: 8px; text-align: center;">
-          <h2 style="color: #f8fafc; font-size: 18px; margin-top: 0;">New Verification Code</h2>
-          <p style="color: #cbd5e1; font-size: 14px;">Your new 6-digit verification code is:</p>
-          <div style="background: #1e293b; border: 2px solid #ff7a00; padding: 16px; border-radius: 8px; margin: 20px 0; font-family: monospace; font-size: 32px; font-weight: bold; letter-spacing: 8px; color: #ff7a00;">
-            ${code}
-          </div>
-          <p style="color: #94a3b8; font-size: 12px;">Valid for 15 minutes.</p>
-        </div>
-      </div>
-    `;
+    const html = renderVerificationEmailHtml(code, user.name, cleanEmail, true);
 
     await sendAuthEmail(
       cleanEmail,
       `Your New FailureOps X Verification Code: ${code}`,
       html,
-      `Your new FailureOps X verification code is: ${code}.`
+      `Your new FailureOps X verification code is: ${code}. It expires in 15 minutes.`,
+      {
+        verificationCode: code,
+        recipientName: user.name,
+        actionUrl: `https://failureops.shyxon.com/verify?email=${encodeURIComponent(cleanEmail)}&code=${code}`,
+        emailType: 'VERIFICATION',
+      }
     );
 
     return code;
@@ -329,31 +536,24 @@ export const userStore = {
     usersCache.set(cleanEmail, user);
     persistUsers();
 
-    const html = `
-      <div style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; background: #070b14; color: #f1f5f9; padding: 32px; border-radius: 12px; max-width: 540px; margin: 0 auto; border: 1px solid #1e293b;">
-        <div style="text-align: center; margin-bottom: 24px;">
-          <h1 style="color: #ff7a00; font-size: 24px; font-weight: 800; margin: 0;">FAILUREOPS X</h1>
-        </div>
-        <div style="background: #0f172a; border: 1px solid #334155; padding: 24px; border-radius: 8px; text-align: center;">
-          <h2 style="color: #f8fafc; font-size: 18px; margin-top: 0;">Password Reset Request</h2>
-          <p style="color: #cbd5e1; font-size: 14px;">We received a request to reset your FailureOps X account password. Use the following 6-digit PIN to proceed:</p>
-          <div style="background: #1e293b; border: 2px solid #ff7a00; padding: 16px; border-radius: 8px; margin: 20px 0; font-family: monospace; font-size: 32px; font-weight: bold; letter-spacing: 8px; color: #ff7a00;">
-            ${resetCode}
-          </div>
-          <p style="color: #94a3b8; font-size: 12px;">This code will expire in 15 minutes. If you did not request a password reset, please secure your account immediately.</p>
-        </div>
-      </div>
-    `;
+    const html = renderPasswordResetEmailHtml(resetCode, user.name, cleanEmail);
 
     await sendAuthEmail(
       cleanEmail,
       `FailureOps X Password Reset PIN: ${resetCode}`,
       html,
-      `Your FailureOps X password reset code is: ${resetCode}. It expires in 15 minutes.`
+      `Your FailureOps X password reset code is: ${resetCode}. It expires in 15 minutes.`,
+      {
+        verificationCode: resetCode,
+        recipientName: user.name,
+        actionUrl: `https://failureops.shyxon.com/forgot-password?email=${encodeURIComponent(cleanEmail)}&code=${resetCode}`,
+        emailType: 'PASSWORD_RESET',
+      }
     );
 
     return resetCode;
   },
+
 
   resetPassword(email: string, code: string, newPassword: string): UserRecord {
     loadUsers();
