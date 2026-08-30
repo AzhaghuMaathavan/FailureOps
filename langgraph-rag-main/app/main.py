@@ -44,6 +44,31 @@ async def startup_event():
         storage.get("endpoint_configured"),
     )
 
+    try:
+        from app.db.database import SessionLocal
+        from app.models.analysis import ProjectAnalysis
+        db = SessionLocal()
+        stale_jobs = db.query(ProjectAnalysis).filter(
+            ProjectAnalysis.status.in_([
+                "QUEUED", "PARSING_DOCUMENTS", "INDEXING", 
+                "RETRIEVING_EVIDENCE", "EXTRACTING_EVIDENCE", 
+                "GROUPING_EVIDENCE", "CORRELATING_PATTERNS", 
+                "SYNTHESIZING_SIGNALS", "CALCULATING_FAILURE_DNA",
+                "BUILDING_FAILURE_CHAIN", "RUNNING_SIMULATIONS", 
+                "SYNTHESIZING_DECISIONS", "PERSISTING_ANALYSIS"
+            ])
+        ).all()
+        for j in stale_jobs:
+            j.status = "FAILED"
+            j.error_message = "Analysis interrupted by server restart. Ready to retry."
+        db.commit()
+        db.close()
+        if stale_jobs:
+            logger.info(f"[STARTUP] Cleaned up {len(stale_jobs)} stale in-flight jobs from prior session.")
+    except Exception as e:
+        logger.warning(f"[STARTUP] Stale job cleanup skipped: {e}")
+
+
 
 cors_origins = [origin.strip() for origin in (settings.FRONTEND_URL or "").split(",") if origin.strip()]
 for origin in ("http://localhost:3000", "http://127.0.0.1:3000"):
