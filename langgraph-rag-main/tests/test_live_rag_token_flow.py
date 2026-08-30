@@ -316,6 +316,88 @@ class TestLiveRagTokenFlow(unittest.TestCase):
         self.assertEqual(len(cross_tenant_matches), 0, "Tenant isolation leak detected")
         print(f"[TEST STAGE 12] ✓ Multi-Tenant Isolation verified (0 cross-tenant leaks)\n")
 
+    def test_prompt_exact_pipeline_truth_token(self):
+        token = "FAILUREOPS_PIPELINE_TRUTH_774421"
+        doc_filename = "failureops_pipeline_truth_test.txt"
+        doc_content = (
+            f"{token}\n\n"
+            "Project incident:\n"
+            "Atlas payment service experienced exactly 17 timeout failures after release PIPELINE-441 on 2026-08-31.\n\n"
+            "This exact token and incident prove end-to-end RAG grounding without hallucination."
+        )
+
+        doc_path = os.path.join(self.scratch_dir, doc_filename)
+        with open(doc_path, "w", encoding="utf-8") as f:
+            f.write(doc_content)
+
+        doc_id = f"doc_{uuid.uuid4().hex[:10]}"
+        db_doc = Document(
+            id=doc_id,
+            filename=doc_filename,
+            original_path=doc_path,
+            organization_id=self.org_id,
+            project_id=self.proj_id,
+            status="PENDING",
+            title="Atlas Payment Service Truth Test",
+            document_type="INCIDENT_REPORTS",
+            visibility="PRIVATE"
+        )
+        self.db.add(db_doc)
+        self.db.commit()
+
+        parse_ok = parse_txt_to_blocks(doc_path, doc_id, self.db)
+        self.assertTrue(parse_ok)
+
+        create_chunks_for_document(self.db, doc_id)
+        chunks = self.db.query(Chunk).filter(Chunk.document_id == doc_id).all()
+        self.assertGreater(len(chunks), 0)
+        self.assertIn(token, chunks[0].content)
+
+        formatted_chunk = {
+            "chunk_id": chunks[0].id,
+            "document_id": doc_id,
+            "document_name": doc_filename,
+            "project_id": self.proj_id,
+            "company_id": self.org_id,
+            "chunk_index": 0,
+            "content": chunks[0].content,
+            "headers": {},
+            "lineage": {"document_name": doc_filename, "page_numbers": [1]},
+            "citation": f"{doc_filename} (Page 1)"
+        }
+
+        raw_ev, raw_events, raw_claims, warnings = EvidenceAgent.extract_evidence(
+            query="What happened to the Atlas payment service after PIPELINE-441?",
+            retrieved_chunks=[formatted_chunk],
+            project_id=self.proj_id,
+            company_id=self.org_id
+        )
+
+        self.assertGreater(len(raw_events), 0)
+        self.assertIn("17", raw_events[0].get("description", ""))
+        self.assertIn("timeout", raw_events[0].get("description", "").lower())
+
+        citations_map = {
+            1: {
+                "chunk_id": chunks[0].id,
+                "filename": doc_filename,
+                "lineage": {"document_name": doc_filename, "page_numbers": [1]},
+                "content": chunks[0].content
+            }
+        }
+        facts = extract_structured_metric_facts([formatted_chunk], project_id=self.proj_id)
+
+        ans, cits, _ = synthesize_deterministic_operational_answer(
+            "What happened to the Atlas payment service after PIPELINE-441?",
+            facts,
+            citations_map,
+            [formatted_chunk]
+        )
+        self.assertIsNotNone(ans)
+        self.assertTrue("17" in ans or "timeout" in ans.lower() or "pipeline-441" in ans.lower())
+        self.assertIn(token, ans)
+        print(f"[TRUTH TEST] ✓ Exact token and answer grounded: {ans}")
+
 
 if __name__ == "__main__":
     unittest.main()
