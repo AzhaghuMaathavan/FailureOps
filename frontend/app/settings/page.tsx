@@ -63,8 +63,8 @@ export default function SettingsPrivacyPage() {
           valueClassName="text-primary"
         />
         <OrgMetricCard label="Retention" value="90d" hint="Then purge" valueClassName="text-info" />
-        <OrgMetricCard label="Sharing" value="Private" hint="No export" valueClassName="text-success" />
-        <OrgMetricCard label="Proofs" value="On" hint="ZK active" valueClassName="text-magic" />
+        <OrgMetricCard label="Sharing" value="Private" hint="No external export" valueClassName="text-success" />
+        <OrgMetricCard label="Enclave" value="Active" hint="Tenant Isolated" valueClassName="text-primary" />
       </div>
 
       <div className="grid grid-cols-1 gap-3 lg:grid-cols-2">
@@ -73,10 +73,11 @@ export default function SettingsPrivacyPage() {
           body="Obsidian Ember default. Porcelain light is first-class — same tokens, inverted surfaces."
         />
         <OrgInsightCard
-          title="Privacy"
-          body="Zero-knowledge reasoning. Raw evidence never leaves the project enclave."
+          title="Privacy Enclave"
+          body="Strict multi-tenant scoping. Raw evidence never leaves the project enclave."
         />
       </div>
+
 
       <div className="flex flex-col gap-4 rounded-[14px] border border-border bg-card p-[18px] shadow-[0_1px_0_0_rgba(13,20,36,0.45),0_8px_24px_-8px_rgba(0,0,0,0.35)]">
         <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">

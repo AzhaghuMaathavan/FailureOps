@@ -356,11 +356,14 @@ export default function RegisterProductPage() {
                     onChange={e => setStage(e.target.value)}
                     className={fieldClass}
                   >
-                    <option value="Alpha">Alpha</option>
-                    <option value="Beta">Beta</option>
-                    <option value="Pre-Launch">Pre-Launch</option>
+                    <option value="Idea">Idea / Concept</option>
+                    <option value="Planning">Planning / Spec</option>
+                    <option value="Development">In Development</option>
+                    <option value="Beta">Beta Testing</option>
+                    <option value="Launched">Launched / Production</option>
                     <option value="General Availability">General Availability</option>
                     <option value="Scaling">Growth / Scaling</option>
+
                   </select>
                 </div>
                 <div>
@@ -505,8 +508,9 @@ export default function RegisterProductPage() {
               </button>
             ) : (
               <button type="submit" disabled={isSubmitting} className={btnPrimary('w-full sm:w-auto')}>
-                {isSubmitting ? 'Registering in Database...' : 'Register & Build Evidence Base'}
+                {isSubmitting ? 'Creating Project...' : 'Create Project & Build Intelligence'}
               </button>
+
             )}
           </div>
         </form>

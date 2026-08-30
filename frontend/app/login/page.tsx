@@ -1,0 +1,136 @@
+'use client';
+
+import React, { useState } from 'react';
+import Link from 'next/link';
+import { useRouter } from 'next/navigation';
+import { Lock, Mail, ArrowRight, Shield, CheckCircle2, AlertCircle } from 'lucide-react';
+import { FxMark, btnPrimary, focusRing } from '@/components/landing/chrome';
+import { PublicNavbar } from '@/components/landing/PublicNavbar';
+import { PublicFooter } from '@/components/landing/PublicFooter';
+import { cn } from '@/lib/utils';
+
+export default function LoginPage() {
+  const router = useRouter();
+  const [email, setEmail] = useState('lead.architect@aurora.tech');
+  const [password, setPassword] = useState('••••••••••••');
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setLoading(true);
+    setError(null);
+
+    try {
+      // Simulate quick auth check and redirect to dashboard
+      await new Promise((resolve) => setTimeout(resolve, 400));
+      router.push('/dashboard');
+    } catch (err) {
+      setError('Unable to authenticate. Please check your credentials.');
+      setLoading(false);
+    }
+  };
+
+  return (
+    <div className="min-h-screen bg-background text-foreground flex flex-col selection:bg-primary/20 selection:text-primary">
+      <PublicNavbar />
+
+      <main className="flex-1 flex items-center justify-center py-12 px-4 sm:px-6 lg:px-8">
+        <div className="w-full max-w-md space-y-8">
+          {/* Card Box */}
+          <div className="p-8 sm:p-10 rounded-2xl bg-card border border-border shadow-2xl space-y-6">
+            <div className="text-center space-y-2">
+              <div className="inline-flex justify-center mb-2">
+                <FxMark />
+              </div>
+              <h1 className="text-2xl sm:text-3xl font-extrabold tracking-tight text-foreground">
+                Welcome back
+              </h1>
+              <p className="text-xs sm:text-sm text-muted-foreground">
+                Sign in to your FailureOps X intelligence workspace
+              </p>
+            </div>
+
+            {error && (
+              <div className="p-3 rounded-xl bg-destructive/15 border border-destructive/30 text-destructive text-xs flex items-center gap-2">
+                <AlertCircle className="w-4 h-4 shrink-0" />
+                <span>{error}</span>
+              </div>
+            )}
+
+            <form onSubmit={handleSubmit} className="space-y-4">
+              <div className="space-y-1.5">
+                <label className="text-xs font-mono font-bold uppercase tracking-wider text-muted-foreground">
+                  Work Email
+                </label>
+                <div className="relative flex items-center">
+                  <Mail className="w-4 h-4 text-muted-foreground absolute left-3.5" />
+                  <input
+                    type="email"
+                    required
+                    value={email}
+                    onChange={(e) => setEmail(e.target.value)}
+                    className={cn(
+                      'w-full bg-surface-feed border border-border rounded-xl pl-10 pr-4 py-2.5 text-sm font-medium text-foreground outline-none',
+                      focusRing
+                    )}
+                    placeholder="name@company.com"
+                  />
+                </div>
+              </div>
+
+              <div className="space-y-1.5">
+                <div className="flex items-center justify-between">
+                  <label className="text-xs font-mono font-bold uppercase tracking-wider text-muted-foreground">
+                    Password
+                  </label>
+                  <button
+                    type="button"
+                    onClick={() => alert('Password reset link sent to registered email address.')}
+                    className="text-xs text-primary hover:text-primary-hover transition-colors font-medium"
+                  >
+                    Forgot password?
+                  </button>
+                </div>
+                <div className="relative flex items-center">
+                  <Lock className="w-4 h-4 text-muted-foreground absolute left-3.5" />
+                  <input
+                    type="password"
+                    required
+                    value={password}
+                    onChange={(e) => setPassword(e.target.value)}
+                    className={cn(
+                      'w-full bg-surface-feed border border-border rounded-xl pl-10 pr-4 py-2.5 text-sm font-medium text-foreground outline-none',
+                      focusRing
+                    )}
+                    placeholder="••••••••••••"
+                  />
+                </div>
+              </div>
+
+              <button
+                type="submit"
+                disabled={loading}
+                className={cn(btnPrimary('w-full py-3.5 text-sm font-bold justify-center mt-2'))}
+              >
+                {loading ? 'Authenticating...' : 'Sign in to Workspace'}
+                {!loading && <ArrowRight className="w-4 h-4 ml-1.5" />}
+              </button>
+            </form>
+
+            <div className="pt-4 border-t border-border/60 text-center space-y-2 text-xs text-muted-foreground">
+              <p>
+                Don&apos;t have an account?{' '}
+                <Link href="/signup" className="text-primary hover:text-primary-hover font-bold transition-colors">
+                  Create workspace
+                </Link>
+              </p>
+            </div>
+          </div>
+        </div>
+      </main>
+
+      <PublicFooter />
+    </div>
+  );
+}

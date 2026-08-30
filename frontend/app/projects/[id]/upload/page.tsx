@@ -288,14 +288,15 @@ export default function EvidenceUploadPage() {
       <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
         <div className="space-y-1.5">
           <p className="text-[11px] font-mono font-bold uppercase tracking-[0.66px] text-primary">
-            EVIDENCE INTAKE
+            EVIDENCE INTAKE & NORMALIZATION
           </p>
           <h1 className="text-2xl font-extrabold tracking-tight text-foreground lg:text-[28px]">
-            Upload Evidence
+            Build Your Project Intelligence
           </h1>
           <p className="max-w-xl text-[13px] text-muted-foreground">
-            Drop PRDs, exports, and traces into the enclave. Nothing leaves encrypted storage.
+            Drop PRDs, feedback, sprint exports, and traces into your isolated enclave. Nothing leaves encrypted storage.
           </p>
+
           <p className="font-mono text-[10px] text-muted-foreground">
             {project.company || 'Enterprise'} / {project.name || projectId}
           </p>

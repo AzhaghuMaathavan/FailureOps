@@ -1,1035 +1,1160 @@
-You are a senior software architect and migration engineer.
-
-We are building a hackathon project called "FailureOps X".
+You are the lead frontend/product engineer for FailureOps X.
 
 IMPORTANT:
-The existing project already contains working frontend functionality, an existing RAG implementation, database integration, API routes, deployment configuration, and other working code.
+You are working inside an EXISTING FailureOps X repository.
+Do NOT blindly rewrite the project.
+First inspect the repository, understand the existing architecture,
+routes, components, API integrations, authentication, data contracts,
+design system, and current UI.
 
-Your task is to REORGANIZE the existing project into a professional modular architecture.
+Your task is to redesign and upgrade the application into a
+production-grade B2B SaaS platform while PRESERVING all existing
+working backend, RAG, agent, API, database, and business logic.
 
-DO NOT rebuild the application.
-DO NOT delete working functionality.
-DO NOT replace the existing RAG.
-DO NOT rewrite working business logic unnecessarily.
-DO NOT create fake implementations just to satisfy the folder structure.
+============================================================
+1. PRODUCT CONTEXT
+============================================================
 
-The final application MUST continue to run after the migration.
+FailureOps X is an evidence-grounded project intelligence platform.
 
-==================================================
-1. TARGET PROFESSIONAL ARCHITECTURE
-==================================================
+The product analyzes project/product evidence and turns it into:
 
-Create the following top-level structure:
+Project Evidence
+        ↓
+Signals
+        ↓
+Patterns
+        ↓
+Failure DNA
+        ↓
+Truth / Assumption Validation
+        ↓
+Historical Intelligence
+        ↓
+Failure Radar
+        ↓
+Predicted Next Failure
+        ↓
+Intervention
+        ↓
+Experiment / Outcome
+        ↓
+Organizational Memory
 
-FailureOps-X/
-│
-├── frontend/
-│   ├── app/
-│   ├── components/
-│   ├── context/
-│   ├── lib/
-│   ├── public/
-│   ├── types/
-│   ├── services/
-│   ├── package.json
-│   └── ...
-│
-├── backend/
-│   ├── app/
-│   │   ├── api/
-│   │   │   ├── routes/
-│   │   │   └── dependencies/
-│   │   │
-│   │   ├── services/
-│   │   ├── models/
-│   │   ├── database/
-│   │   ├── middleware/
-│   │   ├── auth/
-│   │   └── main.py
-│   │
-│   ├── tests/
-│   ├── requirements.txt
-│   └── Dockerfile
-│
-├── rag/
-│   ├── app/
-│   │   ├── ingestion/
-│   │   ├── parsing/
-│   │   ├── chunking/
-│   │   ├── embeddings/
-│   │   ├── retrieval/
-│   │   ├── reranking/
-│   │   ├── citations/
-│   │   │
-│   │   ├── agents/
-│   │   │   ├── evidence_agent/
-│   │   │   ├── signal_agent/
-│   │   │   ├── pattern_agent/
-│   │   │   ├── failure_dna_agent/
-│   │   │   ├── truth_agent/
-│   │   │   ├── prediction_agent/
-│   │   │   └── intervention_agent/
-│   │   │
-│   │   ├── intelligence/
-│   │   │   ├── signals/
-│   │   │   ├── patterns/
-│   │   │   ├── failure_dna/
-│   │   │   ├── similarity/
-│   │   │   ├── risk/
-│   │   │   └── prediction/
-│   │   │
-│   │   ├── models/
-│   │   └── main.py
-│   │
-│   ├── tests/
-│   ├── requirements.txt
-│   └── Dockerfile
-│
-├── database/
-│   ├── migrations/
-│   ├── seeds/
-│   ├── schema/
-│   └── README.md
-│
-├── shared/
-│   ├── contracts/
-│   ├── schemas/
-│   ├── types/
-│   └── constants/
-│
-├── data/
-│   ├── demo/
-│   ├── sample_projects/
-│   └── sanitized_cases/
-│
-├── tests/
-│   ├── integration/
-│   ├── e2e/
-│   └── smoke/
-│
-├── docs/
-│   ├── ARCHITECTURE.md
-│   ├── API_CONTRACTS.md
-│   ├── AGENTS.md
-│   ├── DATA_FLOW.md
-│   ├── PRIVACY.md
-│   └── DEMO_FLOW.md
-│
-├── docker-compose.yml
-├── .env.example
-├── .gitignore
-└── README.md
+FailureOps is NOT simply a document chatbot.
 
+The core differentiation is:
 
-==================================================
-2. FIRST STEP — INSPECT, DO NOT MODIFY
-==================================================
+A normal RAG system:
+Question → retrieve documents → answer
 
-Before changing ANYTHING:
+FailureOps:
+Project evidence → signals → patterns → risk profile →
+historical comparison → emerging failure detection →
+intervention → verified learning
 
-Inspect the entire repository.
+The UI must communicate this clearly.
 
-Identify:
+============================================================
+2. FIRST: INSPECT BEFORE MODIFYING
+============================================================
 
-1. Current frontend
-2. Current Next.js configuration
-3. Current API/BFF routes
-4. Existing Python backend
-5. Existing RAG
-6. RAG ingestion
-7. Document parsers
-8. Chunking
-9. Embeddings
-10. Retrieval
-11. Reranking
-12. Evidence extraction
-13. Existing agents
-14. Database models
-15. PostgreSQL/pgvector configuration
-16. Object storage
-17. Authentication
-18. Environment variables
-19. Docker configuration
-20. Deployment configuration
-21. Tests
-22. Existing demo/sample data
+Before writing code, inspect:
 
-DO NOT MODIFY ANY FILE DURING THIS FIRST INSPECTION.
-
-Return a report:
-
-CURRENT STRUCTURE
-↓
-CURRENT COMPONENT
-↓
-TARGET LOCATION
-↓
-MIGRATION RISK
-
-Example:
-
-app/components/X.tsx
-→ frontend/components/X.tsx
-→ LOW RISK
-
-rag/app/retrieval/foo.py
-→ rag/app/retrieval/foo.py
-→ NO MOVE REQUIRED
-
-etc.
-
-
-==================================================
-3. IMPORTANT MIGRATION RULE
-==================================================
-
-The existing project currently has frontend files at the repository root and the RAG may already be inside:
-
-rag/
-
-The final architecture must have:
-
-frontend/
-backend/
-rag/
-
-as separate top-level systems.
-
-However:
-
-DO NOT blindly move files.
-
-For every moved file:
-
-1. Move it.
-2. Update imports.
-3. Update aliases.
-4. Update package configuration.
-5. Update TypeScript configuration.
-6. Update Docker paths.
-7. Update environment paths.
-8. Update deployment scripts.
-9. Update CI/CD.
-10. Update API URLs.
-11. Run tests/build.
-12. Fix broken references.
-
-Never leave broken imports.
-
-==================================================
-4. FRONTEND MIGRATION
-==================================================
-
-Move the existing Next.js frontend into:
-
-frontend/
-
-Move only frontend-related code.
-
-This includes:
-
+- package.json
+- existing Next.js structure
 - app/
 - components/
 - context/
-- frontend-specific lib/
-- public/
-- frontend types
-- frontend services
-- Next.js configuration
-- package.json
-- frontend-specific configuration
-
-The frontend must remain a normal Next.js application.
-
-Expected:
-
-frontend/
-├── app/
-├── components/
-├── context/
-├── lib/
-├── public/
-├── services/
-├── types/
-├── package.json
-├── next.config.*
-├── tsconfig.json
-└── ...
-
-Update all imports accordingly.
-
-Do not duplicate the frontend.
-
-There must be only ONE active frontend implementation.
-
-
-==================================================
-5. BACKEND MIGRATION
-==================================================
-
-Create:
-
-backend/
-
-The backend is responsible for:
-
-- API
-- authentication
-- authorization
-- project management
-- company management
-- user management
-- permissions
-- database access
-- orchestration
-- privacy enforcement
-- communication with RAG
-- communication with intelligence services
-
-Do NOT put RAG retrieval logic inside backend business logic.
-
-Backend should communicate with RAG through clear interfaces/API/service boundaries.
-
-If the existing Python backend already performs both backend and RAG functions, DO NOT break it.
-
-Instead, separate responsibilities logically first.
-
-If physically separating the running services would create unnecessary risk, keep the existing implementation working and create clean service boundaries.
-
-
-==================================================
-6. RAG MIGRATION
-==================================================
-
-The existing RAG is extremely important.
-
-DO NOT replace it.
-
-The RAG must remain responsible for:
-
-Document
-↓
-Parsing
-↓
-Chunking
-↓
-Embedding
-↓
-Retrieval
-↓
-Reranking
-↓
-Evidence candidates
-
-Preserve:
-
-- PyMuPDF
-- Docling
-- existing embedding model
-- pgvector
-- BM25 if present
-- hybrid retrieval
-- RRF if present
-- reranking
-- document/page/block lineage
-- citations
-
-The RAG should be located under:
-
-rag/
-
-Organize it into:
-
-rag/app/
-
-├── ingestion/
-├── parsing/
-├── chunking/
-├── embeddings/
-├── retrieval/
-├── reranking/
-└── citations/
-
-Do not rewrite working RAG code merely for naming purposes.
-
-
-==================================================
-7. AGENTS
-==================================================
-
-Keep AI agents under:
-
-rag/app/agents/
-
-Create/maintain:
-
-evidence_agent/
-signal_agent/
-pattern_agent/
-failure_dna_agent/
-truth_agent/
-prediction_agent/
-intervention_agent/
-
-Each agent must have a clear responsibility.
-
-Evidence Agent:
-
-INPUT:
-RAG-retrieved document chunks
-
-OUTPUT:
-structured EvidenceItems
-
-Signal Agent:
-
-INPUT:
-EvidenceItems
-
-OUTPUT:
-Signals
-
-Pattern Agent:
-
-INPUT:
-Signals + Evidence
-
-OUTPUT:
-Patterns
-
-Failure DNA Agent:
-
-INPUT:
-Patterns + Signals
-
-OUTPUT:
-FailureDNA
-
-Truth Agent:
-
-INPUT:
-User/project assumptions + evidence
-
-OUTPUT:
-ClaimAssessment
-
-Prediction Agent:
-
-INPUT:
-FailureDNA + historical matches + trends
-
-OUTPUT:
-Prediction
-
-Intervention Agent:
-
-INPUT:
-Failure pattern + historical cases
-
-OUTPUT:
-InterventionRecommendation
-
-
-IMPORTANT:
-
-Do not make every agent independently query the entire database.
-
-Use controlled inputs and outputs.
-
-The architecture should be:
-
-RAG
-↓
-Evidence Agent
-↓
-Signal Agent
-↓
-Pattern Agent
-↓
-Failure DNA
-↓
-Historical Similarity
-↓
-Risk
-↓
-Prediction
-↓
-Intervention
-
-
-==================================================
-8. FAILURE RADAR
-==================================================
-
-IMPORTANT:
-
-Do NOT create unnecessary "Radar Agent".
-
-Failure Radar is primarily a risk visualization/calculation layer.
-
-Architecture:
-
-Evidence
-↓
-Signals
-↓
-Patterns
-↓
-Failure DNA
-↓
-Historical Similarity
-↓
-Risk Engine
-↓
-Failure Radar
-
-The Risk Engine should perform deterministic calculations.
-
-The UI should visualize:
-
-- overall risk
-- risk by dimension
-- risk trend
-- confidence
-- strongest contributing signals
-- historical similarity
-- predicted next failure
-
-The LLM should NOT randomly generate the numerical risk.
-
-
-==================================================
-9. SHARED CONTRACTS
-==================================================
-
-Create a shared contract layer:
-
-shared/
-
-├── contracts/
-├── schemas/
-├── types/
-└── constants/
-
-At minimum define contracts for:
-
-EvidenceItem
-Signal
-Pattern
-FailureDNA
-ClaimAssessment
-HistoricalMatch
-Prediction
-InterventionRecommendation
-OutcomeVerification
-PrivacyLevel
-
-Use strongly typed schemas.
-
-The frontend and backend/RAG must not independently invent incompatible versions of these objects.
-
-For example:
-
-EvidenceItem:
-
-{
-  id,
-  project_id,
-  source_id,
-  document_name,
-  page,
-  section,
-  claim,
-  evidence_type,
-  value,
-  confidence,
-  visibility
-}
-
-Preserve source lineage.
-
-
-==================================================
-10. DATABASE
-==================================================
-
-Database-related migration files should be under:
-
-database/
-
-Do not move the actual PostgreSQL server.
-
-Do not create a second database.
-
-Preserve existing PostgreSQL + pgvector configuration.
-
-Organize:
-
-database/
-├── migrations/
-├── seeds/
-├── schema/
-└── README.md
-
-Existing database tables must continue working.
-
-Potential entities:
-
-companies
-users
-projects
-documents
-chunks
-evidence
-signals
-patterns
-failure_dna
-historical_cases
-predictions
-interventions
-experiments
-outcomes
-
-Do not fabricate production historical data.
-
-
-==================================================
-11. PRIVACY ARCHITECTURE
-==================================================
-
-FailureOps X is intended to eventually work as a global platform.
-
-Therefore privacy must be built into the architecture.
-
-Every document/evidence/case should conceptually support:
-
-owner/company
-visibility
-sharing permission
-
-Use:
-
-PRIVATE
-ORGANIZATION
-GLOBAL_SANITIZED
-
-Rules:
-
-PRIVATE:
-Only authorized users from the owning organization.
-
-ORGANIZATION:
-Available inside the organization.
-
-GLOBAL_SANITIZED:
-Explicitly approved for global learning/search.
-
-CRITICAL:
-
-Never expose a private company's document through global search.
-
-Global historical learning should use sanitized/approved information.
-
-Example:
-
-PRIVATE SOURCE:
-
-Company A internal report:
-"Customer activation dropped because our onboarding implementation had bug XYZ."
-
-This must NOT become globally readable.
-
-Instead, if Company A explicitly permits global sharing:
-
-GLOBAL MEMORY:
-
-"Historical case: onboarding friction was associated with declining activation. Simplifying onboarding improved activation."
-
-Do not expose the original private document.
-
-Create:
-
-rag/app/privacy/
-
-or an equivalent clearly separated privacy module if appropriate.
-
-
-==================================================
-12. DATA FLOW
-==================================================
-
-The final architecture must support this flow:
-
-USER
-↓
-FRONTEND
-↓
-BACKEND API
-↓
-DOCUMENT INGESTION
-↓
-RAG
-↓
-EVIDENCE
-↓
-SIGNALS
-↓
-PATTERNS
-↓
-FAILURE DNA
-↓
-HISTORICAL SIMILARITY
-↓
-RISK ENGINE
-↓
-FAILURE RADAR
-↓
-PREDICTION
-↓
-INTERVENTION
-↓
-EXPERIMENT
-↓
-OUTCOME
-↓
-SANITIZED ORGANIZATIONAL MEMORY
-
-
-==================================================
-13. GLOBAL SEARCH
-==================================================
-
-FailureOps X will eventually allow a company to search for similar products/projects.
-
-Example:
-
-User enters:
-
-Product:
-"Expense Tracker"
-
-Description:
-"Mobile expense tracking application for small businesses."
-
-Features:
-
-- receipt scanning
-- automatic categorization
-- budget tracking
-- team expense management
-
-System:
-
-Product description
-↓
-Semantic representation
-↓
-Historical/global memory retrieval
-↓
-Similarity ranking
-↓
-Historical cases
-↓
-Approved/sanitized results
-
-The result should NOT automatically expose private documents.
-
-Instead show:
-
-Similar product/case
-Similarity
-Failure pattern
-What happened
-Mistakes observed
-Intervention
-Outcome
-Confidence
-Evidence availability
-
-Only show detailed source evidence if the user has permission to access it.
-
-
-==================================================
-14. DEMO DATA
-==================================================
-
-Keep demo data separate:
-
-data/
-
-├── demo/
-├── sample_projects/
-└── sanitized_cases/
-
-Demo data must never be confused with real customer data.
-
-Make it easy to seed the database for the hackathon demo.
-
-
-==================================================
-15. CONFIGURATION
-==================================================
-
-Update:
-
-docker-compose.yml
-.env.example
-README.md
-CI/CD
-deployment scripts
-
-Every service must have clear environment variables.
-
-Do not hard-code:
-
-API keys
-database passwords
-tokens
-credentials
-private URLs
-
-Use environment variables.
-
-
-==================================================
-16. DOCKER
-==================================================
-
-The final architecture should be able to run using Docker Compose.
-
-Conceptually:
-
-docker-compose.yml
-
-services:
-
-frontend
-backend
-rag
-postgres
-storage
-
-However:
-
-If backend and RAG currently run as one service and separating them would introduce unnecessary risk, keep them together temporarily while maintaining clear code boundaries.
-
-Do not introduce unnecessary microservices.
-
-
-==================================================
-17. TESTING AFTER MIGRATION
-==================================================
-
-After restructuring, run:
-
-1. Frontend build
-2. Frontend lint
-3. Backend startup
-4. RAG startup
-5. Database connection
-6. pgvector availability
-7. Existing RAG test
-8. Upload test
-9. Retrieval test
-10. API health test
-11. Frontend → backend test
-12. Backend → RAG test
-
-Test the basic flow:
-
-Upload document
-↓
-Parse
-↓
-Chunk
-↓
-Embed
-↓
-Store
-↓
-Retrieve
-↓
-Return evidence
-
-
-==================================================
-18. DO NOT DO THESE
-==================================================
+- lib/
+- types/
+- API routes
+- authentication implementation
+- existing RAG/backend integration
+- existing project routes
+- existing dashboard
+- existing Failure DNA UI
+- existing Radar UI
+- existing Evidence UI
+- existing historical search
+- existing data contracts
+- existing styling/design tokens
+- existing responsive behavior
+
+Determine:
+
+1. What already works.
+2. What can be reused.
+3. What should be redesigned.
+4. Which routes already exist.
+5. Which APIs already exist.
+6. Which components already exist.
+7. Which pages currently contain hardcoded/demo data.
+8. Which UI elements are connected to real APIs.
+9. Which functionality must NOT be touched.
+
+DO NOT start modifying files until you understand the current
+architecture.
+
+At the beginning, provide a short implementation plan based on
+the actual repository you inspect.
+
+============================================================
+3. CRITICAL RULE: DO NOT BREAK BACKEND/RAG
+============================================================
+
+This is primarily a frontend/product UX redesign.
 
 DO NOT:
 
-- rewrite the entire application
-- replace the existing RAG
-- change embedding models unnecessarily
-- replace PostgreSQL
-- introduce Kubernetes
-- introduce unnecessary microservices
-- introduce Kafka
-- introduce Redis unless already required
-- introduce a new vector database if pgvector already works
-- create unnecessary abstractions
-- duplicate components
-- duplicate APIs
-- duplicate RAG
-- create fake AI results
-- delete existing functionality
-- expose private documents
-- commit credentials
-- hard-code API keys
+- rewrite the RAG engine
+- rewrite the agent system
+- change database schemas unnecessarily
+- remove existing API endpoints
+- remove working project analysis
+- replace real API data with hardcoded data
+- break existing document lineage
+- break evidence references
+- break Failure DNA calculations
+- break Failure Radar
+- break historical retrieval
+- break intervention logic
+- break existing deployment configuration
 
+If an existing API is already available, use it.
 
-==================================================
-19. MIGRATION ORDER
-==================================================
+If a feature does not yet have a backend implementation, create
+the frontend interface with a clean service abstraction and an
+appropriate loading/empty state rather than inventing fake
+production data.
 
-Perform the migration in this exact order:
+============================================================
+4. NEW PRODUCT INFORMATION ARCHITECTURE
+============================================================
 
-PHASE 1
-Inspect repository.
+Separate the PUBLIC WEBSITE from the AUTHENTICATED APPLICATION.
 
-PHASE 2
-Generate current architecture report.
+PUBLIC WEBSITE:
 
-PHASE 3
-Create target directories.
+/
+ /platform
+ /how-it-works
+ /intelligence
+ /security
+ /login
+ /signup
 
-PHASE 4
-Move frontend.
+AUTHENTICATED APPLICATION:
 
-PHASE 5
-Fix frontend imports/configuration.
+/app
+/app/dashboard
+/app/projects
+/app/projects/[id]
+/app/search
+/app/memory
+/app/settings
 
-PHASE 6
-Verify frontend builds.
+If equivalent routes already exist, preserve them where possible
+and adapt the architecture instead of unnecessarily renaming
+everything.
 
-PHASE 7
-Separate backend responsibilities.
+============================================================
+5. PUBLIC WEBSITE
+============================================================
 
-PHASE 8
-Preserve/move RAG into rag/.
+The public website should feel like a premium production-grade
+B2B SaaS company.
 
-PHASE 9
-Organize agents.
+It must NOT look like an internal monitoring dashboard.
 
-PHASE 10
-Create shared contracts.
+Current landing page contains dashboard-like elements such as:
 
-PHASE 11
-Organize database migration/schema files.
+- Aurora
+- failure risk percentages
+- live telemetry
+- evidence source counts
+- experiment results
+- internal engine labels
 
-PHASE 12
-Organize data/demo files.
+These should NOT dominate the public marketing page.
 
-PHASE 13
-Update Docker.
+Do not present sample/demo numbers as real customer outcomes.
 
-PHASE 14
-Update deployment configuration.
+Do not claim that a result belongs to a real company unless the
+repository contains verified data supporting that claim.
 
-PHASE 15
-Update documentation.
+For illustrative examples, use labels such as:
 
-PHASE 16
-Run complete tests.
+"Illustrative analysis"
+"Example project"
+"Example historical case"
 
-PHASE 17
-Fix all broken imports/configurations.
+Do NOT use the phrase "mock data" in marketing copy.
 
-PHASE 18
-Verify the full application.
+============================================================
+6. LANDING PAGE HERO
+============================================================
 
+Use this positioning:
 
-==================================================
-20. VERY IMPORTANT — DO NOT STOP AT FOLDER CREATION
-==================================================
+HEADLINE:
 
-After migration, verify that the actual application works.
+"Know where your project is heading before it gets there."
 
-Do not simply say:
+SUBHEADING:
 
-"Folders created successfully."
+"FailureOps X turns fragmented project evidence into risk
+intelligence — connecting signals, patterns, historical outcomes,
+and verified interventions in one continuous intelligence layer."
 
-You must verify:
+Primary CTA:
 
-Frontend
-↓
-Backend
-↓
-RAG
-↓
-Database
+"Start analyzing"
 
-actually communicate.
+Secondary CTA:
 
-Especially verify the existing RAG still performs:
+"Explore intelligence"
 
-Upload
-→ Parse
-→ Chunk
-→ Embed
-→ Retrieve
-→ Evidence
+Small supporting line:
 
+"Evidence-grounded • Explainable • Privacy-controlled"
 
-==================================================
-21. FINAL REPORT
-==================================================
+Do not use fake "LIVE telemetry" indicators.
 
-At the end, provide:
+Do not use fake real-time timestamps.
 
-1. Final directory tree.
+Do not imply that the visitor is viewing real customer telemetry.
 
-2. Files moved.
+============================================================
+7. HERO PRODUCT VISUAL
+============================================================
 
-3. Files created.
+Create a sophisticated product preview showing an illustrative
+project intelligence dashboard.
 
-4. Files modified.
+Example:
 
-5. Files intentionally left unchanged.
+PROJECT INTELLIGENCE
 
-6. Frontend entry point.
+Project Launch
 
-7. Backend entry point.
+Project Health                 68
+Risk Trend                     ↑ Increasing
 
-8. RAG entry point.
+Adoption       ████████░░       81
+Execution      ██████░░░░       63
+Operational    ███████░░░       71
+Technical      ████░░░░░░       42
 
-9. Database configuration.
+Emerging Pattern
 
-10. Agent locations.
+Onboarding friction → adoption risk
 
-11. Shared contract locations.
+Historical similarity            87%
 
-12. API communication flow.
+[Inspect evidence]
 
-13. RAG communication flow.
+Clearly mark this visual as illustrative if needed.
 
-14. Privacy architecture.
+This preview should look like a real enterprise product.
 
-15. Docker commands.
+============================================================
+8. LANDING PAGE SECTIONS
+============================================================
 
-16. Development commands.
+Build these sections:
 
-17. Test results.
+SECTION 1
+Hero
 
-18. Any remaining problems.
+SECTION 2
+Evidence → Intelligence workflow
 
-19. Any TODOs.
+SECTION 3
+Failure DNA
 
-20. Any migration risks.
+SECTION 4
+Truth Engine / Assumption Validation
+
+SECTION 5
+Historical Intelligence
+
+SECTION 6
+Failure Radar
+
+SECTION 7
+Intervention → Experiment → Verified Learning
+
+SECTION 8
+Privacy / Controlled Knowledge Sharing
+
+SECTION 9
+Final CTA
+
+SECTION 10
+Professional footer
+
+============================================================
+9. EVIDENCE → INTELLIGENCE WORKFLOW
+============================================================
+
+Visually show:
+
+Project Evidence
+       ↓
+Signals
+       ↓
+Failure DNA
+       ↓
+Historical Intelligence
+       ↓
+Failure Radar
+       ↓
+Intervention
+       ↓
+Verified Learning
+
+Each stage needs:
+
+- title
+- short explanation
+- appropriate icon
+- subtle animation
+- clean visual hierarchy
+
+Avoid excessive animation.
+
+============================================================
+10. FAILURE DNA
+============================================================
+
+Failure DNA is a multidimensional project risk profile.
+
+Show dimensions such as:
+
+Technical
+Operational
+Adoption
+Execution
+Financial
+
+Do NOT imply that every project is failing.
+
+A healthy project should be able to show:
+
+Overall risk: Low
+
+✓ Adoption stable
+✓ Execution on track
+✓ Technical risk low
+✓ No significant emerging pattern
+
+A project with emerging problems can show:
+
+Overall risk: Elevated
+
+⚠ Adoption deterioration
+⚠ Execution delay
+⚠ Increasing operational friction
+
+The product detects and explains risk; it does not manufacture
+failure warnings.
+
+============================================================
+11. TRUTH ENGINE
+============================================================
+
+Create a strong product visualization.
+
+Example:
+
+TEAM ASSUMPTION
+
+"Pricing is causing poor adoption."
+
+Evidence:
+
+Pricing complaints       8%
+Onboarding complaints   76%
+Signup abandonment      43%
+Activation decline      37%
+
+RESULT:
+
+ASSUMPTION CHALLENGED
+
+"Current evidence more strongly supports onboarding friction."
+
+Include:
+
+[View supporting evidence]
+
+Make it visually clear that FailureOps compares assumptions
+against evidence.
+
+============================================================
+12. HISTORICAL INTELLIGENCE
+============================================================
+
+This is a major product differentiator.
+
+Users should be able to describe a product/project and search
+approved historical intelligence.
+
+Example:
+
+Query:
+
+"Expense management platform with receipt scanning,
+budget tracking and team expenses."
+
+Results can contain:
+
+Similar historical product/project
+Similarity score
+Observed challenge
+Failure pattern
+Intervention
+Observed outcome
+Confidence
+Source availability
+
+Example:
+
+Expense Management Platform
+
+Similarity: 91%
+
+Observed challenge:
+Low activation
+
+Pattern:
+Complex onboarding
+
+Intervention:
+Simplified onboarding
+
+Outcome:
+Improved activation
 
 IMPORTANT:
 
-Do not claim something is implemented unless you verified it.
+Global search MUST NOT expose private company documents.
 
-Clearly label each feature as:
+Only approved/sanitized information can be returned through global
+intelligence.
 
-IMPLEMENTED
-PARTIALLY IMPLEMENTED
-INTERFACE ONLY
-MOCK/DEMO
-NOT IMPLEMENTED
+============================================================
+13. PRIVACY MODEL
+============================================================
 
-The final project must be runnable.
+Implement UI for three knowledge-sharing levels:
 
-Start with PHASE 1: repository inspection.
-DO NOT MODIFY ANYTHING UNTIL THE INSPECTION REPORT IS COMPLETE.
+PRIVATE
+
+Only the organization can access the project intelligence.
+
+ORGANIZATION
+
+Approved intelligence can be shared inside the organization.
+
+GLOBAL_SANITIZED
+
+Sanitized/approved intelligence can contribute to global
+FailureOps intelligence.
+
+Show this concept clearly:
+
+Private source documents
+        ↓
+Evidence extraction
+        ↓
+Privacy / sanitization rules
+        ↓
+Approved knowledge
+        ↓
+Global intelligence
+
+Never expose original private documents through global search
+unless the originating organization explicitly allows it.
+
+Do not claim specific security certifications or architecture
+that does not actually exist.
+
+Do not display:
+
+"SOC2 compliant"
+"HIPAA compliant"
+"Zero knowledge"
+"AES-256 encrypted"
+
+unless the existing implementation genuinely supports those
+claims.
+
+============================================================
+14. FAILURE RADAR
+============================================================
+
+Failure Radar belongs primarily inside the authenticated product.
+
+It should automatically evaluate the current project based on
+available project evidence, signals, Failure DNA, historical
+similarity, and trends.
+
+Possible states:
+
+HEALTHY
+
+Risk: 21
+Trend: Stable
+
+✓ Adoption improving
+✓ Delivery on track
+✓ No significant emerging pattern
+
+ATTENTION REQUIRED
+
+Risk: 71
+Trend: Increasing
+
+⚠ Activation declining
+⚠ Onboarding friction increasing
+⚠ Similar historical trajectory
+
+Potential next failure:
+Low repeat usage
+
+Confidence:
+82%
+
+The UI must explain WHY the radar reached the conclusion.
+
+============================================================
+15. AUTHENTICATION
+============================================================
+
+Implement a production-quality but hackathon-appropriate
+authentication experience.
+
+Pages:
+
+/login
+/signup
+
+Login:
+
+FailureOps X
+
+Welcome back
+
+Work email
+Password
+
+[Sign in]
+
+Forgot password?
+
+Don't have an account?
+Create workspace
+
+Signup:
+
+Create your workspace
+
+Name
+Work email
+Password
+Organization
+
+[Create workspace]
+
+After signup:
+
+User
+ ↓
+Organization
+ ↓
+Workspace
+ ↓
+Project
+
+Keep authentication implementation simple.
+
+Do not spend time implementing:
+
+- enterprise SSO
+- SCIM
+- complex billing
+- advanced enterprise RBAC
+- multi-region identity
+- complex admin hierarchy
+
+unless they already exist.
+
+============================================================
+16. AUTHENTICATED APPLICATION
+============================================================
+
+The authenticated application should retain the sophisticated
+dark intelligence dashboard aesthetic of the existing product.
+
+Sidebar:
+
+Overview
+Projects
+Global Intelligence
+Organizational Memory
+Settings
+
+Project detail:
+
+Overview
+Evidence
+Failure DNA
+Radar
+Historical Intelligence
+Interventions
+Outcomes
+
+============================================================
+17. PROJECT CREATION
+============================================================
+
+Create a clean project creation experience.
+
+Fields:
+
+Project name
+Product/project description
+Stage
+Industry/category
+
+Stages:
+
+Idea
+Planning
+Development
+Launched
+
+CTA:
+
+"Create project"
+
+After creation:
+
+Project
+ ↓
+Upload evidence
+ ↓
+Analysis
+ ↓
+Project intelligence
+
+============================================================
+18. DOCUMENT UPLOAD UX
+============================================================
+
+Do NOT expose implementation language such as:
+
+"Upload to RAG"
+
+Instead:
+
+"Build your project intelligence"
+
+Upload:
+
+PDF
+DOCX
+XLSX
+CSV
+PPTX
+TXT
+MD
+
+Show processing progress:
+
+✓ Documents received
+✓ Content extracted
+✓ Evidence identified
+✓ Signals detected
+✓ Patterns analyzed
+✓ Failure DNA generated
+
+Then:
+
+"Analysis complete"
+
+Use real backend processing where available.
+
+============================================================
+19. PROJECT OVERVIEW
+============================================================
+
+Show:
+
+Project health
+Overall risk
+Risk trend
+Confidence
+Dominant risk dimensions
+Key signals
+Emerging patterns
+Potential next failure
+Historical similarity
+Supporting evidence
+
+Example:
+
+PROJECT AURORA
+
+Overall Risk: 68
+
+Trend: ↑ Increasing
+
+Confidence: 84%
+
+Dominant dimensions:
+
+Adoption
+Operational
+Execution
+
+Key signals:
+
+⚠ Activation declining
+⚠ Onboarding abandonment increasing
+✓ Infrastructure stable
+✓ Delivery velocity stable
+
+Potential next failure:
+
+Low repeat usage
+
+Why?
+
+Activation decline
++
+Signup abandonment
++
+Historical similarity
+
+[View evidence]
+
+============================================================
+20. EVIDENCE TRACEABILITY
+============================================================
+
+Every important insight must be traceable.
+
+Evidence drawer should show:
+
+Source document
+Page/section
+Relevant snippet
+Confidence
+Related signal
+Related pattern
+
+Example:
+
+Signal:
+Onboarding friction
+
+Source:
+Customer Research.pdf
+
+Page:
+14
+
+Evidence:
+"Users are abandoning the setup process..."
+
+Confidence:
+94%
+
+[Open source]
+
+Preserve the existing document/page/block lineage system.
+
+============================================================
+21. GLOBAL SEARCH
+============================================================
+
+Create a polished global intelligence search page.
+
+Search input:
+
+"Describe a product, project, challenge or failure pattern..."
+
+Results should support:
+
+- similarity
+- failure pattern
+- intervention
+- outcome
+- confidence
+- privacy/source availability
+
+Provide clear distinction between:
+
+Current organization data
+and
+approved global intelligence.
+
+============================================================
+22. ORGANIZATIONAL MEMORY
+============================================================
+
+Show verified historical learning.
+
+Example:
+
+Pattern:
+Onboarding friction
+
+Intervention:
+Simplified onboarding
+
+Verified outcome:
++21 percentage points activation
+
+Confidence:
+93%
+
+Context:
+B2B SaaS onboarding
+
+Only show information according to privacy permissions.
+
+============================================================
+23. DESIGN SYSTEM
+============================================================
+
+Maintain the FailureOps X identity but make it more mature.
+
+Use:
+
+- deep neutral/dark background
+- restrained orange primary accent
+- subtle blue/teal secondary indicators
+- sophisticated typography
+- generous whitespace
+- consistent spacing
+- subtle borders
+- restrained gradients
+- minimal glass effects
+- professional charts
+- consistent radius system
+
+Avoid:
+
+- excessive neon
+- excessive glow
+- excessive orange
+- random gradients
+- generic AI illustrations
+- excessive glassmorphism
+- unnecessary badges
+- excessive animations
+
+The design should feel closer to a serious enterprise intelligence
+platform than a gaming interface.
+
+============================================================
+24. RESPONSIVE DESIGN
+============================================================
+
+The application MUST be optimized for:
+
+Desktop:
+1440px
+1920px
+
+Tablet:
+768px+
+
+Mobile:
+390px
+430px
+
+Mobile requirements:
+
+- no horizontal scrolling
+- navigation becomes drawer
+- cards become single column
+- charts remain readable
+- CTAs become appropriately full width
+- evidence drawer becomes mobile bottom sheet/full-screen sheet
+- tables transform into cards
+- typography scales correctly
+- touch targets are comfortable
+- spacing remains consistent
+
+Do not simply shrink desktop layouts.
+
+Design mobile layouts intentionally.
+
+============================================================
+25. ACCESSIBILITY
+============================================================
+
+Implement:
+
+- semantic HTML
+- keyboard navigation
+- visible focus states
+- accessible contrast
+- aria labels where needed
+- reduced-motion support
+- readable font sizes
+- accessible buttons
+- accessible form validation
+
+============================================================
+26. COMPONENT ARCHITECTURE
+============================================================
+
+Reuse existing components where appropriate.
+
+Create reusable components where missing:
+
+Navbar
+MobileNav
+Hero
+Workflow
+FeatureCard
+ProductPreview
+TruthEnginePreview
+HistoricalCaseCard
+PrivacySection
+CTA
+Footer
+
+Authenticated:
+
+Sidebar
+MobileSidebar
+ProjectCard
+ProjectHealthCard
+RiskTrend
+FailureDNACard
+EvidenceDrawer
+RadarPanel
+HistoricalMatch
+InterventionCard
+OutcomeCard
+EmptyState
+LoadingState
+ErrorState
+
+Do not duplicate similar UI components.
+
+============================================================
+27. DATA RULE
+============================================================
+
+VERY IMPORTANT:
+
+Never replace working API data with hardcoded values just to make
+the UI look complete.
+
+If real data exists:
+use the real data.
+
+If data does not exist:
+show a meaningful empty state.
+
+For public marketing examples:
+use clearly labeled illustrative content.
+
+For authenticated projects:
+use actual project/API data.
+
+============================================================
+28. ERROR / LOADING / EMPTY STATES
+============================================================
+
+Every major page must have:
+
+Loading state
+Empty state
+Error state
+Success state
+
+Examples:
+
+No projects:
+
+"You haven't created a project yet."
+
+[Create project]
+
+No historical matches:
+
+"No relevant historical patterns found."
+
+Upload processing:
+
+"Analyzing project evidence..."
+
+API failure:
+
+"Unable to load project intelligence."
+
+[Retry]
+
+============================================================
+29. PERFORMANCE
+============================================================
+
+Optimize for production:
+
+- avoid unnecessary client components
+- use server components where appropriate
+- lazy load heavy charts
+- optimize images
+- avoid unnecessary dependencies
+- avoid huge JavaScript bundles
+- prevent unnecessary re-renders
+- use skeleton loading states
+- preserve existing Next.js performance patterns
+
+============================================================
+30. SEO
+============================================================
+
+Public pages should include:
+
+proper title
+description
+Open Graph metadata
+semantic headings
+robots configuration where appropriate
+
+Suggested title:
+
+"FailureOps X — Project Failure Intelligence"
+
+Suggested description:
+
+"Turn project evidence into risk intelligence, historical insight,
+and evidence-backed interventions."
+
+============================================================
+31. IMPLEMENTATION PROCESS
+============================================================
+
+Work incrementally.
+
+PHASE 1:
+Inspect repository.
+
+PHASE 2:
+Create/reuse design tokens and layout primitives.
+
+PHASE 3:
+Redesign public navbar and landing page.
+
+PHASE 4:
+Implement responsive public pages.
+
+PHASE 5:
+Implement login/signup UI while preserving existing auth logic.
+
+PHASE 6:
+Implement authenticated application shell.
+
+PHASE 7:
+Implement project creation flow.
+
+PHASE 8:
+Connect project dashboard to existing APIs.
+
+PHASE 9:
+Improve Evidence / Failure DNA / Radar / Historical Intelligence
+interfaces.
+
+PHASE 10:
+Implement privacy UI.
+
+PHASE 11:
+Mobile optimization.
+
+PHASE 12:
+Testing and visual QA.
+
+============================================================
+32. DO NOT DO EVERYTHING IN ONE GIANT CHANGE
+============================================================
+
+Implement in logical batches.
+
+After each batch:
+
+- run TypeScript checks
+- run lint
+- run tests
+- inspect changed files
+- verify routes
+- verify API connections
+- fix regressions
+
+Do not continue if a major existing feature is broken.
+
+============================================================
+33. FINAL QUALITY CHECK
+============================================================
+
+Before finishing, verify:
+
+[ ] Public landing page works
+[ ] Navbar works
+[ ] Mobile navigation works
+[ ] Login works
+[ ] Signup works
+[ ] Workspace creation works
+[ ] Project creation works
+[ ] Existing project analysis still works
+[ ] Existing RAG integration still works
+[ ] Evidence lineage still works
+[ ] Failure DNA still works
+[ ] Failure Radar still works
+[ ] Historical search still works
+[ ] Privacy levels are represented correctly
+[ ] No private data is exposed globally
+[ ] No fake customer claims
+[ ] No fake live telemetry
+[ ] No "mock data" wording in marketing UI
+[ ] Illustrative examples are clearly labeled
+[ ] Empty states work
+[ ] Loading states work
+[ ] Error states work
+[ ] Desktop works
+[ ] Tablet works
+[ ] Mobile works
+[ ] No horizontal overflow
+[ ] TypeScript passes
+[ ] Lint passes
+[ ] Existing tests pass
+[ ] No unnecessary backend changes
+
+IMPORTANT FINAL RULE:
+
+Do not optimize for "more features."
+
+Optimize for:
+
+CLARITY
++
+TRUST
++
+EVIDENCE
++
+EXPLAINABILITY
++
+PRODUCTION QUALITY
+
+FailureOps X should feel like a real product that a company could
+understand and start using, not like a collection of hackathon
+features.

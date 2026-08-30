@@ -108,7 +108,8 @@ export default function GlobalSearchPage() {
             type="search"
             value={query}
             onChange={(e) => setQuery(e.target.value)}
-            placeholder="activation collapse  ·  checkout  ·  onboarding"
+            placeholder="Describe a product, project, challenge, or failure pattern..."
+
             className="w-full rounded-xl border border-primary bg-surface-feed py-3.5 pl-11 pr-16 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus-visible:ring-2 focus-visible:ring-ring"
           />
           <kbd className="pointer-events-none absolute right-3 top-1/2 hidden -translate-y-1/2 rounded bg-card px-1.5 py-0.5 font-mono text-[10px] text-muted-foreground sm:inline-flex">
