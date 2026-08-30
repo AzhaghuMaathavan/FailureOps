@@ -83,12 +83,16 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-from app.api import health, documents, retrieval, chat, conversations, analysis, foundation, email
+from app.api import health, documents, retrieval, chat, conversations, analysis, foundation, email, custom_ai, community
 from app.intelligence.api import intelligence_router
 
 # Foundation & SMTP Endpoints
 app.include_router(foundation.router, prefix="/api", tags=["foundation"])
 app.include_router(email.router, tags=["Email & Notifications"])
+
+# Custom AI & Community Endpoints
+app.include_router(custom_ai.router, prefix=settings.API_V1_STR, tags=["AI Configuration"])
+app.include_router(community.router, prefix=settings.API_V1_STR, tags=["Community"])
 
 # LangGraph Intelligence Pipeline
 app.include_router(intelligence_router, prefix=settings.API_V1_STR + "/intelligence", tags=["intelligence"])

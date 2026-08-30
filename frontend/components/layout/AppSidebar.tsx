@@ -25,6 +25,7 @@ import {
   MessageSquare,
   Stethoscope,
   User,
+  Users,
   LogOut,
   type LucideIcon,
 } from 'lucide-react';
@@ -113,6 +114,7 @@ export const AppSidebar: React.FC = () => {
       group: 'ORGANIZATIONAL MEMORY',
       items: [
         { name: 'Global Dashboard', href: '/dashboard', icon: LayoutDashboard },
+        { name: 'Community Knowledge', href: '/community', icon: Users },
         { name: 'Historical Cases', href: '/historical/atlas', icon: Database },
         { name: 'Validated Learnings', href: '/memory', icon: Shield },
         { name: 'Global Search', href: '/search', icon: Search },

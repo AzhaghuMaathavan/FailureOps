@@ -1,5 +1,7 @@
 export * from './contracts';
 export * from './agents';
+export * from './community';
+export * from './ai';
 
 export type PrivacyLevel = 'PRIVATE' | 'ORGANIZATION' | 'ANONYMOUS_LEARNING' | 'PUBLIC' | 'PUBLIC_CASE_STUDY' | 'GLOBAL_SANITIZED';
 

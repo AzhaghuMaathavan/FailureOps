@@ -6,6 +6,10 @@
     "dev": "npm --prefix frontend run dev",
     "build": "npm --prefix frontend run build",
     "start": "npm --prefix frontend run start",
-    "lint": "npm --prefix frontend run lint"
+    "lint": "npm --prefix frontend run lint",
+    "db:tunnel": "./scripts/tunnel-postgres.sh start",
+    "db:stop": "./scripts/tunnel-postgres.sh stop",
+    "db:status": "./scripts/tunnel-postgres.sh status",
+    "db:test": "./scripts/tunnel-postgres.sh test"
   }
 }

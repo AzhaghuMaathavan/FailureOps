@@ -8,6 +8,8 @@ from app.models.analysis import ProjectAnalysis
 from app.models.evidence import EvidenceItem, EvidenceConflict
 from app.models.signal import SignalItem
 from app.models.project import Project
+from app.models.community import CommunityPost, CommunityComment, CommunityTag, CommunityPostTag, CommunityHelpfulVote, CommunityReport
+from app.models.custom_ai import CustomAIConfig
 from app.db.baseline_projects import ensure_baseline_projects
 
 logger = logging.getLogger(__name__)
@@ -120,6 +122,10 @@ def init_db():
         added = ensure_baseline_projects(db)
         if added:
             print(f"Seeded {added} missing baseline project(s).")
+        from app.db.community_seed import seed_demo_community_posts
+        c_added = seed_demo_community_posts(db)
+        if c_added:
+            print(f"Seeded {c_added} baseline community failure experiences.")
     finally:
         db.close()
 

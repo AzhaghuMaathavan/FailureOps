@@ -7,6 +7,12 @@ import {
   AssumptionInvestigation,
   OrganizationalMemoryEntry,
   Experiment,
+  CommunityPost,
+  CommunityComment,
+  CommunityTag,
+  SensitiveScanResult,
+  CustomAIConfig,
+  CustomAITestResult,
 } from '@/types';
 
 import { ProjectRegistrationInput, EvidenceUploadInput } from '@/lib/validation/schemas';
@@ -588,6 +594,111 @@ export const apiClient = {
       method: 'POST',
     });
   },
+
+  // FailureOps Community
+  async getCommunityPosts(params: {
+    post_type?: string;
+    tag?: string;
+    sort?: string;
+    query?: string;
+    visibility?: string;
+    limit?: number;
+    offset?: number;
+  } = {}): Promise<{ posts: CommunityPost[]; total: number }> {
+    const query = new URLSearchParams();
+    if (params.post_type) query.set('post_type', params.post_type);
+    if (params.tag) query.set('tag', params.tag);
+    if (params.sort) query.set('sort', params.sort);
+    if (params.query) query.set('query', params.query);
+    if (params.visibility) query.set('visibility', params.visibility);
+    if (params.limit) query.set('limit', String(params.limit));
+    if (params.offset) query.set('offset', String(params.offset));
+
+    const qs = query.toString();
+    return request<{ posts: CommunityPost[]; total: number }>(`/api/community/posts${qs ? `?${qs}` : ''}`);
+  },
+
+  async getCommunityPost(id: string): Promise<CommunityPost> {
+    return request<CommunityPost>(`/api/community/posts/${id}`);
+  },
+
+  async createCommunityPost(payload: Partial<CommunityPost>): Promise<CommunityPost> {
+    return request<CommunityPost>('/api/community/posts', {
+      method: 'POST',
+      body: JSON.stringify(payload),
+    });
+  },
+
+  async addCommunityComment(postId: string, content: string): Promise<CommunityComment> {
+    return request<CommunityComment>(`/api/community/posts/${postId}/comments`, {
+      method: 'POST',
+      body: JSON.stringify({ content }),
+    });
+  },
+
+  async toggleCommunityHelpful(postId: string, commentId?: string): Promise<{ voted: boolean; message: string }> {
+    return request<{ voted: boolean; message: string }>(`/api/community/posts/${postId}/helpful`, {
+      method: 'POST',
+      body: JSON.stringify({ comment_id: commentId || null }),
+    });
+  },
+
+  async acceptCommunityAnswer(postId: string, commentId: string): Promise<{ success: boolean; accepted_comment_id: string }> {
+    return request<{ success: boolean; accepted_comment_id: string }>(`/api/community/posts/${postId}/accept`, {
+      method: 'POST',
+      body: JSON.stringify({ comment_id: commentId }),
+    });
+  },
+
+  async scanCommunityContent(text: string): Promise<SensitiveScanResult> {
+    return request<SensitiveScanResult>('/api/community/scan', {
+      method: 'POST',
+      body: JSON.stringify({ text }),
+    });
+  },
+
+  async getCommunityTags(): Promise<CommunityTag[]> {
+    return request<CommunityTag[]>('/api/community/tags');
+  },
+
+  async deleteCommunityPost(id: string): Promise<{ success: boolean }> {
+    return request<{ success: boolean }>(`/api/community/posts/${id}`, {
+      method: 'DELETE',
+    });
+  },
+
+  async reportCommunityContent(payload: { post_id?: string; comment_id?: string; reason: string }): Promise<{ success: boolean }> {
+    return request<{ success: boolean }>('/api/community/report', {
+      method: 'POST',
+      body: JSON.stringify(payload),
+    });
+  },
+
+  // Custom AI Provider Configuration
+  async getCustomAIConfig(): Promise<CustomAIConfig> {
+    return request<CustomAIConfig>('/api/ai/config');
+  },
+
+  async saveCustomAIConfig(payload: { endpoint_url: string; model_name: string; api_key: string }): Promise<CustomAIConfig> {
+    return request<CustomAIConfig>('/api/ai/custom', {
+      method: 'POST',
+      body: JSON.stringify(payload),
+    });
+  },
+
+  async testCustomAIConnection(payload?: { endpoint_url?: string; model_name?: string; api_key?: string }): Promise<CustomAITestResult> {
+    return request<CustomAITestResult>('/api/ai/custom/test', {
+      method: 'POST',
+      body: JSON.stringify(payload || {}),
+    });
+  },
+
+  async deleteCustomAIConfig(): Promise<{ success: boolean; message: string }> {
+    return request<{ success: boolean; message: string }>('/api/ai/custom', {
+      method: 'DELETE',
+    });
+  },
 };
+
 
 

@@ -5,6 +5,8 @@ from app.models.analysis import ProjectAnalysis
 from app.models.evidence import EvidenceItem, EvidenceConflict
 from app.models.signal import SignalItem
 from app.models.project import Project
+from app.models.community import CommunityPost, CommunityComment, CommunityTag, CommunityPostTag, CommunityHelpfulVote, CommunityReport
+from app.models.custom_ai import CustomAIConfig
 
 __all__ = [
     "Document",
@@ -17,7 +19,14 @@ __all__ = [
     "EvidenceItem",
     "EvidenceConflict",
     "SignalItem",
-    "Project"
+    "Project",
+    "CommunityPost",
+    "CommunityComment",
+    "CommunityTag",
+    "CommunityPostTag",
+    "CommunityHelpfulVote",
+    "CommunityReport",
+    "CustomAIConfig",
 ]
 
 
