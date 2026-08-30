@@ -1,1183 +1,888 @@
-MASTER FORENSIC FIX — CONNECT DOWNSTREAM FAILUREOPS PAGES TO REAL BACKEND DATA
+You are working on the existing FailureOps X repository.
 
-PROJECT:
-FailureOps X
-
-OBJECTIVE:
-The downstream pages currently render UI but are not reliably functioning as
-a complete data-driven workflow.
-
-Affected areas:
-
-1. What-If Simulation
-2. Experiments
-3. Outcome Verification
-4. Organizational Memory
-5. Any downstream pages that depend on the above
+I need you to make the current application feel like a
+PRODUCTION-GRADE B2B SaaS product.
 
 IMPORTANT:
-Do NOT fake data.
-Do NOT hardcode current project values.
-Do NOT create placeholder-success states.
-Do NOT delete existing features.
-Do NOT replace working LangGraph/RAG functionality.
+Do not rebuild the application from scratch.
+Do not replace working backend/RAG/agent functionality.
+Inspect the existing implementation first, identify the current
+authentication flow and landing page, then modify them safely.
 
-The goal is to make the downstream FailureOps workflow actually consume,
-execute, persist, and display real backend state.
+========================================================
+TASK 1 — FIX SIGN-IN PERSISTENCE
+========================================================
 
-============================================================
-0. FIRST — FORENSIC AUDIT, NO CODE CHANGES
-============================================================
+CURRENT BUG:
 
-Before changing anything, trace the existing architecture:
+When I sign in successfully, the session/authentication is not
+persisted correctly.
 
-Project
-→ Documents
-→ RAG
-→ LangGraph Intelligence
-→ Evidence
-→ Events / Claims
-→ Signals
-→ Risk
-→ Failure DNA
-→ Causal / Prediction
-→ What-If
-→ Interventions
-→ Experiments
-→ Outcomes
-→ Organizational Memory
+Example current behavior:
 
-For each downstream page determine:
+1. User opens FailureOps X.
+2. User signs in.
+3. User can access the application.
+4. User closes the browser/tab.
+5. User opens FailureOps X again.
+6. The application asks the user to sign in again.
 
-A. What API endpoint does it call?
-B. Does the backend endpoint exist?
-C. Does the endpoint return real DB state?
-D. Is frontend rendering actual response data?
-E. Is any mock/demo/fallback data being used?
-F. Is there a missing persistence step?
-G. Is there a missing state transition?
-H. Is there a broken ID/reference between stages?
+I need proper persistent authentication.
 
-Do not modify until the exact breakpoints are identified.
+EXPECTED BEHAVIOR:
 
-============================================================
-1. REQUIRED ARCHITECTURAL CONTRACT
-============================================================
+1. User signs in.
+2. Authentication/session is persisted securely.
+3. User closes the browser.
+4. User opens FailureOps X later.
+5. The application restores the authenticated session.
+6. User is taken directly to the authenticated application.
+7. User should NOT have to log in again unless:
+   - they explicitly sign out
+   - the session expires
+   - authentication is revoked
+   - security policy requires reauthentication
 
-The downstream chain must be:
+IMPORTANT:
 
-REAL ANALYSIS
-↓
-STRUCTURED INTELLIGENCE
-↓
-FAILURE DNA
-↓
-CAUSAL / FAILURE PATTERN
-↓
-PREDICTION
-↓
-INTERVENTION PLAN
-↓
-WHAT-IF SIMULATION
-↓
-EXPERIMENT
-↓
-MEASUREMENT
-↓
-OUTCOME VERIFICATION
-↓
-VALIDATED MEMORY
+Do NOT solve this by simply putting a user object in localStorage.
 
-Every stage must consume the previous stage's persisted output.
+Inspect the existing authentication implementation and determine
+what is currently being used.
 
-No stage may silently invent its own state.
+If there is already a backend authentication/session system,
+reuse it.
 
-============================================================
-2. ANALYSIS RESULT MUST BE THE SOURCE OF TRUTH
-============================================================
+Use secure persistent authentication appropriate for a
+production web application.
 
-The latest completed project analysis must produce/persist a canonical
-analysis object containing identifiers such as:
+Prefer:
 
-project_id
-organization_id
-analysis_id
-evidence
-signals
-risk
-failure_dna
-predicted_failure
-causal_relationships
-interventions
-experiments
-outcomes
+- secure HttpOnly cookies for session/token storage
+- SameSite protection
+- Secure cookies in production
+- server-side session validation
+- refresh/renewal where appropriate
+- proper logout/invalidation
+- authentication state restoration on application startup
 
-Use the actual existing schema where available.
+Do NOT store sensitive authentication tokens/passwords in:
+- localStorage
+- sessionStorage
+- plain client-side state
 
-Do NOT create a second parallel truth model.
+Passwords must NEVER be stored in plaintext.
 
-============================================================
-3. WHAT-IF SIMULATION
-============================================================
+========================================================
+AUTH FLOW
+========================================================
 
-The What-If Simulation page must NOT use hardcoded scenarios.
+Implement/repair this flow:
 
-Scenarios must be generated from real current project state.
+PUBLIC USER
 
-For example:
+Landing page
+     ↓
+Sign in / Sign up
+     ↓
+Authentication
+     ↓
+Persistent session
+     ↓
+Authenticated app
+     ↓
+Dashboard
 
-Current risk
-↓
-Current signals
-↓
-Current failure trajectory
-↓
-Intervention candidate
-↓
-Projected effect
+ON FUTURE VISIT:
 
-Required fields:
+Open FailureOps X
+     ↓
+Check existing session
+     ↓
+Valid?
+   /     \
+ YES      NO
+ ↓        ↓
+Dashboard Login
 
-scenario_id
-project_id
-analysis_id
-scenario_name
-scenario_type
-assumptions
-affected_signals
-baseline_risk
-projected_risk
-delta
-confidence
-created_at
-status
+If session is expired:
 
-============================================================
-4. WHAT-IF SCENARIOS MUST BE DYNAMIC
-============================================================
+Login page
+     ↓
+Sign in
+     ↓
+New persistent session
+     ↓
+Dashboard
 
-Do NOT hardcode:
+LOGOUT:
 
-"Freeze Scope"
-"Streamline Onboarding"
-"Fix CI Failures"
+Dashboard
+ ↓
+Sign out
+ ↓
+Invalidate session
+ ↓
+Landing/Login
 
-These names may exist in current demo content, but future projects may
-have completely different failure patterns.
+========================================================
+AUTH GUARDS
+========================================================
 
-Instead derive intervention candidates from the actual intervention engine.
+Protect authenticated routes.
+
+Users who are not authenticated should NOT be able to access
+private project information by manually entering URLs.
 
 Example:
 
-Signal:
-high latency
+/app/dashboard
+/app/projects
+/app/projects/[id]
+/app/memory
+/app/settings
 
-Potential intervention:
-reduce request load / optimize service / increase capacity
+If unauthenticated:
 
-The actual intervention names must come from backend logic.
+redirect → /login
 
-============================================================
-5. WHAT-IF EXECUTION
-============================================================
+If authenticated:
 
-When user selects a scenario and clicks:
+allow access.
 
-Run selected
+Also prevent authenticated users from unnecessarily seeing the
+login/signup page.
 
-the system must:
+If a valid session exists and they navigate to /login:
 
-1. validate scenario
-2. load current project intelligence
-3. apply scenario assumptions
-4. run deterministic simulation
-5. generate projected metrics/risk
-6. persist simulation result
-7. return structured result
-8. update UI
+redirect them to the application.
 
-Do NOT just change UI text.
+========================================================
+SESSION RESTORATION
+========================================================
 
-============================================================
-6. DETERMINISTIC SIMULATION
-============================================================
+The frontend must not briefly display:
 
-Where simulation can be mathematical, keep it deterministic.
+"Not logged in"
 
-Do NOT invoke an LLM simply to calculate numeric deltas.
+while the application is checking an existing session.
+
+Implement a proper authentication loading state.
+
+Example:
+
+Checking your workspace...
+
+Then:
+
+valid session → dashboard
+
+invalid session → login
+
+Avoid authentication flickering.
+
+========================================================
+TASK 2 — REDESIGN LANDING PAGE
+========================================================
+
+The current landing page contains too many dashboard/internal
+product controls.
+
+Remove unnecessary buttons and internal navigation from the
+public landing page.
+
+The landing page should look like a REAL PRODUCT WEBSITE.
+
+It should NOT look like someone accidentally exposed the internal
+dashboard.
+
+========================================================
+PUBLIC NAVIGATION
+========================================================
+
+Create a clean professional navbar.
+
+LEFT:
+
+FailureOps X logo
+
+CENTER / RIGHT:
+
+Platform
+How it works
+Security
+
+RIGHT:
+
+Sign in
+Get started
+
+On mobile:
+
+Logo
+Menu button
+
+Opening the menu shows:
+
+Platform
+How it works
+Security
+Sign in
+Get started
+
+Do NOT put internal dashboard tabs in the public navbar.
+
+REMOVE things such as:
+
+Dashboard
+Live Aurora Demo
+Evidence
+Signals
+DNA
+Truth
+Radar
+Predict
+Intervene
+Verify
+
+from the public navigation.
+
+Those belong inside the authenticated application.
+
+========================================================
+LANDING HERO
+========================================================
+
+Replace the current hero with a clear product positioning.
 
 Use:
 
-current state
+"Know where your project is heading
+before it gets there."
+
+Supporting text:
+
+"FailureOps X turns fragmented project evidence into explainable
+risk intelligence — connecting signals, patterns, historical
+outcomes, and verified interventions."
+
+Primary CTA:
+
+"Get started"
+
+Secondary CTA:
+
+"See how it works"
+
+Small supporting line:
+
+"Evidence-grounded • Explainable • Privacy-controlled"
+
+Do NOT display fake:
+
+- live telemetry
+- live timestamps
+- fake customer metrics
+- fake risk percentages
+- fake source counts
+- fake recovery percentages
+
+Do not imply that a visitor is looking at real customer data.
+
+========================================================
+REMOVE UNWANTED HERO ELEMENTS
+========================================================
+
+Remove or redesign:
+
+"Live Aurora Demo"
+
+"82% Aurora failure risk"
+
+"+33pp Recovery after experiment"
+
+"5 Evidence sources live"
+
+"AES-256 Zero-knowledge enclave"
+
+unless these are backed by real production functionality.
+
+Do not make unsupported security claims.
+
+The landing page should communicate the PRODUCT,
+not pretend to show live customer telemetry.
+
+========================================================
+PRODUCT PREVIEW
+========================================================
+
+Instead of fake metrics, create an elegant product preview showing
+HOW FailureOps works.
+
+Example:
+
+PROJECT INTELLIGENCE
+
+Project Launch
+
+Health
+68
+
+Risk trend
+Increasing
+
+Signals
+
+Adoption friction
+Execution delay
+Operational load
+
+Historical similarity
+87%
+
+Potential next failure
+
+Low repeat usage
+
+Why?
+
+Activation decline
 +
-scenario assumptions
-→
-simulation function
-→
-projected state
+Onboarding friction
++
+Similar historical trajectory
 
-If a model is required for qualitative interpretation, isolate it from
-numeric calculation.
+[Inspect evidence]
 
-============================================================
-7. EXPERIMENTS
-============================================================
+Clearly mark the preview as:
 
-The Experiments page must represent an actual executable experiment.
+"Illustrative product view"
 
-Every experiment needs:
+if it is not backed by real data.
 
-experiment_id
-project_id
-analysis_id
-intervention_id
-hypothesis
-control_group
-treatment_group
-target_metric
-baseline_value
-success_threshold
-duration
-status
-created_at
+========================================================
+LANDING PAGE STRUCTURE
+========================================================
 
-Statuses should be real lifecycle states:
+Use this structure:
 
-PLANNED
-RUNNING
-COMPLETED
-STOPPED
-FAILED
+1. Navbar
 
-Do not display PLANNED forever.
+2. Hero
 
-============================================================
-8. START COHORT MUST WORK
-============================================================
+3. Product preview
 
-When user clicks:
+4. "From evidence to intelligence"
 
-Start cohort
+   Evidence
+      ↓
+   Signals
+      ↓
+   Patterns
+      ↓
+   Failure DNA
+      ↓
+   Historical intelligence
+      ↓
+   Failure Radar
+      ↓
+   Intervention
+      ↓
+   Verified learning
 
-the backend must create/start the experiment.
+5. Failure DNA section
 
-Required behavior:
+Explain:
 
-PLANNED
-↓
-STARTING
-↓
-RUNNING
+"Failure is rarely caused by a single event.
+FailureOps connects weak signals across multiple dimensions."
 
-Persist the state.
+Show:
 
-Frontend should poll or subscribe to the real state.
+Technical
+Operational
+Adoption
+Execution
+Financial
 
-Do NOT simulate progress with timers only.
+6. Truth Engine
 
-============================================================
-9. CONTROL / TREATMENT COHORT
-============================================================
-
-The experiment must distinguish:
-
-CONTROL
-vs
-TREATMENT
-
-Each must have:
-
-cohort_id
-assignment
-baseline metric
-post-intervention metric
-sample size
-measurement window
-
-If the product currently cannot run real user-level cohort assignment,
-implement a safe deterministic simulation mode and clearly label it as
-SIMULATED.
-
-Do not falsely claim real-world experimental execution.
-
-============================================================
-10. MEASUREMENT
-============================================================
-
-Experiments need actual measurement.
-
-Define:
-
-measurement_source
-metric_name
-baseline_value
-current_value
-delta
-period
-confidence
-
-Measurement must use real project telemetry or explicitly configured test
-data.
-
-No placeholder numbers.
-
-============================================================
-11. OUTCOME VERIFICATION
-============================================================
-
-This is currently the biggest broken downstream area.
-
-The Outcome Verification page shows:
-
-"No Verified Outcomes Recorded Yet"
-
-That is acceptable ONLY if no experiment has actually completed.
-
-But there must be a working path:
-
-Experiment
-↓
-Measurement collected
-↓
-Outcome generated
-↓
-Verification
-↓
-Outcome persisted
-
-When an experiment completes, create a real outcome record.
-
-Required fields:
-
-outcome_id
-experiment_id
-project_id
-intervention_id
-baseline_metric
-post_metric
-absolute_change
-percentage_change
-success
-confidence
-attribution
-verified_at
-evidence_ids
-status
-
-============================================================
-12. OUTCOME VERIFICATION RULE
-============================================================
-
-Do not mark an intervention successful because the metric moved.
-
-Verification must evaluate:
-
-Did the observed movement meet the pre-registered success criteria?
+Show how assumptions are tested against evidence.
 
 Example:
 
-Target:
-reduce API P95 below threshold
+ASSUMPTION
 
-Baseline:
-370 ms
-
-Observed:
-240 ms
-
-Success:
-TRUE
-
-Only if the configured experiment rule says that this constitutes success.
-
-Do not hardcode the threshold.
-
-============================================================
-13. ATTRIBUTION
-============================================================
-
-Outcome Verification should distinguish:
-
-SUCCESSFULLY ATTRIBUTED
-PARTIALLY ATTRIBUTED
-NOT ATTRIBUTED
-INSUFFICIENT EVIDENCE
-
-Do not claim causal attribution from simple correlation.
-
-Use appropriate confidence.
-
-============================================================
-14. EVIDENCE FOR OUTCOMES
-============================================================
-
-Every outcome must point back to supporting evidence where available:
-
-document
-metric observation
-signal
-experiment measurement
-
-The UI should show:
-
-Outcome:
-Intervention reduced API latency.
-
-Evidence:
-Baseline: ...
-Post-intervention: ...
-
-Source:
-engineeringmetrics.csv / relevant telemetry
-
-Confidence:
-...
-
-Do not show unsupported claims.
-
-============================================================
-15. WRITE TO MEMORY
-============================================================
-
-The:
-
-Write to memory
-
-button must actually persist validated learning.
-
-Do NOT write every outcome automatically.
-
-Only validated/eligible outcomes should enter organizational memory.
-
-Memory record:
-
-memory_id
-organization_scope
-project_scope
-failure_pattern
-intervention
-outcome
-confidence
-evidence_refs
-privacy_scope
-created_at
-
-============================================================
-16. PRIVATE VS GLOBAL MEMORY
-============================================================
-
-Preserve your existing privacy model.
-
-Private project memory:
-
-Only authorized users in that project/company can access it.
-
-Global memory:
-
-Only explicitly authorized/opted-in anonymized information may become
-globally searchable.
-
-Never expose raw company-private documents to another organization.
-
-============================================================
-17. FAILURE DNA
-============================================================
-
-Failure DNA displayed downstream must come from actual signals.
-
-Do NOT hardcode:
-
-Technical Risk = ...
-Execution Risk = ...
-
-Compute from the real FailureOps scoring engine.
-
-============================================================
-18. FAILURE RADAR
-============================================================
-
-Failure Radar must use:
-
-current risk
-risk trend
-critical signals
-predicted failure
-confidence
-supporting evidence
-
-and remain linked to analysis_id.
-
-If there is no completed analysis:
-
-show a meaningful empty state.
-
-Do not show fake risk.
-
-============================================================
-19. PREDICTED FAILURE
-============================================================
-
-Prediction must have:
-
-prediction_id
-analysis_id
-failure
-confidence
-supporting_signals
-supporting_evidence
-created_at
-
-Do NOT hardcode a prediction like:
-
-"Missed Release"
-
-unless the actual engine produced it.
-
-============================================================
-20. CAUSAL ANALYSIS
-============================================================
-
-Causal graph must come from real signal relationships.
-
-Example:
-
-Signal A
-→ Cause B
-→ Effect C
-→ Consequence D
-
-Persist:
-
-relationship_id
-source_signal
-target_signal
-relationship_type
-confidence
-evidence_refs
-
-Do not create graph nodes simply to make the UI populated.
-
-============================================================
-21. PAGE LOAD CONTRACT
-============================================================
-
-Every downstream page must:
-
-1. identify current project
-2. load latest completed analysis
-3. load stage-specific persisted output
-4. render real backend state
-5. handle empty state correctly
-
-No page should depend on:
-
-window/localStorage demo objects
-hardcoded JSON
-static scenario arrays
-fake timers
-placeholder IDs
-
-unless explicitly marked as development fixture mode.
-
-============================================================
-22. FRONTEND API CONTRACT
-============================================================
-
-Audit all downstream frontend API calls.
-
-Find mismatches like:
-
-Backend:
-GET /simulations/{project_id}
-
-Frontend expects:
-response.simulations
-
-or:
-
-Backend returns:
-project_analysis_id
-
-Frontend expects:
-analysis_id
-
-Normalize API contracts at a single API client layer.
-
-Do not scatter transformations throughout components.
-
-============================================================
-23. EMPTY STATES
-============================================================
-
-Correct empty state:
-
-"No completed experiment yet."
-
-NOT:
-
-"No verified outcomes"
-
-while an experiment is actually completed.
-
-Likewise:
-
-"No simulation has been executed yet."
-
-is correct if none exists.
-
-Do not hide backend errors as empty states.
-
-============================================================
-24. ERROR HANDLING
-============================================================
-
-The current UI should distinguish:
-
-LOADING
-READY
-RUNNING
-COMPLETED
-FAILED
-BLOCKED
-NO DATA
-
-Do not turn HTTP/API failures into:
-
-"no data"
-
-Always surface an actionable error.
-
-============================================================
-25. RATE LIMITS / RETRIES
-============================================================
-
-Earlier the system experienced 429 rate-limit failures.
-
-Downstream pages must not create unnecessary LLM calls.
-
-What-If Simulation:
-NO LLM required for deterministic numerical propagation.
-
-Experiment state:
-NO LLM required.
-
-Outcome verification:
-NO LLM required for deterministic measurement comparison.
-
-Only use LLM when semantic interpretation is actually necessary.
-
-Implement safe retry/backoff where external model calls are required.
-
-Never fire duplicate requests because React re-rendered.
-
-============================================================
-26. POLLING
-============================================================
-
-Current pages should not create uncontrolled polling loops.
-
-Implement one shared polling mechanism:
-
-- bounded interval
-- cleanup on unmount
-- stop when terminal status reached
-- exponential backoff where appropriate
-- no duplicate concurrent requests
-
-For completed analysis:
-
-polling stops.
-
-============================================================
-27. IDS AND RELATIONSHIPS
-============================================================
-
-Everything must remain linked:
-
-project_id
-→ analysis_id
-→ signal_id
-→ prediction_id
-→ intervention_id
-→ simulation_id
-→ experiment_id
-→ outcome_id
-→ memory_id
-
-No orphan downstream records.
-
-============================================================
-28. DATABASE PERSISTENCE
-============================================================
-
-Inspect current DB models first.
-
-Reuse existing tables if possible.
-
-Do NOT create duplicate tables if equivalent tables already exist.
-
-Add migrations only when required.
-
-Ensure foreign-key/reference integrity.
-
-============================================================
-29. SECURITY
-============================================================
-
-Every endpoint must enforce:
-
-organization_id
-project_id
-authorized user
-
-No IDOR.
-
-A user from organization B must not be able to request:
-
-simulation from organization A
-experiment from organization A
-outcome from organization A
-memory from organization A
-
-Return appropriate authorization failure.
-
-============================================================
-30. AUDIT LOGGING
-============================================================
-
-Important state-changing actions should be traceable:
-
-run analysis
-run simulation
-start experiment
-complete experiment
-verify outcome
-write memory
-
-Store actor/project/action/timestamp where the current architecture supports
-audit logging.
-
-============================================================
-31. UI — WHAT-IF SIMULATION
-============================================================
-
-The page should show:
-
-CURRENT STATE
-↓
-AVAILABLE INTERVENTIONS
-↓
-SELECT SCENARIO
-↓
-PROJECTED IMPACT
-↓
-RUN SIMULATION
-↓
-RESULT
-
-Example result:
-
-Baseline Risk: 43
-Scenario: <dynamic>
-Projected Risk: 27
-Change: -16
-Major affected signals: ...
-Confidence: ...
-
-No static numbers.
-
-============================================================
-32. UI — EXPERIMENTS
-============================================================
-
-The page should show:
-
-Experiment
-Hypothesis
-Control
-Treatment
-Target metric
-Baseline
-Target
-Duration
-Status
-Observed result
-
-Buttons:
-
-Start
-Pause / Stop
-Complete
-depending on valid state.
-
-Disable invalid state transitions.
-
-============================================================
-33. UI — OUTCOME VERIFICATION
-============================================================
-
-When no verified outcome exists:
-
-No verified outcomes yet.
-
-Then provide:
-
-[Open Experiments]
-
-When an outcome exists:
-
-OUTCOME
-Intervention:
-...
-
-RESULT
-Baseline → Post
-
-Change
-...
-
-VERDICT
-SUCCESS / PARTIAL / FAILED / INSUFFICIENT EVIDENCE
-
-CONFIDENCE
-...
+"Pricing is causing poor adoption."
 
 EVIDENCE
-...
 
-[Write to Memory]
+Pricing complaints: low
+Onboarding complaints: high
+Activation decline: increasing
 
-============================================================
-34. UI — ORGANIZATIONAL MEMORY
-============================================================
+RESULT
 
-Show validated learnings only.
+"Evidence more strongly supports onboarding friction."
+
+7. Historical Intelligence
+
+Explain:
+
+"Compare a current project with approved historical cases."
 
 Example:
 
-Failure Pattern
-API latency degradation
+Current project
+     ↓
+Similarity search
+     ↓
+Historical patterns
+     ↓
+Past interventions
+     ↓
+Observed outcomes
 
-Intervention
-...
+8. Failure Radar
 
+Explain that Failure Radar continuously evaluates emerging
+risk based on available project intelligence.
+
+9. Intervention
+
+Show:
+
+Detected risk
+     ↓
+Recommended intervention
+     ↓
+Experiment
+     ↓
 Outcome
-...
+     ↓
+Verified learning
+
+10. Privacy
+
+Make this a major trust section.
+
+Show:
+
+PRIVATE
+Only your organization
+
+ORGANIZATION
+Approved internal knowledge
+
+GLOBAL SANITIZED
+Approved sanitized intelligence
+
+Explain that private source documents are not automatically exposed
+through global search.
+
+11. Final CTA
+
+"Turn project evidence into foresight."
+
+Button:
+
+"Get started"
+
+12. Professional footer
+
+========================================================
+IMPORTANT PRODUCT POSITIONING
+========================================================
+
+Do NOT position FailureOps as:
+
+"another RAG chatbot"
+
+Instead:
+
+"FailureOps transforms project evidence into continuously
+evolving failure intelligence."
+
+Make the difference clear:
+
+Traditional document AI:
+
+Ask
+ ↓
+Retrieve
+ ↓
+Answer
+
+FailureOps:
 
 Evidence
-...
+ ↓
+Signals
+ ↓
+Patterns
+ ↓
+Risk
+ ↓
+Historical comparison
+ ↓
+Prediction
+ ↓
+Intervention
+ ↓
+Verified learning
 
-Confidence
-...
+========================================================
+TASK 3 — AUTHENTICATED APP VS PUBLIC WEBSITE
+========================================================
 
-Scope
-Private / Authorized Global
+Clearly separate the two experiences.
 
-============================================================
-35. IMPORTANT — CURRENT SCREENSHOT BEHAVIOR
-============================================================
+PUBLIC:
 
-The following observed behaviors must be investigated and corrected:
+/
+ /platform
+ /how-it-works
+ /security
+ /login
+ /signup
 
-A. What-If Simulation displays existing scenarios but must prove they are
-dynamic/backend-generated.
+AUTHENTICATED:
 
-B. Experiments displays a planned experiment but must provide a real lifecycle.
+/app
+/app/dashboard
+/app/projects
+/app/projects/[id]
+/app/search
+/app/memory
+/app/settings
 
-C. Outcome Verification shows no verified outcomes; determine whether this is
-correct empty state or a missing persistence/verification path.
+The public website should be marketing/product oriented.
 
-D. Downstream pages must not rely on disconnected mock/demo data.
+The authenticated application should be intelligence/workflow
+oriented.
 
-============================================================
-36. LIVE END-TO-END TEST
-============================================================
+Do not mix the two.
 
-After implementation perform this sequence against a real project:
+========================================================
+TASK 4 — LOGIN PAGE
+========================================================
 
-1. Upload real project documents.
-2. Wait until ingestion is READY.
-3. Run intelligence analysis.
-4. Confirm analysis completed.
-5. Confirm signals exist.
-6. Confirm risk exists.
-7. Confirm failure pattern/prediction exists where evidence supports it.
-8. Generate intervention plan.
-9. Generate What-If scenario.
-10. Run What-If simulation.
-11. Confirm persisted simulation.
-12. Create experiment.
-13. Start experiment.
-14. Collect/derive measurement from real test telemetry.
-15. Complete experiment.
-16. Generate outcome.
-17. Verify outcome against pre-registered success rule.
-18. Persist outcome.
-19. Write validated outcome to memory.
-20. Confirm memory can be retrieved.
+Make the login page production-grade.
 
-============================================================
-37. SECOND TEST — NO DATA
-============================================================
+Layout:
 
-Create a fresh project with no analysis.
+FailureOps X
 
-Expected:
+Welcome back
 
-What-If:
-No simulation data yet.
+Continue to your workspace.
 
-Experiments:
-No experiments yet.
+Work email
+Password
 
-Outcomes:
-No verified outcomes yet.
+[Sign in]
 
-Memory:
-No validated learning yet.
+Forgot password?
 
-No fake values.
+Don't have an account?
+Create workspace
 
-============================================================
-38. THIRD TEST — FAILURE CASE
-============================================================
+Include:
 
-Create or use a project where the intervention does not improve the target.
+- validation
+- loading state
+- error state
+- disabled state during submission
+- accessible labels
+- keyboard navigation
+- password visibility toggle
+- responsive mobile layout
 
-Expected:
+Do not make it visually identical to the current internal
+dashboard.
 
-Experiment completes.
-
-Outcome:
-
-FAILED or NOT ATTRIBUTED
-
-not SUCCESS.
-
-This is critical for proving the system can learn from failure as well.
-
-============================================================
-39. FOURTH TEST — PRIVACY
-============================================================
+========================================================
+TASK 5 — SIGNUP
+========================================================
 
 Create:
 
-Organization A
-Project A
+Create your workspace
 
-Organization B
-Project B
+Full name
+Work email
+Password
+Organization name
 
-Verify:
+[Create workspace]
 
-A cannot read B's:
+After successful signup:
 
-analysis
-signals
-simulation
-experiments
-outcomes
-memory
+Create account
+ ↓
+Create/assign workspace
+ ↓
+Create persistent session
+ ↓
+Authenticated application
 
-and vice versa.
+The user should NOT need to sign in again immediately after
+successful signup.
 
-============================================================
-40. NO HARDCODING
-============================================================
+========================================================
+TASK 6 — PRODUCTION UX
+========================================================
 
-Absolutely no hardcoded:
+Every important action needs:
 
-project names
-metric values
-risk scores
-predictions
-scenario names
-experiment results
-outcome values
-document names
-IDs
-timestamps
+Loading
+Success
+Error
+Empty
 
-may be introduced.
+Examples:
 
-Static enum values are acceptable only when they are true product contracts.
+Signing in:
 
-============================================================
-41. TEST SUITE
-============================================================
+"Signing you in..."
 
-Add backend tests for:
+Success:
 
-- simulation creation
-- simulation execution
-- simulation persistence
-- experiment creation
-- lifecycle transitions
-- measurement persistence
-- outcome generation
-- outcome verification
-- memory write
-- project isolation
-- organization isolation
-- invalid state transitions
-- empty-state correctness
-- no fake fallback values
+"Welcome back."
 
-Frontend tests:
+Invalid credentials:
 
-- page loading
-- API error states
-- empty states
-- real data rendering
-- state transitions
-- button actions
-- no duplicate requests
+"Unable to sign in. Check your email and password."
 
-============================================================
-42. PERFORMANCE
-============================================================
+Network failure:
 
-Do not call the LLM for:
+"We couldn't reach FailureOps. Please try again."
 
-numeric simulation
-experiment state
-percentage calculation
-risk arithmetic
-outcome comparison
+Project loading:
 
-Reuse existing persisted analysis wherever possible.
+"Loading project intelligence..."
 
-Use caching/read-through where appropriate.
+No projects:
 
-============================================================
-43. OBSERVABILITY
-============================================================
+"You haven't created a project yet."
 
-Expose stage status to UI:
+[Create project]
 
-Analysis
-Simulation
-Experiment
-Measurement
-Verification
-Memory
+========================================================
+TASK 7 — RESPONSIVE DESIGN
+========================================================
 
-with timestamps and terminal states.
+The entire public website and authentication flow must work on:
 
-Do not fake progress percentages.
+390px mobile
+430px mobile
+768px tablet
+1024px laptop
+1440px desktop
+1920px desktop
 
-============================================================
-44. FINAL ACCEPTANCE CRITERIA
-============================================================
+Requirements:
 
-The complete workflow must work as:
+- no horizontal overflow
+- responsive typography
+- responsive navigation
+- mobile menu
+- responsive cards
+- responsive product preview
+- touch-friendly controls
+- proper spacing
+- accessible buttons
+- readable charts
+- no desktop-only assumptions
 
-DOCUMENTS
-↓
-RAG
-↓
-LANGGRAPH
-↓
+Do not merely shrink the desktop design.
+
+========================================================
+TASK 8 — DESIGN QUALITY
+========================================================
+
+Use a sophisticated enterprise intelligence aesthetic.
+
+Keep FailureOps identity:
+
+Dark neutral background
+Orange primary accent
+Subtle blue/teal information colors
+Clean typography
+Thin borders
+Subtle depth
+Controlled gradients
+Minimal glass effects
+
+Avoid:
+
+- excessive neon
+- excessive glow
+- huge gradients
+- fake telemetry
+- generic AI robot graphics
+- excessive animations
+- dashboard widgets on the marketing homepage
+- meaningless statistics
+
+The website should feel like a serious enterprise SaaS product.
+
+========================================================
+TASK 9 — DO NOT BREAK EXISTING FEATURES
+========================================================
+
+Before modifying anything, inspect existing:
+
+- auth
+- API routes
+- middleware
+- cookies
+- context providers
+- project routes
+- RAG integration
+- agent integration
+- evidence
+- Failure DNA
+- Radar
+- historical search
+- privacy model
+
+Preserve all existing working functionality.
+
+If you discover an existing authentication mechanism, repair it
+rather than creating a second competing authentication system.
+
+========================================================
+TASK 10 — CODE QUALITY
+========================================================
+
+Use reusable components.
+
+Do not duplicate:
+
+Navbar
+Buttons
+Cards
+Forms
+Inputs
+Modal
+Drawer
+Loading states
+Error states
+
+Keep:
+
+TypeScript strongly typed
+clean component boundaries
+clean API/service boundaries
+accessible HTML
+responsive CSS
+minimal unnecessary dependencies
+
+========================================================
+TASK 11 — TEST THE AUTH BUG
+========================================================
+
+After implementation, explicitly test:
+
+TEST 1:
+Sign in → refresh page
+
+Expected:
+Still authenticated.
+
+TEST 2:
+Sign in → close browser → reopen application
+
+Expected:
+Session restored if session is still valid.
+
+TEST 3:
+Sign in → navigate directly to /app/dashboard
+
+Expected:
+Dashboard loads.
+
+TEST 4:
+Sign out → close browser → reopen
+
+Expected:
+Login required.
+
+TEST 5:
+Open /app/dashboard while logged out
+
+Expected:
+Redirect to /login.
+
+TEST 6:
+Valid session → visit /login
+
+Expected:
+Redirect to dashboard/application.
+
+TEST 7:
+Invalid credentials
+
+Expected:
+Clear error message.
+
+TEST 8:
+Network/API failure
+
+Expected:
+Graceful error state.
+
+TEST 9:
+Mobile login
+
+Expected:
+No overflow and usable form.
+
+TEST 10:
+Desktop login
+
+Expected:
+Production-quality layout.
+
+========================================================
+FINAL REQUIREMENT
+========================================================
+
+DO NOT just change colors and spacing.
+
+The result should represent a real product architecture:
+
+PUBLIC WEBSITE
+      ↓
+AUTHENTICATION
+      ↓
+PERSISTENT SESSION
+      ↓
+WORKSPACE
+      ↓
+PROJECTS
+      ↓
 EVIDENCE
-↓
-SIGNALS
-↓
-RISK
-↓
-FAILURE PATTERN
-↓
-PREDICTION
-↓
-INTERVENTION
-↓
-WHAT-IF
-↓
-EXPERIMENT
-↓
-MEASUREMENT
-↓
-OUTCOME
-↓
-MEMORY
+      ↓
+FAILURE INTELLIGENCE
 
-Every arrow must correspond to a real backend contract and persisted state.
+The public website sells/explains the product.
 
-============================================================
-45. REQUIRED FINAL REPORT
-============================================================
+The authenticated application operates the product.
 
-Return a forensic report containing:
+The authentication layer securely connects both.
 
-1. Current architecture
-2. Exact broken links
-3. Mock/static data found
-4. Missing APIs
-5. Missing persistence
-6. Missing state transitions
-7. Exact backend changes
-8. Exact frontend changes
-9. DB/migration changes
-10. Security changes
-11. Tests added
-12. Backend test results
-13. Frontend test/build results
+First inspect the existing repository and report:
 
-Then provide a live acceptance table:
+1. Current authentication mechanism
+2. Why session persistence is currently failing
+3. Current landing-page routes/components
+4. Components that can be reused
+5. Components that should be redesigned
+6. Files you intend to modify
 
-Stage | Input | Output | Persisted | UI Verified
+Then implement the changes incrementally.
 
-Analysis
-Signals
-Failure DNA
-Prediction
-Intervention
-Simulation
-Experiment
-Measurement
-Outcome
-Memory
-
-Also explicitly state:
-
-- which parts are REAL
-- which parts are deterministic
-- which parts use LLM
-- which parts are simulated/test-only
-- which parts remain unavailable until real external data exists
-
-DO NOT claim a downstream capability is working merely because its page
-renders.
-
-A capability is "working" only when:
-
-USER ACTION
-→ BACKEND REQUEST
-→ REAL PROCESSING
-→ REAL DB STATE CHANGE
-→ REAL RESPONSE
-→ UI UPDATE
-
-============================================================
-FINAL GOAL
-============================================================
-
-FailureOps must feel like one connected intelligence system, not a collection
-of visually complete pages.
-
-The user should be able to move naturally from:
-
-"What is going wrong?"
-→
-"Why?"
-→
-"What will happen?"
-→
-"What should we do?"
-→
-"What if we do it?"
-→
-"Did it work?"
-→
-"What did we learn?"
-
-and every answer must be traceable to real backend state and evidence.
+After every major change, run the appropriate type checks,
+lint/tests/build checks and fix any regressions before continuing.

@@ -47,8 +47,8 @@ export default function PlatformPage() {
               FailureOps X replaces subjective intuition with evidence-grounded risk synthesis. Learn how our multi-agent architecture turns fragmented documents into proactive organizational foresight.
             </p>
             <div className="pt-2 flex flex-col sm:flex-row items-center justify-center gap-3">
-              <Link href="/register" className={btnPrimary('gap-2 text-sm')}>
-                <span>Start Analyzing Projects</span>
+              <Link href="/signup" className={btnPrimary('gap-2 text-sm')}>
+                <span>Get Started</span>
                 <ArrowRight className="w-4 h-4" />
               </Link>
               <Link href="/how-it-works" className={btnSecondary('text-sm')}>

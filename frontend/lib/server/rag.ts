@@ -40,10 +40,12 @@ function isFormDataBody(body: BodyInit | null | undefined): boolean {
   return Object.prototype.toString.call(body) === '[object FormData]';
 }
 
-export function ragHeaders(session: UserSession, extra?: HeadersInit, body?: BodyInit | null): Headers {
+export function ragHeaders(session?: UserSession | null, extra?: HeadersInit, body?: BodyInit | null): Headers {
   const headers = new Headers(extra);
-  headers.set('x-organization-id', session.organizationId);
-  headers.set('x-user-id', session.userId);
+  if (session) {
+    headers.set('x-organization-id', session.organizationId);
+    headers.set('x-user-id', session.userId);
+  }
   if (isFormDataBody(body)) {
     // Let fetch set multipart boundary. A JSON Content-Type empties the file part.
     headers.delete('Content-Type');
@@ -57,7 +59,7 @@ export function ragHeaders(session: UserSession, extra?: HeadersInit, body?: Bod
 
 export async function ragFetch<T = unknown>(
   path: string,
-  session: UserSession,
+  session?: UserSession | null,
   init: RequestInit & { timeoutMs?: number } = {}
 ): Promise<T> {
   const method = (init.method || 'GET').toUpperCase();
@@ -89,9 +91,9 @@ export async function ragFetch<T = unknown>(
 
 export async function ragFetchSafe<T>(
   path: string,
-  session: UserSession,
+  session?: UserSession | null,
   init: RequestInit = {},
-  fallback: T
+  fallback: T = {} as T
 ): Promise<T> {
   try {
     return await ragFetch<T>(path, session, init);

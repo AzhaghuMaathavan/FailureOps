@@ -44,8 +44,8 @@ export default function SecurityPage() {
               We believe project failure intelligence is only valuable when your company’s trade secrets, internal postmortems, and customer feedback are cryptographically protected.
             </p>
             <div className="pt-2 flex flex-col sm:flex-row items-center justify-center gap-3">
-              <Link href="/register" className={btnPrimary('gap-2 text-sm')}>
-                <span>Create Isolated Enclave</span>
+              <Link href="/signup" className={btnPrimary('gap-2 text-sm')}>
+                <span>Get Started</span>
                 <ArrowRight className="w-4 h-4" />
               </Link>
               <Link href="/platform" className={btnSecondary('text-sm')}>

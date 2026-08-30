@@ -383,6 +383,7 @@ export const userStore = {
     email: string;
     password: string;
     organizationName?: string;
+    isVerified?: boolean;
   }): Promise<{ user: UserRecord; verificationCode: string }> {
     loadUsers();
     const cleanEmail = input.email.trim().toLowerCase();
@@ -405,7 +406,7 @@ export const userStore = {
       title: 'Intelligence Lead',
       bio: `Member of ${orgName} intelligence reasoning workspace.`,
       role: 'ORGANIZATION_ADMIN',
-      isVerified: false,
+      isVerified: input.isVerified !== undefined ? input.isVerified : true,
       verificationCode,
       verificationExpiresAt: Date.now() + 15 * 60 * 1000, // 15 minutes
       twoFactorEnabled: false,

@@ -120,8 +120,8 @@ export default function HowItWorksPage() {
               A comprehensive walkthrough of the evidence-to-outcome pipeline that protects engineering and product teams from avoidable failure.
             </p>
             <div className="pt-2 flex flex-col sm:flex-row items-center justify-center gap-3">
-              <Link href="/register" className={btnPrimary('gap-2 text-sm')}>
-                <span>Start Analyzing Your Project</span>
+              <Link href="/signup" className={btnPrimary('gap-2 text-sm')}>
+                <span>Get Started</span>
                 <ArrowRight className="w-4 h-4" />
               </Link>
               <Link href="/platform" className={btnSecondary('text-sm')}>

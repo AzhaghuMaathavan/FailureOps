@@ -8,13 +8,18 @@ export async function POST(req: NextRequest) {
     message: 'Logged out successfully.',
   });
 
-  response.cookies.set(serverConfig.sessionCookieName, '', {
+  const isProd = process.env.NODE_ENV === 'production';
+  const clearOptions = {
     httpOnly: true,
-    secure: process.env.NODE_ENV === 'production',
-    sameSite: 'lax',
+    secure: isProd,
+    sameSite: 'lax' as const,
     path: '/',
     maxAge: 0,
-  });
+  };
+
+  response.cookies.set(serverConfig.sessionCookieName, '', clearOptions);
+  response.cookies.set('failureops_session', '', clearOptions);
+  response.cookies.set('__Host-failureops-session', '', clearOptions);
 
   return response;
 }

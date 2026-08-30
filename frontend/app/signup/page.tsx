@@ -8,6 +8,7 @@ import { FxMark, btnPrimary, focusRing } from '@/components/landing/chrome';
 import { PublicNavbar } from '@/components/landing/PublicNavbar';
 import { PublicFooter } from '@/components/landing/PublicFooter';
 import { apiClient } from '@/lib/api/client';
+import { useApp } from '@/context/AppContext';
 import { cn } from '@/lib/utils';
 
 export default function SignupPage() {
@@ -27,6 +28,8 @@ export default function SignupPage() {
   const hasSpecial = /[^A-Za-z0-9]/.test(password);
   const strengthCount = [hasMinLength, hasUpper, hasNumber, hasSpecial].filter(Boolean).length;
 
+  const { refreshUser } = useApp();
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!name || !email || !password || !organization) {
@@ -43,16 +46,16 @@ export default function SignupPage() {
     setError(null);
 
     try {
-      const res = await apiClient.signup({
+      await apiClient.signup({
         name,
         email,
         password,
         organization,
       });
 
-      // Pass email and optional dev code if in dev mode
-      const devParam = res?.devVerificationCode ? `&code=${res.devVerificationCode}` : '';
-      router.push(`/verify?email=${encodeURIComponent(email)}${devParam}`);
+      // Automatically refresh user state from persistent session cookie
+      await refreshUser();
+      router.push('/dashboard');
     } catch (err: any) {
       setError(err?.message || 'Failed to create workspace. Please try again.');
       setLoading(false);
@@ -199,9 +202,9 @@ export default function SignupPage() {
               <button
                 type="submit"
                 disabled={loading}
-                className={cn(btnPrimary('w-full py-3.5 text-sm font-bold justify-center mt-2'))}
+                className={cn(btnPrimary('w-full py-3.5 text-sm font-bold justify-center mt-2 disabled:opacity-60 cursor-pointer'))}
               >
-                {loading ? 'Creating Workspace...' : 'Create Workspace & Send Code'}
+                {loading ? 'Creating workspace...' : 'Create workspace'}
                 {!loading && <ArrowRight className="w-4 h-4 ml-1.5" />}
               </button>
             </form>

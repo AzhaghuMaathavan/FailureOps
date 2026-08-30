@@ -16,8 +16,7 @@ interface NavItem {
 const PUBLIC_NAV_ITEMS: NavItem[] = [
   { label: 'Platform', href: '/platform' },
   { label: 'How It Works', href: '/how-it-works' },
-  { label: 'Intelligence Layer', href: '/intelligence' },
-  { label: 'Security & Privacy', href: '/security' },
+  { label: 'Security', href: '/security' },
 ];
 
 export const PublicNavbar: React.FC = () => {
@@ -82,7 +81,7 @@ export const PublicNavbar: React.FC = () => {
           </Link>
 
           {/* Desktop Navigation Links */}
-          <nav className="hidden md:flex items-center gap-1 lg:gap-2" aria-label="Main Navigation">
+          <nav className="hidden md:flex items-center gap-1 lg:gap-3" aria-label="Main Navigation">
             {PUBLIC_NAV_ITEMS.map((item) => {
               const isActive = pathname === item.href;
               return (
@@ -90,7 +89,7 @@ export const PublicNavbar: React.FC = () => {
                   key={item.href}
                   href={item.href}
                   className={cn(
-                    'px-3.5 py-2 rounded-lg text-[13px] font-medium transition-colors duration-150',
+                    'px-4 py-2 rounded-lg text-sm font-medium transition-colors duration-150',
                     focusRing,
                     isActive
                       ? 'text-foreground bg-surface-feed font-semibold'
@@ -113,28 +112,19 @@ export const PublicNavbar: React.FC = () => {
             <Link
               href="/login"
               className={cn(
-                'px-4 py-2 text-[13px] font-semibold text-muted-foreground hover:text-foreground transition-colors rounded-lg',
+                'px-4 py-2 text-sm font-semibold text-muted-foreground hover:text-foreground transition-colors rounded-lg',
                 focusRing
               )}
             >
               Sign in
             </Link>
             <Link
-              href="/dashboard"
+              href="/signup"
               className={cn(
-                btnSecondary('py-2 px-3.5 text-xs font-semibold gap-1.5 hidden lg:inline-flex')
+                btnPrimary('py-2.5 px-4 text-xs font-semibold gap-1.5 shadow-sm')
               )}
             >
-              <LayoutDashboard className="w-3.5 h-3.5 text-muted-foreground" />
-              <span>Workspace</span>
-            </Link>
-            <Link
-              href="/register"
-              className={cn(
-                btnPrimary('py-2 px-4 text-xs font-semibold gap-1.5 shadow-sm')
-              )}
-            >
-              <span>Start analyzing</span>
+              <span>Get started</span>
               <ArrowRight className="w-3.5 h-3.5" />
             </Link>
           </div>
@@ -142,10 +132,10 @@ export const PublicNavbar: React.FC = () => {
           {/* Mobile Menu Button */}
           <div className="flex items-center gap-2 md:hidden">
             <Link
-              href="/register"
+              href="/signup"
               className={cn(btnPrimary('py-1.5 px-3 text-xs font-semibold min-h-9'))}
             >
-              Analyze
+              Get started
             </Link>
             <button
               type="button"
@@ -171,7 +161,7 @@ export const PublicNavbar: React.FC = () => {
           <div className="space-y-6">
             <div className="space-y-1">
               <p className="text-[11px] font-mono font-semibold uppercase tracking-wider text-muted-foreground px-3 mb-2">
-                Platform Navigation
+                Navigation
               </p>
               {PUBLIC_NAV_ITEMS.map((item) => {
                 const isActive = pathname === item.href;
@@ -195,26 +185,12 @@ export const PublicNavbar: React.FC = () => {
             </div>
 
             <div className="border-t border-border pt-4 space-y-2">
-              <p className="text-[11px] font-mono font-semibold uppercase tracking-wider text-muted-foreground px-3 mb-2">
-                Workspace
-              </p>
-              <Link
-                href="/dashboard"
-                onClick={() => setMobileMenuOpen(false)}
-                className="flex items-center justify-between px-3 py-3 rounded-xl text-sm font-medium text-foreground hover:bg-surface-feed"
-              >
-                <span className="flex items-center gap-2.5">
-                  <LayoutDashboard className="w-4 h-4 text-primary" />
-                  <span>Open Intelligence Dashboard</span>
-                </span>
-                <ChevronRight className="w-4 h-4 text-muted-foreground" />
-              </Link>
               <Link
                 href="/login"
                 onClick={() => setMobileMenuOpen(false)}
                 className="flex items-center justify-between px-3 py-3 rounded-xl text-sm font-medium text-foreground hover:bg-surface-feed"
               >
-                <span>Sign in to existing account</span>
+                <span>Sign in</span>
                 <ChevronRight className="w-4 h-4 text-muted-foreground" />
               </Link>
             </div>
@@ -222,11 +198,11 @@ export const PublicNavbar: React.FC = () => {
 
           <div className="pt-6 border-t border-border mt-auto space-y-3">
             <Link
-              href="/register"
+              href="/signup"
               onClick={() => setMobileMenuOpen(false)}
               className={cn(btnPrimary('w-full py-3.5 text-sm font-bold justify-center'))}
             >
-              <span>Start Analyzing Project Evidence</span>
+              <span>Get started</span>
               <ArrowRight className="w-4 h-4 ml-1.5" />
             </Link>
             <p className="text-center text-xs text-muted-foreground">

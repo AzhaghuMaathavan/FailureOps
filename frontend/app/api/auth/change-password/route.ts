@@ -7,6 +7,9 @@ import { userStore } from '@/lib/server/user-store';
 export async function PUT(req: NextRequest) {
   try {
     const session = getServerSession(req);
+    if (!session) {
+      return apiError(new Error('Unauthorized. Please sign in.'), 'Unauthorized', 401);
+    }
     const body = await req.json();
     const { currentPassword, newPassword } = body;
 

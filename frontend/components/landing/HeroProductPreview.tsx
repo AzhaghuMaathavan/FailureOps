@@ -43,8 +43,8 @@ export const HeroProductPreview: React.FC = () => {
         </div>
 
         <div className="flex items-center gap-1.5 text-[11px] font-medium text-muted-foreground">
-          <span className="px-2 py-0.5 rounded bg-surface-base border border-border/80 text-muted-foreground font-mono text-[10px]">
-            Illustrative Analysis
+          <span className="px-2.5 py-0.5 rounded-full bg-surface-base border border-border/80 text-muted-foreground font-mono text-[10px]">
+            Illustrative product view
           </span>
         </div>
       </div>
@@ -58,11 +58,11 @@ export const HeroProductPreview: React.FC = () => {
                 PROJECT INTELLIGENCE
               </h3>
               <span className="px-2 py-0.5 rounded text-[11px] font-semibold bg-warning/15 text-warning border border-warning/30">
-                ELEVATED RISK
+                PROJECT LAUNCH
               </span>
             </div>
             <p className="text-xs sm:text-sm text-muted-foreground mt-0.5">
-              Multi-source synthesis across 5 engineering PRDs, Jira backlog, and customer onboarding surveys
+              Multi-source synthesis across engineering PRDs, sprint backlogs, and customer feedback surveys
             </p>
           </div>
 

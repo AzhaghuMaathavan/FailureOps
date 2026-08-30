@@ -34,6 +34,7 @@ interface AppContextType {
   setProject: (project: Project) => void;
   user: UserProfileState | null;
   setUser: (user: UserProfileState | null) => void;
+  isAuthLoading: boolean;
   refreshUser: () => Promise<void>;
   logout: () => Promise<void>;
   uploadedFiles: Record<EvidenceSourceType, string[]>;
@@ -52,38 +53,8 @@ interface AppContextType {
 const AppContext = createContext<AppContextType | undefined>(undefined);
 
 export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
-  const [user, setUser] = useState<UserProfileState | null>({
-    id: 'usr_aurora_lead_881',
-    name: 'Lead Intelligence Architect',
-    email: 'lead.architect@aurora.tech',
-    organizationId: 'org_aurora_technologies',
-    organizationName: 'Aurora Technologies',
-    title: 'Principal Enclave Architect',
-    bio: 'Leading failure intelligence, root cause analysis, and multi-tenant reasoning pipelines across Aurora distributed services.',
-    role: 'ORGANIZATION_ADMIN',
-    isVerified: true,
-    twoFactorEnabled: false,
-    notifications: {
-      emailAlerts: true,
-      sev1Immediate: true,
-      weeklyDigest: true,
-      learningShareApproved: true,
-    },
-    recentActivity: [
-      {
-        id: 'act_1',
-        action: 'Enclave Initialized',
-        details: 'Created primary failure intelligence reasoning enclave for Aurora Cloud Analytics.',
-        timestamp: new Date(Date.now() - 3600000 * 24 * 2).toISOString(),
-      },
-      {
-        id: 'act_2',
-        action: 'Analysis Dispatched',
-        details: 'Executed 7-stage autonomous agent analysis on Aurora project artifacts.',
-        timestamp: new Date(Date.now() - 3600000 * 4).toISOString(),
-      },
-    ],
-  });
+  const [user, setUser] = useState<UserProfileState | null>(null);
+  const [isAuthLoading, setIsAuthLoading] = useState<boolean>(true);
 
   const [project, setProjectState] = useState<Project>({
     id: 'aurora',
@@ -120,9 +91,13 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       const res = await apiClient.getProfile();
       if (res && res.profile) {
         setUser(res.profile);
+      } else {
+        setUser(null);
       }
-    } catch (err) {
-      console.warn('Could not fetch user profile:', err);
+    } catch {
+      setUser(null);
+    } finally {
+      setIsAuthLoading(false);
     }
   }, []);
 
@@ -189,6 +164,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         setProject,
         user,
         setUser,
+        isAuthLoading,
         refreshUser,
         logout,
         uploadedFiles,

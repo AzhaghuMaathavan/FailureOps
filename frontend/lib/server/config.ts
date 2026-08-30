@@ -27,7 +27,7 @@ export const serverConfig: ServerConfig = {
   ragInternalUrl: process.env.RAG_INTERNAL_URL || process.env.BACKEND_INTERNAL_URL || process.env.BACKEND_URL || 'http://127.0.0.1:8000',
   llmApiKey: process.env.LLM_API_KEY || '',
   authSecret: process.env.AUTH_SECRET || 'dev_secret_key_change_in_production_32char',
-  sessionCookieName: process.env.SESSION_COOKIE_NAME || '__Host-failureops-session',
+  sessionCookieName: process.env.SESSION_COOKIE_NAME || 'failureops_session',
   isProduction: process.env.NODE_ENV === 'production',
   rateLimits: {
     general: parseInt(process.env.RATE_LIMIT_GENERAL || '240', 10),

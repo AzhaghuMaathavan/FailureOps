@@ -2,6 +2,7 @@ export const dynamic = 'force-dynamic';
 import { NextRequest } from 'next/server';
 import { apiSuccess, apiError } from '@/lib/server/response';
 import { userStore } from '@/lib/server/user-store';
+import { serverConfig } from '@/lib/server/config';
 
 export async function POST(req: NextRequest) {
   try {
@@ -21,15 +22,33 @@ export async function POST(req: NextRequest) {
       email,
       password,
       organizationName: organization,
+      isVerified: true,
     });
 
-    return apiSuccess({
-      message: 'Account created successfully. Verification code dispatched to your email.',
+    const sessionToken = `${user.email}:${Date.now()}`;
+    const response = apiSuccess({
+      message: 'Workspace account created successfully.',
       email: user.email,
       userId: user.id,
-      // Provide verification code in response for rapid testing environments if email delivery is delayed
+      user: userStore.sanitizeUser(user),
       devVerificationCode: process.env.NODE_ENV !== 'production' ? verificationCode : undefined,
     });
+
+    const isProd = process.env.NODE_ENV === 'production';
+    const cookieOptions = {
+      httpOnly: true,
+      secure: isProd,
+      sameSite: 'lax' as const,
+      path: '/',
+      maxAge: 60 * 60 * 24 * 30, // 30 days
+    };
+
+    response.cookies.set(serverConfig.sessionCookieName, sessionToken, cookieOptions);
+    if (serverConfig.sessionCookieName !== 'failureops_session') {
+      response.cookies.set('failureops_session', sessionToken, cookieOptions);
+    }
+
+    return response;
   } catch (error) {
     return apiError(error, 'Failed to create workspace account.');
   }

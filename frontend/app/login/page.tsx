@@ -43,9 +43,10 @@ function LoginContent() {
       }
 
       await refreshUser();
-      router.push('/dashboard');
+      const redirectUrl = searchParams.get('redirect') || '/dashboard';
+      router.push(redirectUrl);
     } catch (err: any) {
-      setError(err?.message || 'Unable to authenticate. Please check your credentials.');
+      setError(err?.message || 'Unable to sign in. Check your email and password.');
       setLoading(false);
     }
   };
@@ -66,7 +67,7 @@ function LoginContent() {
                 Welcome back
               </h1>
               <p className="text-xs sm:text-sm text-muted-foreground">
-                Sign in to your FailureOps X intelligence workspace
+                Continue to your workspace.
               </p>
             </div>
 
@@ -96,8 +97,9 @@ function LoginContent() {
                     required
                     value={email}
                     onChange={(e) => setEmail(e.target.value)}
+                    disabled={loading}
                     className={cn(
-                      'w-full bg-surface-feed border border-border rounded-xl pl-10 pr-4 py-2.5 text-sm font-medium text-foreground outline-none',
+                      'w-full bg-surface-feed border border-border rounded-xl pl-10 pr-4 py-2.5 text-sm font-medium text-foreground outline-none disabled:opacity-60',
                       focusRing
                     )}
                     placeholder="name@company.com"
@@ -124,8 +126,9 @@ function LoginContent() {
                     required
                     value={password}
                     onChange={(e) => setPassword(e.target.value)}
+                    disabled={loading}
                     className={cn(
-                      'w-full bg-surface-feed border border-border rounded-xl pl-10 pr-10 py-2.5 text-sm font-medium text-foreground outline-none',
+                      'w-full bg-surface-feed border border-border rounded-xl pl-10 pr-10 py-2.5 text-sm font-medium text-foreground outline-none disabled:opacity-60',
                       focusRing
                     )}
                     placeholder="••••••••••••"
@@ -144,9 +147,9 @@ function LoginContent() {
               <button
                 type="submit"
                 disabled={loading}
-                className={cn(btnPrimary('w-full py-3.5 text-sm font-bold justify-center mt-2'))}
+                className={cn(btnPrimary('w-full py-3.5 text-sm font-bold justify-center mt-2 disabled:opacity-60 cursor-pointer'))}
               >
-                {loading ? 'Authenticating...' : 'Sign in to Workspace'}
+                {loading ? 'Signing you in...' : 'Sign in'}
                 {!loading && <ArrowRight className="w-4 h-4 ml-1.5" />}
               </button>
             </form>

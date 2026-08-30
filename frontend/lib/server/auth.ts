@@ -14,10 +14,12 @@ export interface UserSession {
   createdAt: number;
 }
 
-export function getServerSession(req?: NextRequest): UserSession {
+export function getServerSession(req?: NextRequest): UserSession | null {
+  if (!req) return null;
+
   // Check for session cookie or header
-  const cookieVal = req?.cookies.get(serverConfig.sessionCookieName)?.value;
-  const headerEmail = req?.headers.get('x-user-email');
+  const cookieVal = req.cookies.get(serverConfig.sessionCookieName)?.value || req.cookies.get('failureops_session')?.value || req.cookies.get('__Host-failureops-session')?.value;
+  const headerEmail = req.headers.get('x-user-email');
 
   let user = null;
   if (cookieVal) {
@@ -45,18 +47,7 @@ export function getServerSession(req?: NextRequest): UserSession {
     };
   }
 
-  // Verified default tenant session fallback
-  const defaultAdmin = userStore.getUserByEmail('lead.architect@aurora.tech');
-  return {
-    userId: defaultAdmin?.id || 'usr_aurora_lead_881',
-    email: defaultAdmin?.email || 'lead.architect@aurora.tech',
-    name: defaultAdmin?.name || 'Lead Intelligence Architect',
-    organizationId: defaultAdmin?.organizationId || 'org_aurora_technologies',
-    organizationName: defaultAdmin?.organizationName || 'Aurora Technologies',
-    role: defaultAdmin?.role || 'ORGANIZATION_ADMIN',
-    allowedProjectIds: ['*', 'aurora', 'pulseflow', 'zenith'],
-    createdAt: defaultAdmin?.createdAt || Date.now(),
-  };
+  return null;
 }
 
 export function requireAuth(req: NextRequest): UserSession {

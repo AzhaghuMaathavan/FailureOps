@@ -31,13 +31,19 @@ export async function POST(req: NextRequest) {
       requiresVerification: false,
     });
 
-    response.cookies.set(serverConfig.sessionCookieName, sessionToken, {
+    const isProd = process.env.NODE_ENV === 'production';
+    const cookieOptions = {
       httpOnly: true,
-      secure: process.env.NODE_ENV === 'production',
-      sameSite: 'lax',
+      secure: isProd,
+      sameSite: 'lax' as const,
       path: '/',
-      maxAge: 60 * 60 * 24 * 7,
-    });
+      maxAge: 60 * 60 * 24 * 30, // 30 days
+    };
+
+    response.cookies.set(serverConfig.sessionCookieName, sessionToken, cookieOptions);
+    if (serverConfig.sessionCookieName !== 'failureops_session') {
+      response.cookies.set('failureops_session', sessionToken, cookieOptions);
+    }
 
     return response;
   } catch (error) {

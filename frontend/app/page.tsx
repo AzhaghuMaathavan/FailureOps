@@ -63,23 +63,23 @@ export default function LandingPage() {
               </h1>
 
               <p className="text-base sm:text-xl text-muted-foreground max-w-3xl mx-auto leading-relaxed">
-                FailureOps X turns fragmented project evidence into risk intelligence — connecting signals, patterns, historical outcomes, and verified interventions in one continuous intelligence layer.
+                FailureOps X turns fragmented project evidence into explainable risk intelligence — connecting signals, patterns, historical outcomes, and verified interventions.
               </p>
 
               {/* Action Buttons */}
               <div className="flex flex-col sm:flex-row items-center justify-center gap-3.5 pt-2">
                 <Link
-                  href="/register"
+                  href="/signup"
                   className={cn(btnPrimary('w-full sm:w-auto text-sm px-7 py-4 gap-2 font-bold shadow-md'))}
                 >
-                  <span>Start analyzing</span>
+                  <span>Get started</span>
                   <ArrowRight className="w-4 h-4" />
                 </Link>
                 <Link
-                  href="/platform"
+                  href="/how-it-works"
                   className={cn(btnSecondary('w-full sm:w-auto text-sm px-6 py-4 gap-2 font-semibold'))}
                 >
-                  <span>Explore intelligence platform</span>
+                  <span>See how it works</span>
                 </Link>
               </div>
 
@@ -138,7 +138,7 @@ export default function LandingPage() {
             </div>
 
             <h2 className="text-2xl sm:text-4xl lg:text-5xl font-extrabold tracking-tight text-foreground leading-tight">
-              Eliminate blindspots before your next release.
+              Turn project evidence into foresight.
             </h2>
 
             <p className="text-sm sm:text-base text-muted-foreground max-w-2xl mx-auto leading-relaxed">
@@ -147,22 +147,22 @@ export default function LandingPage() {
 
             <div className="flex flex-col sm:flex-row items-center justify-center gap-4 pt-4">
               <Link
-                href="/register"
+                href="/signup"
                 className={cn(btnPrimary('w-full sm:w-auto text-sm px-8 py-4 gap-2 font-bold shadow-lg'))}
               >
-                <span>Start Analyzing Project Evidence</span>
+                <span>Get started</span>
                 <ArrowRight className="w-4 h-4" />
               </Link>
               <Link
-                href="/dashboard"
+                href="/platform"
                 className={cn(btnSecondary('w-full sm:w-auto text-sm px-6 py-4 font-semibold'))}
               >
-                <span>Open Intelligence Dashboard</span>
+                <span>Explore platform</span>
               </Link>
             </div>
 
             <p className="text-xs text-muted-foreground pt-2">
-              Isolated project enclaves • Strict multi-tier privacy • Zero cross-tenant data leakage
+              Evidence-grounded • Explainable • Privacy-controlled
             </p>
           </div>
         </section>

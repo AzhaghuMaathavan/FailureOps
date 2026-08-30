@@ -7,6 +7,9 @@ import { userStore } from '@/lib/server/user-store';
 export async function GET(req: NextRequest) {
   try {
     const session = getServerSession(req);
+    if (!session) {
+      return apiError(new Error('Unauthorized. Please sign in.'), 'Unauthorized', 401);
+    }
     const user = userStore.getUserById(session.userId) || userStore.getUserByEmail(session.email);
     if (!user) {
       return apiError(new Error('User profile not found.'), 'Not found', 404);
@@ -23,6 +26,9 @@ export async function GET(req: NextRequest) {
 export async function PUT(req: NextRequest) {
   try {
     const session = getServerSession(req);
+    if (!session) {
+      return apiError(new Error('Unauthorized. Please sign in.'), 'Unauthorized', 401);
+    }
     const body = await req.json();
 
     const user = userStore.getUserById(session.userId) || userStore.getUserByEmail(session.email);
