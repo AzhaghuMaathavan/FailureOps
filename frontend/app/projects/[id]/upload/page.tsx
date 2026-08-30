@@ -263,14 +263,40 @@ export default function EvidenceUploadPage() {
     uploadFilesForCategory(catType, files);
   };
 
+  const inferCategoryFromFilename = (filename: string): EvidenceSourceType => {
+    const fn = filename.toLowerCase();
+    const ext = fn.split('.').pop() || '';
+    if (ext === 'xlsx') return 'PRODUCT_METRICS';
+    if ((ext === 'pdf' || ext === 'docx') && (fn.includes('incident') || fn.includes('postmortem') || fn.includes('rca') || fn.includes('outage') || fn.includes('deadlock'))) {
+      return 'INCIDENT_REPORTS';
+    }
+    if ((ext === 'pdf' || ext === 'docx' || ext === 'md' || ext === 'txt') && (fn.includes('plan') || fn.includes('prd') || fn.includes('roadmap') || fn.includes('spec') || fn.includes('fintech') || fn.includes('design') || fn.includes('doc'))) {
+      return 'PRODUCT_PLAN';
+    }
+    if (fn.includes('feedback') || fn.includes('survey') || fn.includes('nps') || fn.includes('interview') || fn.includes('ticket') || fn.includes('review') || fn.includes('customer')) {
+      return 'CUSTOMER_FEEDBACK';
+    }
+    if (fn.includes('ci') || fn.includes('build') || fn.includes('deploy') || fn.includes('pipeline') || fn.includes('latency') || fn.includes('eng')) {
+      return 'ENGINEERING_METRICS';
+    }
+    if (fn.includes('ops') || fn.includes('sprint') || fn.includes('team') || fn.includes('workload') || fn.includes('overtime') || fn.includes('turnaround')) {
+      return 'TEAM_OPERATIONS';
+    }
+    if (fn.includes('metric') || fn.includes('telemetry') || fn.includes('activation') || fn.includes('retention') || fn.includes('churn') || fn.includes('conversion') || fn.includes('kpi')) {
+      return 'PRODUCT_METRICS';
+    }
+    if (ext === 'csv' || ext === 'json') return 'CUSTOMER_FEEDBACK';
+    return 'PRODUCT_PLAN';
+  };
+
   // Global staging area handlers
-  const stageSelectedFiles = (files: FileList | File[], defaultCat: EvidenceSourceType = 'PRODUCT_PLAN') => {
+  const stageSelectedFiles = (files: FileList | File[], defaultCat?: EvidenceSourceType) => {
     const list = Array.from(files);
     if (list.length === 0) return;
     const newItems: PendingFileItem[] = list.map((file) => ({
       id: `pending_${Math.random().toString(36).substring(2, 9)}`,
       file,
-      category: defaultCat,
+      category: defaultCat || inferCategoryFromFilename(file.name),
       title: file.name.replace(/\.[^.]+$/, ''),
       description: '',
       visibility: 'PRIVATE',

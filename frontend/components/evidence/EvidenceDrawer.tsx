@@ -353,13 +353,16 @@ export const EvidenceDrawer: React.FC<EvidenceDrawerProps> = ({ evidence, onClos
                 </div>
               </div>
 
-              <Link
-                href={`/projects/${evidence.projectId}/upload`}
+              <a
+                href={`/api/documents/${encodeURIComponent(evidence.sourceDocumentId || evidence.sourceFile)}/download?projectId=${encodeURIComponent(evidence.projectId)}${evidence.pageNumbers && evidence.pageNumbers.length > 0 ? `#page=${evidence.pageNumbers[0]}` : ''}`}
+                target="_blank"
+                rel="noopener noreferrer"
                 className="inline-flex cursor-pointer items-center gap-1 rounded-lg border border-border bg-surface-feed px-2.5 py-1.5 font-mono text-[11px] font-semibold text-primary transition-colors hover:border-primary/50 hover:bg-card focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                title={`Open ${evidence.sourceFile} in new tab`}
               >
                 <span>Open Source</span>
                 <ExternalLink className="h-3 w-3" />
-              </Link>
+              </a>
             </div>
           </div>
 

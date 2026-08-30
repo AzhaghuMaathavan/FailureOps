@@ -27,6 +27,27 @@ CATEGORY_ALLOWED_EXTENSIONS = {
 }
 
 
+def infer_category_from_filename(filename: str, ext: str) -> str:
+    fn = filename.lower()
+    if ext == ".xlsx":
+        return "PRODUCT_METRICS"
+    if ext in {".pdf", ".docx"} and any(k in fn for k in ["incident", "postmortem", "rca", "outage", "deadlock"]):
+        return "INCIDENT_REPORTS"
+    if ext in {".pdf", ".docx", ".md", ".txt"} and any(k in fn for k in ["plan", "prd", "roadmap", "spec", "fintech", "design", "doc"]):
+        return "PRODUCT_PLAN"
+    if any(k in fn for k in ["feedback", "survey", "nps", "interview", "review", "user", "ticket", "customer"]):
+        return "CUSTOMER_FEEDBACK"
+    if any(k in fn for k in ["ci", "build", "deploy", "pipeline", "test", "eng", "latency"]):
+        return "ENGINEERING_METRICS"
+    if any(k in fn for k in ["ops", "sprint", "team", "workload", "overtime", "turnaround"]):
+        return "TEAM_OPERATIONS"
+    if any(k in fn for k in ["metric", "telemetry", "activation", "retention", "churn", "conversion", "kpi"]):
+        return "PRODUCT_METRICS"
+    if ext in {".csv", ".json"}:
+        return "CUSTOMER_FEEDBACK"
+    return "PRODUCT_PLAN"
+
+
 def _truthy(value: Optional[str]) -> bool:
     return str(value or "").strip().lower() in {"1", "true", "yes", "on"}
 
@@ -49,22 +70,20 @@ async def ingest_upload(
     if ext not in ALLOWED_EXTENSIONS:
         raise HTTPException(
             status_code=400,
-            detail=f"Unsupported file format. Allowed: {', '.join(sorted(ALLOWED_EXTENSIONS))}",
+            detail=f"Unsupported file format '{ext}'. Allowed extensions: {', '.join(sorted(ALLOWED_EXTENSIONS))}",
         )
 
-    # Validate category-specific format constraints if a canonical category is provided
+    # Normalize category: use provided category if compatible, otherwise infer accurately from file
     doc_type_key = str(document_type or "").strip().upper()
-    if doc_type_key in CATEGORY_ALLOWED_EXTENSIONS:
-        allowed_cat_exts = CATEGORY_ALLOWED_EXTENSIONS[doc_type_key]
-        if ext not in allowed_cat_exts:
-            allowed_str = ", ".join(sorted([e.lstrip(".").upper() for e in allowed_cat_exts]))
-            raise HTTPException(
-                status_code=400,
-                detail=f"{doc_type_key.lower()} requires {allowed_str} (got {ext})",
-            )
+    if doc_type_key in CATEGORY_ALLOWED_EXTENSIONS and ext in CATEGORY_ALLOWED_EXTENSIONS[doc_type_key]:
+        final_doc_type = doc_type_key
+    elif doc_type_key and doc_type_key not in CATEGORY_ALLOWED_EXTENSIONS and doc_type_key != "PROJECT_DOC":
+        final_doc_type = doc_type_key
+    else:
+        final_doc_type = infer_category_from_filename(filename, ext)
 
     doc_id = f"doc_{uuid.uuid4().hex[:12]}"
-    logger.info("[UPLOAD] document_id=%s project_id=%s filename=%s", doc_id, project_id, filename)
+    logger.info("[UPLOAD] document_id=%s project_id=%s filename=%s type=%s", doc_id, project_id, filename, final_doc_type)
 
     stored = await persist_upload(file, doc_id, project_id=project_id)
 
@@ -78,7 +97,7 @@ async def ingest_upload(
         global_learning_allowed=False,
         status="PENDING",
         title=title or filename,
-        document_type=document_type,
+        document_type=final_doc_type,
         description=description,
         extracted_metadata=merge_storage_metadata({}, stored),
     )

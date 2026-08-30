@@ -7,13 +7,14 @@ from sqlalchemy.orm import Session
 from app.db.database import get_db
 from app.models.document import Document
 from app.models.chunk import Chunk
+from app.core.storage import persist_upload, document_storage_fields, merge_storage_metadata
+from app.core.object_storage import delete_object
 from app.services.document_service import process_document
 from app.services.embedding_service import generate_embeddings
+from app.services.ingest_service import ingest_upload
+from app.core.tenant import get_tenant_context
 
 router = APIRouter()
-
-UPLOAD_DIR = os.path.join(os.getcwd(), "storage", "documents")
-os.makedirs(UPLOAD_DIR, exist_ok=True)
 
 @router.get("/", response_model=List[Dict[str, Any]])
 def list_documents(db: Session = Depends(get_db)):
@@ -25,9 +26,7 @@ def list_documents(db: Session = Depends(get_db)):
         embedded_count = db.query(Chunk).filter(Chunk.document_id == d.id, Chunk.embedding_status == "COMPLETED").count()
         page_count = db.query(Page).filter(Page.document_id == d.id).count()
 
-        file_size = 0
-        if os.path.exists(d.original_path):
-            file_size = os.path.getsize(d.original_path)
+        file_fields = document_storage_fields(d)
 
         results.append({
             "id": d.id,
@@ -39,13 +38,13 @@ def list_documents(db: Session = Depends(get_db)):
             "chunk_count": chunk_count,
             "embedded_count": embedded_count,
             "page_count": page_count,
-            "file_size": file_size,
             "title": d.title,
             "document_type": d.document_type,
             "department": d.department,
             "academic_year": d.academic_year,
             "topics": d.topics,
-            "version": d.version
+            "version": d.version,
+            **file_fields,
         })
     return results
 
@@ -56,6 +55,7 @@ import json
 async def upload_document(
     background_tasks: BackgroundTasks,
     file: UploadFile = File(...),
+    project_id: str = Form("aurora"),
     title: str = Form(None),
     document_type: str = Form(None),
     department: str = Form(None),
@@ -70,52 +70,22 @@ async def upload_document(
     effective_until: str = Form(None),
     version: str = Form(None),
     priority: int = Form(1),
+    sync: str = Form("false"),
+    org_id: str = Depends(get_tenant_context),
     db: Session = Depends(get_db)
 ):
-    allowed_extensions = {".pdf", ".docx", ".pptx", ".xlsx", ".csv", ".txt", ".md"}
-    ext = os.path.splitext(file.filename)[1].lower()
-
-    if ext not in allowed_extensions:
-        raise HTTPException(status_code=400, detail=f"Unsupported file format. Allowed: {', '.join(allowed_extensions)}")
-
-    doc_id = str(uuid.uuid4())
-    file_path = os.path.join(UPLOAD_DIR, f"{doc_id}_{file.filename}")
-
-    with open(file_path, "wb") as f:
-        content = await file.read()
-        f.write(content)
-
-    def safe_json(val):
-        if not val: return []
-        try: return json.loads(val)
-        except: return []
-
-    db_doc = Document(
-        id=doc_id,
-        filename=file.filename,
-        original_path=file_path,
-        status="PENDING",
+    result = await ingest_upload(
+        db,
+        file,
+        project_id=project_id,
+        organization_id=org_id,
         title=title,
         document_type=document_type,
-        department=department,
-        academic_year=academic_year,
-        semester=semester,
-        applicable_audience=applicable_audience,
         description=description,
-        topics=safe_json(topics),
-        keywords=safe_json(keywords),
-        example_questions=safe_json(example_questions),
-        effective_from=effective_from,
-        effective_until=effective_until,
-        version=version,
-        priority=priority
+        sync=sync,
+        background_tasks=background_tasks,
     )
-    db.add(db_doc)
-    db.commit()
-
-    background_tasks.add_task(process_document, doc_id, file_path)
-
-    return {"document_id": doc_id, "status": "PENDING"}
+    return result
 
 @router.get("/{document_id}")
 def get_document_status(document_id: str, db: Session = Depends(get_db)):
@@ -136,17 +106,78 @@ def get_document_status(document_id: str, db: Session = Depends(get_db)):
     }
 
 @router.get("/{document_id}/download")
-def download_document(document_id: str, db: Session = Depends(get_db)):
-    doc = db.query(Document).filter(Document.id == document_id).first()
+def download_document(
+    document_id: str,
+    project_id: str = None,
+    org_id: str = Depends(get_tenant_context),
+    db: Session = Depends(get_db)
+):
+    query = db.query(Document).filter(
+        (Document.id == document_id) | (Document.filename == document_id)
+    )
+    if project_id:
+        query = query.filter(Document.project_id == project_id)
+
+    doc = query.order_by(Document.created_at.desc()).first()
     if not doc:
-        raise HTTPException(status_code=404, detail="Document not found")
+        # Fallback without project filter if not found
+        doc = db.query(Document).filter(
+            (Document.id == document_id) | (Document.filename == document_id)
+        ).order_by(Document.created_at.desc()).first()
 
-    import os
-    if not os.path.exists(doc.original_path):
-        raise HTTPException(status_code=404, detail="Original document file not found on disk")
+    if not doc:
+        raise HTTPException(status_code=404, detail=f"Document '{document_id}' not found")
 
-    from fastapi.responses import FileResponse
+    # Multi-tenant privacy verification
+    if doc.organization_id and doc.organization_id != org_id and doc.visibility == "PRIVATE":
+        raise HTTPException(status_code=403, detail="Unauthorized to access this private document")
+
+    from fastapi.responses import Response
     import urllib.parse
+    from app.core.object_storage import download_object_bytes, stored_object_from_document
+
+    content = None
+    stored = stored_object_from_document(doc)
+
+    # 1. Try reading directly from original_path if local file
+    if doc.original_path and not doc.original_path.startswith("s3://") and os.path.exists(doc.original_path):
+        try:
+            with open(doc.original_path, "rb") as f:
+                content = f.read()
+        except Exception:
+            pass
+
+    # 2. Try reading from RustFS / Object storage
+    if content is None and (stored.exists or (doc.original_path and doc.original_path.startswith("s3://"))):
+        try:
+            content = download_object_bytes(
+                doc.original_path,
+                bucket=stored.bucket,
+                key=stored.key if stored.provider == "rustfs" else None
+            )
+        except Exception as exc:
+            pass
+
+    # 3. Try reading from relative storage document paths
+    if content is None:
+        potential_paths = [
+            doc.original_path,
+            os.path.join("storage", "documents", f"{doc.id}_{doc.filename}"),
+            os.path.join("rag", "storage", "documents", f"{doc.id}_{doc.filename}"),
+            os.path.join("storage", "documents", doc.filename),
+            os.path.join("rag", "storage", "documents", doc.filename),
+        ]
+        for p in potential_paths:
+            if p and os.path.exists(p):
+                try:
+                    with open(p, "rb") as f:
+                        content = f.read()
+                    break
+                except Exception:
+                    pass
+
+    if content is None:
+        raise HTTPException(status_code=404, detail="Original document file not found in storage")
 
     filename = urllib.parse.quote(doc.filename)
     ext = os.path.splitext(doc.filename)[1].lower()
@@ -158,20 +189,23 @@ def download_document(document_id: str, db: Session = Depends(get_db)):
         ".xlsx": "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
         ".csv": "text/csv",
         ".md": "text/markdown",
-        ".txt": "text/plain"
+        ".txt": "text/plain",
+        ".json": "application/json"
     }
     media_type = mime_map.get(ext, "application/octet-stream")
 
-    # Use inline for browser-renderable types, attachment for others
-    renderable_exts = {".pdf", ".csv", ".md", ".txt"}
+    renderable_exts = {".pdf", ".csv", ".md", ".txt", ".json"}
     disp_type = "inline" if ext in renderable_exts else "attachment"
 
-    return FileResponse(
-        path=doc.original_path,
-        filename=doc.filename,
+    return Response(
+        content=content,
         media_type=media_type,
-        content_disposition_type=disp_type,
-        headers={"Content-Disposition": f"{disp_type}; filename*=utf-8''{filename}"}
+        headers={
+            "Content-Disposition": f"{disp_type}; filename*=utf-8''{filename}",
+            "Cache-Control": "private, no-cache, no-store, must-revalidate",
+            "Pragma": "no-cache",
+            "Expires": "0"
+        }
     )
 
 @router.delete("/{document_id}")
@@ -184,10 +218,8 @@ def delete_document(document_id: str, db: Session = Depends(get_db)):
     db.delete(doc)
     db.commit()
 
-    # Try to delete original file
     try:
-        if os.path.exists(doc.original_path):
-            os.remove(doc.original_path)
+        delete_object(doc.original_path)
     except Exception:
         pass
 

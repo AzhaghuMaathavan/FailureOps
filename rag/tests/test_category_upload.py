@@ -194,15 +194,14 @@ class TestCategoryUpload(unittest.TestCase):
                 background_tasks=bg
             )
             doc = self.db.query(Document).filter(Document.id == res["document_id"]).first()
-            self.assertIsNone(doc.document_type)
-            print("[TEST] ✓ Generic upload (optional category) succeeded:", doc.filename, "Type:", doc.document_type)
+            self.assertIsNotNone(doc.document_type)
+            print("[TEST] ✓ Generic upload classified successfully:", doc.filename, "Type:", doc.document_type)
         asyncio.run(run_test())
 
-    @patch("app.services.ingest_service.persist_upload")
-    def test_category_format_mismatch_rejection(self, mock_persist):
-        # Attempt to upload .pdf as CUSTOMER_FEEDBACK -> must raise descriptive HTTPException
+    def test_unsupported_file_extension_rejection(self):
+        # Attempt to upload unsupported .exe -> must raise descriptive HTTPException
         async def run_test():
-            file = self._create_mock_upload_file("invalid_feedback.pdf", b"%PDF-1.4 dummy")
+            file = self._create_mock_upload_file("malicious.exe", b"MZ\x90\x00")
             bg = BackgroundTasks()
             with self.assertRaises(HTTPException) as ctx:
                 await ingest_upload(
@@ -210,14 +209,14 @@ class TestCategoryUpload(unittest.TestCase):
                     file,
                     project_id="aurora",
                     organization_id="org_test",
-                    title="Invalid Feedback",
-                    document_type="CUSTOMER_FEEDBACK",
+                    title="Malicious Executable",
+                    document_type="PRODUCT_PLAN",
                     sync="false",
                     background_tasks=bg
                 )
             self.assertEqual(ctx.exception.status_code, 400)
-            self.assertIn("customer_feedback requires", ctx.exception.detail)
-            print("[TEST] ✓ Category format mismatch properly rejected:", ctx.exception.detail)
+            self.assertIn("Unsupported file format", ctx.exception.detail)
+            print("[TEST] ✓ Unsupported format properly rejected:", ctx.exception.detail)
         asyncio.run(run_test())
 
     def test_single_row_csv_parsing(self):

@@ -116,15 +116,17 @@ async function nodeUpload(state: GraphStateType, session: UserSession): Promise<
     });
     const form = new FormData();
     form.append('file', forwarded, file.filename);
+    form.append('project_id', state.projectId);
     form.append('title', file.title || file.filename);
     form.append('document_type', file.documentType || 'PROJECT_DOC');
+    form.append('source_type', file.documentType || 'PROJECT_DOC');
     form.append('description', file.description || '');
     form.append('visibility', file.visibility || 'PRIVATE');
     form.append('sync', 'true');
     if (file.department) form.append('department', file.department);
 
     const uploaded = await ragFetch<any>(
-      `/api/v1/projects/${encodeURIComponent(state.projectId)}/documents/upload`,
+      `/api/documents/upload`,
       session,
       { method: 'POST', body: form, timeoutMs: 180_000 }
     );

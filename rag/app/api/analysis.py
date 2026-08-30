@@ -847,6 +847,20 @@ def list_project_documents(
     ]
 
 
+@router.get("/projects/{project_id}/documents/{document_id}/download")
+def download_project_document(
+    project_id: str,
+    document_id: str,
+    org_id: str = Depends(get_tenant_context),
+    db: Session = Depends(get_db)
+):
+    """
+    Downloads a project document with tenant security verification.
+    """
+    from app.api.documents import download_document
+    return download_document(document_id, project_id=project_id, org_id=org_id, db=db)
+
+
 @router.delete("/projects/{project_id}/documents/{document_id}")
 def delete_project_document(
     project_id: str,

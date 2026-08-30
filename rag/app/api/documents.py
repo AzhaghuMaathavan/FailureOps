@@ -106,23 +106,78 @@ def get_document_status(document_id: str, db: Session = Depends(get_db)):
     }
 
 @router.get("/{document_id}/download")
-def download_document(document_id: str, db: Session = Depends(get_db)):
-    doc = db.query(Document).filter(Document.id == document_id).first()
+def download_document(
+    document_id: str,
+    project_id: str = None,
+    org_id: str = Depends(get_tenant_context),
+    db: Session = Depends(get_db)
+):
+    query = db.query(Document).filter(
+        (Document.id == document_id) | (Document.filename == document_id)
+    )
+    if project_id:
+        query = query.filter(Document.project_id == project_id)
+
+    doc = query.order_by(Document.created_at.desc()).first()
     if not doc:
-        raise HTTPException(status_code=404, detail="Document not found")
+        # Fallback without project filter if not found
+        doc = db.query(Document).filter(
+            (Document.id == document_id) | (Document.filename == document_id)
+        ).order_by(Document.created_at.desc()).first()
+
+    if not doc:
+        raise HTTPException(status_code=404, detail=f"Document '{document_id}' not found")
+
+    # Multi-tenant privacy verification
+    if doc.organization_id and doc.organization_id != org_id and doc.visibility == "PRIVATE":
+        raise HTTPException(status_code=403, detail="Unauthorized to access this private document")
 
     from fastapi.responses import Response
     import urllib.parse
     from app.core.object_storage import download_object_bytes, stored_object_from_document
 
+    content = None
     stored = stored_object_from_document(doc)
-    if not stored.exists:
-        raise HTTPException(status_code=404, detail="Original document file not found in object storage")
 
-    try:
-        content = download_object_bytes(doc.original_path, bucket=stored.bucket, key=stored.key if stored.provider == "rustfs" else None)
-    except Exception as exc:
-        raise HTTPException(status_code=404, detail=f"Unable to read original document from storage: {exc}") from exc
+    # 1. Try reading directly from original_path if local file
+    if doc.original_path and not doc.original_path.startswith("s3://") and os.path.exists(doc.original_path):
+        try:
+            with open(doc.original_path, "rb") as f:
+                content = f.read()
+        except Exception:
+            pass
+
+    # 2. Try reading from RustFS / Object storage
+    if content is None and (stored.exists or (doc.original_path and doc.original_path.startswith("s3://"))):
+        try:
+            content = download_object_bytes(
+                doc.original_path,
+                bucket=stored.bucket,
+                key=stored.key if stored.provider == "rustfs" else None
+            )
+        except Exception as exc:
+            pass
+
+    # 3. Try reading from relative storage document paths
+    if content is None:
+        potential_paths = [
+            doc.original_path,
+            os.path.join("storage", "documents", f"{doc.id}_{doc.filename}"),
+            os.path.join("rag", "storage", "documents", f"{doc.id}_{doc.filename}"),
+            os.path.join("storage", "documents", doc.filename),
+            os.path.join("rag", "storage", "documents", doc.filename),
+        ]
+        for p in potential_paths:
+            if p and os.path.exists(p):
+                try:
+                    with open(p, "rb") as f:
+                        content = f.read()
+                    break
+                except Exception:
+                    pass
+
+    if content is None:
+        raise HTTPException(status_code=404, detail="Original document file not found in storage")
 
     filename = urllib.parse.quote(doc.filename)
     ext = os.path.splitext(doc.filename)[1].lower()
@@ -134,18 +189,23 @@ def download_document(document_id: str, db: Session = Depends(get_db)):
         ".xlsx": "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
         ".csv": "text/csv",
         ".md": "text/markdown",
-        ".txt": "text/plain"
+        ".txt": "text/plain",
+        ".json": "application/json"
     }
     media_type = mime_map.get(ext, "application/octet-stream")
 
-    # Use inline for browser-renderable types, attachment for others
-    renderable_exts = {".pdf", ".csv", ".md", ".txt"}
+    renderable_exts = {".pdf", ".csv", ".md", ".txt", ".json"}
     disp_type = "inline" if ext in renderable_exts else "attachment"
 
     return Response(
         content=content,
         media_type=media_type,
-        headers={"Content-Disposition": f"{disp_type}; filename*=utf-8''{filename}"}
+        headers={
+            "Content-Disposition": f"{disp_type}; filename*=utf-8''{filename}",
+            "Cache-Control": "private, no-cache, no-store, must-revalidate",
+            "Pragma": "no-cache",
+            "Expires": "0"
+        }
     )
 
 @router.delete("/{document_id}")
