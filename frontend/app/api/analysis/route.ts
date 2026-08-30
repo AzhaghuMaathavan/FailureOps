@@ -20,7 +20,8 @@ export async function POST(req: NextRequest) {
     // Verify tenant authorization
     authorizeProjectAccess(session, validated.projectId);
 
-    if ((body as any)?.simulate) {
+    if (validated.simulate || (body as any)?.simulate) {
+
       const data = await ragFetch<any>(
         `/api/v1/test/intelligence/fixture`,
         session,

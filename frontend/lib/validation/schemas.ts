@@ -57,7 +57,10 @@ export type EvidenceUploadInput = z.infer<typeof EvidenceUploadMetadataSchema>;
 // 3. Analysis Job Dispatch Validation
 export const AnalysisJobSchema = z.object({
   projectId: z.string().min(1).max(64).regex(/^[a-zA-Z0-9_-]+$/, 'Invalid project identifier format'),
+  simulate: z.boolean().optional(),
+  fixtureVersion: z.string().optional(),
 });
+
 
 // 4. Truth Engine Assumption Query Validation
 export const TruthEngineQuerySchema = z.object({
