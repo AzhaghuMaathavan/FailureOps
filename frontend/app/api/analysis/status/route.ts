@@ -17,15 +17,11 @@ export async function GET(req: NextRequest) {
     let jobId = searchParams.get('jobId') || searchParams.get('analysisId') || '';
     const projectId = searchParams.get('projectId') || 'aurora';
 
-    // If jobId is omitted, look up the active or latest analysis for this project
-    let backendStatus: any = null;
-
-    if (jobId) {
-      backendStatus = await ragFetch<any>(
-        `/api/v1/projects/${encodeURIComponent(projectId)}/analysis/${encodeURIComponent(jobId)}`,
-        session
-      ).catch(() => null);
-    }
+    const targetJobId = jobId || 'latest';
+    let backendStatus: any = await ragFetch<any>(
+      `/api/v1/projects/${encodeURIComponent(projectId)}/analysis/${encodeURIComponent(targetJobId)}`,
+      session
+    ).catch(() => null);
 
     if (!backendStatus) {
       // Fetch latest project status / pipeline overview as fallback

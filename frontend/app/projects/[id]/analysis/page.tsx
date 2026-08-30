@@ -48,26 +48,26 @@ export default function AnalysisProcessingPage() {
     }
   }, [isFinished, setAnalysisCompleted]);
 
-  const runningCount = stages.filter((s) => s.status === 'COMPLETED').length;
+  const completedCount = stages.filter((s) => s.status === 'COMPLETED').length;
   const failedCount = stages.filter((s) => s.status === 'FAILED').length;
   const currentStageIdx = stages.findIndex((s) => s.status === 'RUNNING' || s.status === 'FAILED');
-  const currentStage = currentStageIdx !== -1 ? stages[currentStageIdx] : stages[0];
+  const currentStage = currentStageIdx !== -1 ? stages[currentStageIdx] : (isFinished ? stages[stages.length - 1] : stages[0]);
 
   const stageLabel = isFinished
-    ? 'Complete'
+    ? 'All Stages Done'
     : analysisError
-      ? 'Blocked'
+      ? `Failed at ${currentStage?.name || 'Pipeline'}`
       : status === 'RETRYING'
-        ? 'Retrying'
-        : currentStage?.name || 'In Progress';
+        ? 'Retrying Node'
+        : currentStage?.name || 'Initializing';
 
-  const etaLabel = isFinished
-    ? 'Done'
+  const executionStatus = isFinished
+    ? 'Completed'
     : analysisError
-      ? '—'
-      : progressPercent > 0
-        ? `${Math.max(0, 100 - progressPercent)}% left`
-        : 'Enclave';
+      ? 'Interrupted'
+      : status === 'RUNNING'
+        ? 'Processing'
+        : 'Queued';
 
   return (
     <div className="mx-auto max-w-5xl space-y-6">
@@ -159,23 +159,28 @@ export default function AnalysisProcessingPage() {
 
       <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
         <KpiStat
-          label="Stage"
+          label="Active Node"
           value={stageLabel}
-          hint={`${runningCount} of ${stages.length}`}
-          valueClassName="text-primary"
+          hint={`${completedCount} of ${stages.length} completed`}
+          valueClassName={isFinished ? 'text-success' : analysisError ? 'text-destructive' : 'text-primary'}
         />
-        <KpiStat label="ETA" value={etaLabel} hint="Enclave" valueClassName="text-info" />
+        <KpiStat
+          label="Execution State"
+          value={executionStatus}
+          hint={isFinished ? '100% complete' : `${progressPercent}% progress`}
+          valueClassName={isFinished ? 'text-success' : analysisError ? 'text-destructive' : 'text-info'}
+        />
         <KpiStat
           label="Blockers"
           value={failedCount}
-          hint={failedCount === 0 ? 'Ready' : 'Failed stages'}
+          hint={failedCount === 0 ? 'Zero failures' : 'Stage failure detected'}
           valueClassName={failedCount === 0 ? 'text-success' : 'text-destructive'}
         />
         <KpiStat
-          label="Last run"
-          value={isFinished ? 'Just now' : analysisError ? 'Failed' : `${progressPercent}%`}
-          hint={isFinished ? 'Complete' : 'Live poll'}
-          valueClassName="text-muted-foreground"
+          label={isFinished ? 'Verified Output' : 'Live Progress'}
+          value={isFinished ? 'Ready' : analysisError ? 'Failed' : `${progressPercent}%`}
+          hint={isFinished ? 'Packets persisted' : isPolling ? 'Live execution stream' : 'Idle'}
+          valueClassName="text-foreground"
         />
       </div>
 

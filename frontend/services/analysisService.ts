@@ -90,23 +90,29 @@ export const RAG_ANALYSIS_STAGES: AnalysisStage[] = [
 export const INITIAL_ANALYSIS_STAGES = RAG_ANALYSIS_STAGES;
 
 export function mapRagAnalysisStages(
-  backendStatus: string,
+  currentStageIdOrStatus: string,
   isDone: boolean,
   isFailed: boolean
 ): AnalysisStage[] {
-  const currentIdx = RAG_ANALYSIS_STAGES.findIndex((s) => s.id === backendStatus);
+  if (isDone || currentStageIdOrStatus === 'COMPLETED') {
+    return RAG_ANALYSIS_STAGES.map((s) => ({ ...s, status: 'COMPLETED' as const }));
+  }
+
+  const stageKey = (currentStageIdOrStatus || '').toUpperCase().trim();
+  const currentIdx = RAG_ANALYSIS_STAGES.findIndex((s) => s.id === stageKey || stageKey.includes(s.id));
 
   return RAG_ANALYSIS_STAGES.map((s, idx) => {
-    if (isDone) return { ...s, status: 'COMPLETED' as const };
     if (isFailed) {
       if (currentIdx === -1) return { ...s, status: idx === 0 ? 'FAILED' : 'WAITING' };
       if (idx < currentIdx) return { ...s, status: 'COMPLETED' as const };
       if (idx === currentIdx) return { ...s, status: 'FAILED' as const };
       return { ...s, status: 'WAITING' as const };
     }
+
     if (currentIdx === -1) {
       return { ...s, status: 'WAITING' as const };
     }
+
     if (idx < currentIdx) return { ...s, status: 'COMPLETED' as const };
     if (idx === currentIdx) return { ...s, status: 'RUNNING' as const };
     return { ...s, status: 'WAITING' as const };

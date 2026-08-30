@@ -137,18 +137,86 @@ export function useAnalysisStatus({
   useEffect(() => {
     isCancelledRef.current = false;
 
-    if (autoStart) {
-      startAnalysis();
-    } else if (initialAnalysisId) {
-      setIsPolling(true);
-      pollStatus(initialAnalysisId);
-    }
+    const initialize = async () => {
+      try {
+        if (initialAnalysisId) {
+          setIsPolling(true);
+          pollStatus(initialAnalysisId);
+          return;
+        }
+
+        // Query authoritative backend for current project analysis state
+        const current = await apiClient.getAnalysisStatus('latest', projectId).catch(() => null);
+        if (isCancelledRef.current) return;
+
+        if (current && (current.status === 'RUNNING' || current.status === 'QUEUED')) {
+          const anlId = current.analysisId || current.jobId;
+          setAnalysisId(anlId);
+          setStatus(current.status);
+          setCurrentStage(current.currentStage || 'IN_PROGRESS');
+          setProgressPercent(current.progressPercent || 0);
+          if (current.stages?.length) {
+            setStages(current.stages);
+          }
+          setLogs([
+            `[${new Date().toISOString().slice(11, 19)}] Reconnected to active analysis job: ${anlId}`,
+            `[${new Date().toISOString().slice(11, 19)}] Stage: ${current.currentStage} (${current.progressPercent || 0}%)`,
+          ]);
+          setIsPolling(true);
+          pollStatus(anlId);
+          return;
+        }
+
+        if (current && current.status === 'COMPLETED') {
+          const anlId = current.analysisId || current.jobId;
+          setAnalysisId(anlId);
+          setStatus('COMPLETED');
+          setCurrentStage('COMPLETED');
+          setProgressPercent(100);
+          if (current.stages?.length) {
+            setStages(current.stages);
+          }
+          setIsFinished(true);
+          setMetrics(current.resultSummary || null);
+          setLogs([
+            `[${new Date().toISOString().slice(11, 19)}] Loaded completed analysis: ${anlId}`,
+          ]);
+          return;
+        }
+
+        if (current && current.status === 'FAILED') {
+          const anlId = current.analysisId || current.jobId;
+          setAnalysisId(anlId);
+          setStatus('FAILED');
+          setCurrentStage(current.currentStage || 'FAILED');
+          setProgressPercent(current.progressPercent || 0);
+          if (current.stages?.length) {
+            setStages(current.stages);
+          }
+          setError(current.errorMessage || 'Previous analysis run failed.');
+          setLogs([
+            `[${new Date().toISOString().slice(11, 19)}] Previous analysis job failed: ${anlId}`,
+          ]);
+          return;
+        }
+
+        if (autoStart) {
+          startAnalysis();
+        }
+      } catch (err: any) {
+        if (!isCancelledRef.current && autoStart) {
+          startAnalysis();
+        }
+      }
+    };
+
+    initialize();
 
     return () => {
       isCancelledRef.current = true;
       stopPolling();
     };
-  }, [autoStart, initialAnalysisId, startAnalysis, pollStatus, stopPolling]);
+  }, [projectId, autoStart, initialAnalysisId, startAnalysis, pollStatus, stopPolling]);
 
   return {
     analysisId,

@@ -41,21 +41,28 @@ PIPELINE_STAGES = [
 def update_analysis_stage(
     db: Session, 
     analysis_id: str, 
-    status: str, 
-    stage: str, 
+    stage_or_status: str, 
+    stage_message: str, 
     progress: int, 
     error_msg: str = None
 ):
     try:
         analysis = db.query(ProjectAnalysis).filter(ProjectAnalysis.id == analysis_id).first()
         if analysis:
-            analysis.status = status
-            analysis.current_stage = stage
+            if stage_or_status == "COMPLETED":
+                analysis.status = "COMPLETED"
+                analysis.current_stage = "COMPLETED"
+                analysis.completed_at = datetime.now(timezone.utc)
+            elif stage_or_status == "FAILED":
+                analysis.status = "FAILED"
+                analysis.current_stage = stage_message or "FAILED"
+            else:
+                analysis.status = "RUNNING"
+                analysis.current_stage = stage_or_status
+
             analysis.progress_percent = progress
             if error_msg:
                 analysis.error_message = error_msg
-            if status == "COMPLETED":
-                analysis.completed_at = datetime.now(timezone.utc)
             db.commit()
     except Exception as e:
         logger.warning(f"[analysis_orchestrator] Could not update stage for {analysis_id}: {e}")

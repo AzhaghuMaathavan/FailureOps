@@ -333,11 +333,17 @@ def get_analysis_status(
     """
     Polls the current status and progress of an analysis run with tenant authorization checks.
     """
-    analysis = db.query(ProjectAnalysis).filter(
-        ProjectAnalysis.id == analysis_id,
-        ProjectAnalysis.organization_id == org_id,
-        ProjectAnalysis.project_id == project_id
-    ).first()
+    if analysis_id in ("latest", "active"):
+        analysis = db.query(ProjectAnalysis).filter(
+            ProjectAnalysis.organization_id == org_id,
+            ProjectAnalysis.project_id == project_id
+        ).order_by(ProjectAnalysis.created_at.desc()).first()
+    else:
+        analysis = db.query(ProjectAnalysis).filter(
+            ProjectAnalysis.id == analysis_id,
+            ProjectAnalysis.organization_id == org_id,
+            ProjectAnalysis.project_id == project_id
+        ).first()
 
     if not analysis:
         raise HTTPException(status_code=404, detail="Analysis job not found or unauthorized")
