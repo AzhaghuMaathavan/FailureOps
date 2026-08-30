@@ -10,11 +10,11 @@ from pydantic import BaseModel, Field
 from datetime import datetime
 from abc import ABC, abstractmethod
 
-from app.schemas.evidence_packet import EvidencePacket, EvidenceItem
-from app.schemas.signal_packet import SignalPacket, SignalItem
-from app.schemas.failure_dna import FailureDNA, FailureDNAResponse
-from app.schemas.radar import RadarResponse, PredictedFailure
-from app.schemas.intervention import InterventionResponse, RecommendedIntervention
+from app.schemas.evidence_packet import EvidencePacket, EvidenceItemSchema
+from app.schemas.signal_packet import SignalPacket, SignalItemSchema
+from app.schemas.failure_dna import FailureDNAPacket, DimensionRisk
+from app.schemas.radar import RadarExecutiveSnapshotPacket, RadarTopRisk
+from app.schemas.intervention import InterventionItem
 
 
 # ==========================================
@@ -117,7 +117,7 @@ class FailureDNAAgentInput(BaseModel):
 
 class FailureDNAAgentInterface(ABC):
     @abstractmethod
-    async def compute_dna(self, input_data: FailureDNAAgentInput) -> FailureDNA:
+    async def compute_dna(self, input_data: FailureDNAAgentInput) -> FailureDNAPacket:
         """Calculates dimensional Failure DNA risk scores (Technical, Operational, Adoption, Execution, Financial, Customer)."""
         pass
 
@@ -169,14 +169,14 @@ class TruthAgentInterface(ABC):
 
 class PredictionAgentInput(BaseModel):
     project_id: str
-    failure_dna: FailureDNA
+    failure_dna: FailureDNAPacket
     signals: SignalPacket
     historical_matches: Optional[List[Dict[str, Any]]] = None
 
 
 class PredictionAgentInterface(ABC):
     @abstractmethod
-    async def predict_failure_trajectory(self, input_data: PredictionAgentInput) -> RadarResponse:
+    async def predict_failure_trajectory(self, input_data: PredictionAgentInput) -> RadarExecutiveSnapshotPacket:
         """Forecasts failure trajectories, time horizons, and next failure triggers."""
         pass
 
@@ -187,13 +187,13 @@ class PredictionAgentInterface(ABC):
 
 class InterventionAgentInput(BaseModel):
     project_id: str
-    radar: RadarResponse
-    failure_dna: FailureDNA
+    radar: RadarExecutiveSnapshotPacket
+    failure_dna: FailureDNAPacket
     historical_interventions: Optional[List[Dict[str, Any]]] = None
 
 
 class InterventionAgentInterface(ABC):
     @abstractmethod
-    async def recommend_interventions(self, input_data: InterventionAgentInput) -> InterventionResponse:
+    async def recommend_interventions(self, input_data: InterventionAgentInput) -> List[InterventionItem]:
         """Generates evidence-backed actionable interventions and mitigation plans."""
         pass
