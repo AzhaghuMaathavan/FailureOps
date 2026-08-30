@@ -17,6 +17,12 @@ export const EvidenceCard: React.FC<EvidenceCardProps> = ({
   isSelected = false,
   isStale = false,
 }) => {
+  const rawTitle = evidence.statement || evidence.content || '';
+  const isRawTable = rawTitle.includes('|') && (rawTitle.includes('week_start:') || rawTitle.includes('team_size:') || rawTitle.includes('api_'));
+  const cleanTitle = isRawTable
+    ? (evidence.metricName || `Telemetry Series (${evidence.sourceFile})`)
+    : (rawTitle || evidence.sourceFile);
+
   return (
     <button
       type="button"
@@ -33,7 +39,7 @@ export const EvidenceCard: React.FC<EvidenceCardProps> = ({
           {evidence.sourceType.replace(/_/g, ' ')}
         </p>
         <p className="mt-0.5 truncate text-[13px] font-semibold text-foreground">
-          {evidence.content || evidence.sourceFile}
+          {cleanTitle}
         </p>
         <p className="mt-0.5 truncate font-mono text-[10px] text-muted-foreground">
           {evidence.sourceFile}

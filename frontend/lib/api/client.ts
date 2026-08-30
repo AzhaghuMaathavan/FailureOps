@@ -126,6 +126,9 @@ export const apiClient = {
     formData.append('projectId', projectId);
     if (title) formData.append('title', title);
     formData.append('documentType', documentType);
+    formData.append('document_type', documentType);
+    formData.append('sourceType', documentType);
+    formData.append('source_type', documentType);
     if (description) formData.append('description', description);
     if (extra?.visibility) formData.append('visibility', extra.visibility);
     if (extra?.department) formData.append('department', extra.department);
@@ -419,7 +422,19 @@ export const apiClient = {
     return request<{
       projectId: string;
       answer: string;
-      citations: { documentId?: string; filename?: string; lineage?: any }[];
+      keyEvidence?: {
+        metric: string;
+        canonical?: string;
+        baseline?: string;
+        previous?: string | null;
+        current: string;
+        change: string;
+        trend: string;
+        source: string;
+        rows?: number[];
+      }[];
+      sources?: { document: string; page?: number | null; rows?: number[] }[];
+      citations: { documentId?: string; filename?: string; lineage?: any; page?: number | null; rows?: number[] }[];
       hits: any[];
       conversationId?: string;
       domainState?: string;

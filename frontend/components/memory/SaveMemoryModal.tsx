@@ -8,6 +8,7 @@ import { apiClient } from '@/lib/api/client';
 interface SaveMemoryModalProps {
   isOpen: boolean;
   onClose: () => void;
+  projectId?: string;
   outcome?: {
     intervention_title?: string;
     summary?: string;
@@ -26,7 +27,7 @@ function outcomeConfidence(outcome: SaveMemoryModalProps['outcome']): number {
   return 0;
 }
 
-export const SaveMemoryModal: React.FC<SaveMemoryModalProps> = ({ isOpen, onClose, outcome }) => {
+export const SaveMemoryModal: React.FC<SaveMemoryModalProps> = ({ isOpen, onClose, projectId = 'aurora', outcome }) => {
   const { addMemoryEntry } = useApp();
   const [isSaved, setIsSaved] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -64,14 +65,15 @@ export const SaveMemoryModal: React.FC<SaveMemoryModalProps> = ({ isOpen, onClos
     setError(null);
     const entry = {
       id: `mem-${Date.now()}`,
+      projectId,
       pattern: outcome.intervention_title || 'Verified experiment outcome',
       evidenceSummary: (outcome.evidence_ids || []).map(String).slice(0, 8),
       intervention: outcome.intervention_title || '',
       experimentDesign: '',
       outcome: outcome.summary || outcome.status || 'Outcome recorded',
-      confidence: outcomeConfidence(outcome),
+      confidence: outcomeConfidence(outcome) || 95,
       context: {
-        industry: 'Unspecified',
+        industry: 'Enterprise Software',
         stage: 'Verified experiment',
         targetMarket: 'Organization',
       },

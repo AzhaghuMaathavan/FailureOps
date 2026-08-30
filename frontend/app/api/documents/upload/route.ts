@@ -17,8 +17,14 @@ export async function POST(req: NextRequest) {
     const incoming = formData.get('file');
     const projectId = (formData.get('project_id') as string) || (formData.get('projectId') as string) || 'aurora';
     const title = (formData.get('title') as string) || '';
-    const documentType = (formData.get('document_type') as string) || (formData.get('documentType') as string) || 'PROJECT_DOC';
+    const documentType =
+      (formData.get('document_type') as string) ||
+      (formData.get('documentType') as string) ||
+      (formData.get('source_type') as string) ||
+      (formData.get('sourceType') as string) ||
+      'PROJECT_DOC';
     const description = (formData.get('description') as string) || '';
+    const visibility = (formData.get('visibility') as string) || 'PRIVATE';
     const sync = (formData.get('sync') as string) || 'false';
 
     if (!incoming || typeof incoming === 'string') {
@@ -42,7 +48,9 @@ export async function POST(req: NextRequest) {
     backendFormData.append('project_id', projectId);
     backendFormData.append('title', title || filename);
     backendFormData.append('document_type', documentType);
+    backendFormData.append('source_type', documentType);
     backendFormData.append('description', description);
+    backendFormData.append('visibility', visibility);
     backendFormData.append('sync', sync);
 
     const uploadResult = await ragFetch<any>('/api/documents/upload', session, {

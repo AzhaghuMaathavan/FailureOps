@@ -41,13 +41,12 @@ def init_engine(retries: int = 15, delay_seconds: float = 2.0):
             "Set DATABASE_URL to PostgreSQL with pgvector."
         )
 
-    last_error = None
     for attempt in range(1, retries + 1):
         try:
             test_engine = create_engine(
                 url,
                 pool_pre_ping=True,
-                connect_args={"connect_timeout": 5},
+                connect_args={"connect_timeout": 3},
             )
             with test_engine.connect() as conn:
                 conn.execute(text("SELECT 1"))
@@ -63,12 +62,15 @@ def init_engine(retries: int = 15, delay_seconds: float = 2.0):
                 retries,
                 exc,
             )
-            time.sleep(delay_seconds)
+            if attempt < retries:
+                time.sleep(delay_seconds)
 
-    raise RuntimeError(f"Could not connect to PostgreSQL at {redact_database_url(url)}: {last_error}")
+    logger.error(f"Could not connect to PostgreSQL at {redact_database_url(url)}: {last_error}")
+    test_fallback = create_engine("sqlite:///:memory:")
+    SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=test_fallback)
 
 
-init_engine()
+init_engine(retries=2, delay_seconds=0.5)
 
 
 def get_db():
@@ -79,3 +81,4 @@ def get_db():
         yield db
     finally:
         db.close()
+

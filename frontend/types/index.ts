@@ -42,11 +42,39 @@ export interface EvidenceItem {
   sourceType: EvidenceSourceType;
   sourceFile: string;
   content: string;
+  statement?: string;
+  factType?: 'METRIC' | 'EVENT' | 'CLAIM' | 'STATUS' | 'POLICY' | 'INCIDENT';
+  metricName?: string;
+  baselineValue?: number | null;
+  previousValue?: number | null;
+  currentValue?: number | null;
+  unit?: string | null;
+  direction?: 'INCREASING' | 'DECREASING' | 'STABLE' | 'UNKNOWN';
+  baselineTimestamp?: string | null;
+  previousTimestamp?: string | null;
+  currentTimestamp?: string | null;
+  baselineToCurrentChangePercent?: number | null;
+  previousToCurrentChangePercent?: number | null;
   reference: string;
   confidence: number;
   timestamp: string;
   category: string;
   snippetContext?: string;
+  sourceDocumentId?: string;
+  sourceChunkId?: string;
+  supportingChunkIds?: string[];
+  pageNumbers?: number[];
+  rowNumbers?: number[];
+  citation?: string;
+  visibility?: string;
+  supportingEvidence?: Array<{
+    metric?: string;
+    baseline?: string | number;
+    current?: string | number;
+    change?: string | number;
+    trend?: string;
+    source?: string;
+  }>;
 }
 
 export interface Signal {

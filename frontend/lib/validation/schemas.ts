@@ -80,16 +80,19 @@ export const SearchQuerySchema = z.object({
 
 // 6. Save to Organizational Memory Validation
 export const SaveMemorySchema = z.object({
-  pattern: z.string().min(3).max(150).trim(),
-  evidenceSummary: z.array(z.string()).min(1),
-  intervention: z.string().min(5).max(400).trim(),
+  id: z.string().optional(),
+  projectId: z.string().optional(),
+  pattern: z.string().min(2).max(150).trim(),
+  evidenceSummary: z.array(z.string()).default([]),
+  intervention: z.string().min(2).max(400).trim(),
   experimentDesign: z.string().max(300).default(''),
-  outcome: z.string().min(3).max(250).trim(),
+  outcome: z.string().min(2).max(250).trim(),
   confidence: z.number().min(0).max(100),
   context: z.object({
-    industry: z.string(),
-    stage: z.string(),
-    targetMarket: z.string(),
-  }),
-  tags: z.array(z.string().max(30)).max(12),
+    industry: z.string().optional(),
+    stage: z.string().optional(),
+    targetMarket: z.string().optional(),
+  }).optional(),
+  tags: z.array(z.string().max(30)).max(12).default([]),
+  verifiedAt: z.string().optional(),
 });

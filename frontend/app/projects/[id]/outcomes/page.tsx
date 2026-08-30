@@ -174,7 +174,12 @@ export default function OutcomeVerificationPage() {
         </>
       )}
 
-      <SaveMemoryModal isOpen={isModalOpen} onClose={() => setIsModalOpen(false)} outcome={primaryOutcome} />
+      <SaveMemoryModal
+        isOpen={isModalOpen}
+        onClose={() => setIsModalOpen(false)}
+        projectId={projectId}
+        outcome={primaryOutcome}
+      />
     </div>
   );
 }

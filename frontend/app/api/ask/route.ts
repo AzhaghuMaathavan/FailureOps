@@ -37,15 +37,19 @@ export async function POST(req: NextRequest) {
     return apiSuccess({
       projectId,
       answer: raw.answer || '',
+      keyEvidence: raw.key_facts || raw.key_evidence || [],
       sources: (raw.sources || []).map((s: any) => ({
         document: s.document,
         page: s.page,
         chunkId: s.chunk_id,
+        rows: s.rows,
       })),
       citations: (raw.citations || []).map((c: any) => ({
         documentId: c.document_id,
         lineage: c.lineage || {},
-        filename: c.lineage?.document_name,
+        filename: c.lineage?.document_name || c.filename || 'Project Document',
+        page: c.lineage?.page_numbers?.[0],
+        rows: c.lineage?.source_metadata?.rows,
       })),
       hits: (raw.retrieved_evidence || raw.evidence || []).map(mapRagHit),
       conversationId: raw.conversation_id,

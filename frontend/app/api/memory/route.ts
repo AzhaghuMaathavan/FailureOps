@@ -1,10 +1,11 @@
 export const dynamic = 'force-dynamic';
 import { NextRequest, NextResponse } from 'next/server';
 import { requireAuth } from '@/lib/server/auth';
+import { authorizeProjectAccess } from '@/lib/server/authorization';
 import { checkRateLimit } from '@/lib/server/rate-limit';
 import { apiSuccess, apiError, apiRateLimitExceeded } from '@/lib/server/response';
 import { SaveMemorySchema } from '@/lib/validation/schemas';
-import { ragFetchSafe, mapHistoricalCase, mapMemoryEntry } from '@/lib/server/rag';
+import { ragFetch, ragFetchSafe, mapHistoricalCase, mapMemoryEntry } from '@/lib/server/rag';
 
 export async function GET(req: NextRequest) {
   try {
@@ -57,15 +58,19 @@ export async function POST(req: NextRequest) {
     const body = await req.json();
     SaveMemorySchema.parse(body);
 
-    return NextResponse.json(
+    const projectId = body.projectId || 'aurora';
+    authorizeProjectAccess(session, projectId);
+
+    const result = await ragFetch<any>(
+      `/api/v1/projects/${encodeURIComponent(projectId)}/organizational-memory`,
+      session,
       {
-        success: false,
-        error: 'Not Supported',
-        message:
-          'Organizational memory is derived from verified experiment outcomes. There is no standalone write store.',
-      },
-      { status: 409 }
+        method: 'POST',
+        body: JSON.stringify(body),
+      }
     );
+
+    return apiSuccess(result, 201);
   } catch (error) {
     return apiError(error, 'Failed to save validated learning to organizational memory.');
   }

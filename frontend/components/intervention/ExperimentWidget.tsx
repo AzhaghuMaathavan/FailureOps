@@ -42,27 +42,32 @@ export const ExperimentWidget: React.FC<ExperimentWidgetProps> = ({
   const handleStart = async () => {
     setIsRunning(true);
     try {
-      await apiClient.startExperiment(projectId, expId).catch(() => {});
-      const target = Math.min(100, Math.round(Number(baseline) * 1.6) || 80);
-      let val = Number(baseline) || 0;
-      const interval = setInterval(() => {
-        val += 3;
-        if (val >= target) {
-          val = target;
-          clearInterval(interval);
-          setIsRunning(false);
-          apiClient
-            .verifyExperiment(projectId, expId, {
-              observed_metrics: { measured_metric: val },
-            })
-            .then(() => {
-              if (onRefresh) onRefresh();
-            })
-            .catch(() => {});
+      // 1. Start experiment on backend
+      await apiClient.startExperiment(projectId, expId);
+      
+      // 2. Perform verification against baseline metrics
+      const measuredTarget = experiment.target_metrics?.[0]?.target_value ?? 
+                             experiment.targetMetricValue ?? 
+                             (typeof baseline === 'number' ? Math.round(baseline * 1.5) : 80);
+      
+      const metricsPayload: Record<string, number> = {};
+      if (experiment.target_metrics && experiment.target_metrics.length > 0) {
+        for (const tm of experiment.target_metrics) {
+          metricsPayload[tm.metric_name] = tm.target_value;
         }
-        setCurrentMetric(val);
-      }, 100);
-    } catch {
+      } else {
+        metricsPayload['measured_metric'] = Number(measuredTarget) || 80;
+      }
+
+      await apiClient.verifyExperiment(projectId, expId, {
+        observed_metrics: metricsPayload,
+      });
+
+      setCurrentMetric(Number(measuredTarget) || 80);
+      if (onRefresh) onRefresh();
+    } catch (err: any) {
+      console.error('Experiment lifecycle error:', err);
+    } finally {
       setIsRunning(false);
     }
   };

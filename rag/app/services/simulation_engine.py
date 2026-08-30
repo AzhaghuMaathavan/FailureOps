@@ -144,7 +144,7 @@ def run_what_if_simulations(
     )
 
     # Recommended scenario is the one with highest risk reduction
-    best_scenario = min(scenarios[1:], key=lambda s: s.simulated_risk)
+    best_scenario = min(scenarios[1:], key=lambda s: s.simulated_risk) if len(scenarios) > 1 else scenarios[0]
 
     return SimulationComparisonPacket(
         project_id=project_id,
@@ -153,6 +153,6 @@ def run_what_if_simulations(
         generated_at=datetime.now(timezone.utc).isoformat(),
         current_baseline_risk=baseline_risk,
         scenarios=scenarios,
-        recommended_scenario=best_scenario.scenario_name
+        recommended_scenario=best_scenario.scenario_id
     )
 

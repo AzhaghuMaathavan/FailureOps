@@ -1,7 +1,7 @@
 """Single mapping from retrieved chunks to the public RAG response shape."""
 from typing import Any, Dict, List, Optional
 
-NO_EVIDENCE_ANSWER = "No relevant evidence was found."
+NO_EVIDENCE_ANSWER = "I couldn't find sufficient evidence in the project's indexed documents to answer this confidently."
 
 
 def _first_page(lineage: Dict[str, Any]) -> Optional[int]:
