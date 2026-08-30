@@ -1146,6 +1146,20 @@ def get_project_interventions(
     if analysis and analysis.interventions:
         return analysis.interventions
 
+    # If analysis exists or baseline signals exist, synthesize dynamically
+    latest_signals = get_latest_project_signals(project_id, org_id, db)
+    if latest_signals and latest_signals.signals:
+        from app.services.intervention_engine import generate_intervention_plan
+        dna = get_project_failure_dna(project_id, org_id, db)
+        chain = get_project_failure_chain(project_id, org_id, db)
+        plan = generate_intervention_plan(latest_signals, dna_packet=dna, chain_packet=chain)
+        if analysis:
+            from sqlalchemy.orm.attributes import flag_modified
+            analysis.interventions = plan.model_dump()
+            flag_modified(analysis, "interventions")
+            db.commit()
+        return plan.model_dump()
+
     from app.schemas.intervention import InterventionPlanPacket
     return InterventionPlanPacket(
         project_id=project_id,
@@ -1154,6 +1168,151 @@ def get_project_interventions(
         interventions=[],
         recommended_primary_intervention="Insufficient evidence for a recommended action",
     ).model_dump()
+
+
+class ToggleActionItemRequest(BaseModel):
+    completed: Optional[bool] = None
+
+
+@router.post("/projects/{project_id}/interventions/{intervention_id}/promote")
+def promote_intervention_to_experiment(
+    project_id: str,
+    intervention_id: str,
+    org_id: str = Depends(get_tenant_context),
+    db: Session = Depends(get_db)
+):
+    """
+    Promotes a ranked intervention playbook into a live measurable A/B experiment record.
+    """
+    analysis = db.query(ProjectAnalysis).filter(
+        ProjectAnalysis.organization_id == org_id,
+        ProjectAnalysis.project_id == project_id,
+        ProjectAnalysis.status == "COMPLETED"
+    ).order_by(ProjectAnalysis.created_at.desc()).first()
+
+    plan_dict = get_project_interventions(project_id, org_id, db)
+    interventions_list = plan_dict.get("interventions", [])
+    target_int = next((i for i in interventions_list if i.get("intervention_id") == intervention_id or i.get("id") == intervention_id), None)
+    if not target_int and interventions_list:
+        target_int = interventions_list[0]
+    if not target_int:
+        raise HTTPException(status_code=404, detail="Intervention not found for this project.")
+
+    from app.schemas.experiment import ExperimentItem, ExperimentBaselineSnapshot, ExperimentTargetMetric
+    from sqlalchemy.orm.attributes import flag_modified
+    import uuid
+
+    exp_id = f"exp_{project_id}_{uuid.uuid4().hex[:6]}"
+    title = f"Validation Cohort: {target_int.get('title', 'Intervention Playbook')}"
+    hypothesis = target_int.get("expected_effect") or f"Applying {target_int.get('title')} reduces project failure risk by {target_int.get('expected_risk_reduction', 20)} pts."
+    target_sigs = target_int.get("target_signals", [])
+
+    target_metrics = []
+    base_metrics = {}
+    for sig in target_sigs:
+        is_decrease = any(term in sig.upper() for term in ["FAILURE", "LATENCY", "ERROR", "DROP", "RISK", "TIME", "OVERLOAD"])
+        dir_str = "DECREASE" if is_decrease else "INCREASE"
+        base_val = 50.0 if is_decrease else 30.0
+        tgt_val = 15.0 if is_decrease else 80.0
+        target_metrics.append(ExperimentTargetMetric(
+            metric_name=sig,
+            baseline_value=base_val,
+            target_value=tgt_val,
+            desired_direction=dir_str,
+            unit="%"
+        ))
+        base_metrics[sig] = base_val
+    if not target_metrics:
+        target_metrics.append(ExperimentTargetMetric(
+            metric_name="FailureRisk",
+            baseline_value=75.0,
+            target_value=35.0,
+            desired_direction="DECREASE",
+            unit="pts"
+        ))
+        base_metrics["FailureRisk"] = 75.0
+
+    new_exp = ExperimentItem(
+        experiment_id=exp_id,
+        project_id=project_id,
+        organization_id=org_id,
+        intervention_id=intervention_id,
+        target_signal_ids=target_sigs,
+        title=title,
+        experiment_type="TECHNICAL_FIX",
+        hypothesis=hypothesis,
+        baseline_snapshot=ExperimentBaselineSnapshot(
+            snapshot_id=f"snap_{exp_id}",
+            metrics=base_metrics
+        ),
+        target_metrics=target_metrics,
+        observation_period_days=14,
+        success_criteria=[f"Empirical improvement on {target_metrics[0].metric_name}"],
+        status="PLANNED",
+        progress_percent=0
+    )
+
+    if analysis:
+        curr_experiments = (analysis.experiments or {}).get("experiments", []) if isinstance(analysis.experiments, dict) else []
+        curr_experiments.insert(0, new_exp.model_dump())
+        analysis.experiments = {
+            "project_id": project_id,
+            "organization_id": org_id,
+            "experiments": curr_experiments,
+            "active_experiment_count": len(curr_experiments)
+        }
+        flag_modified(analysis, "experiments")
+        db.commit()
+
+    return new_exp.model_dump()
+
+
+@router.patch("/projects/{project_id}/interventions/{intervention_id}/action-items/{item_id}")
+def toggle_intervention_action_item(
+    project_id: str,
+    intervention_id: str,
+    item_id: str,
+    payload: Optional[ToggleActionItemRequest] = None,
+    org_id: str = Depends(get_tenant_context),
+    db: Session = Depends(get_db)
+):
+    """
+    Persistently toggles an action item step in an intervention plan.
+    """
+    analysis = db.query(ProjectAnalysis).filter(
+        ProjectAnalysis.organization_id == org_id,
+        ProjectAnalysis.project_id == project_id,
+        ProjectAnalysis.status == "COMPLETED"
+    ).order_by(ProjectAnalysis.created_at.desc()).first()
+
+    plan_dict = get_project_interventions(project_id, org_id, db)
+    interventions_list = plan_dict.get("interventions", [])
+    target_int = next((i for i in interventions_list if i.get("intervention_id") == intervention_id or i.get("id") == intervention_id), None)
+    if not target_int:
+        raise HTTPException(status_code=404, detail="Intervention not found")
+
+    completed_items = target_int.get("completed_action_items", [])
+    new_state = payload.completed if (payload and payload.completed is not None) else (item_id not in completed_items)
+
+    if new_state and item_id not in completed_items:
+        completed_items.append(item_id)
+    elif not new_state and item_id in completed_items:
+        completed_items.remove(item_id)
+
+    target_int["completed_action_items"] = completed_items
+
+    if analysis:
+        from sqlalchemy.orm.attributes import flag_modified
+        analysis.interventions = plan_dict
+        flag_modified(analysis, "interventions")
+        db.commit()
+
+    return {
+        "intervention_id": intervention_id,
+        "item_id": item_id,
+        "completed": new_state,
+        "completed_action_items": completed_items
+    }
 
 
 @router.get("/projects/{project_id}/experiments", response_model=Dict[str, Any])
@@ -1171,8 +1330,32 @@ def get_project_experiments(
         ProjectAnalysis.status == "COMPLETED"
     ).order_by(ProjectAnalysis.created_at.desc()).first()
 
-    if analysis and analysis.experiments:
+    if analysis and analysis.experiments and analysis.experiments.get("experiments"):
         return analysis.experiments
+
+    # If experiments not yet generated, synthesize from interventions
+    plan_dict = get_project_interventions(project_id, org_id, db)
+    interventions = plan_dict.get("interventions", [])
+    if interventions:
+        from app.services.experiment_tracker import synthesize_experiments_from_interventions
+        from app.schemas.intervention import InterventionItem, InterventionPlanPacket
+        int_items = [InterventionItem.model_validate(i) for i in interventions]
+        int_packet = InterventionPlanPacket(
+            project_id=project_id,
+            analysis_id=analysis.id if analysis else f"anl_{project_id}",
+            organization_id=org_id,
+            interventions=int_items,
+            recommended_primary_intervention=plan_dict.get("recommended_primary_intervention", "Primary")
+        )
+        latest_signals = get_latest_project_signals(project_id, org_id, db)
+        dna = get_project_failure_dna(project_id, org_id, db)
+        exp_list = synthesize_experiments_from_interventions(int_packet, latest_signals, dna_packet=dna)
+        if analysis:
+            from sqlalchemy.orm.attributes import flag_modified
+            analysis.experiments = exp_list.model_dump()
+            flag_modified(analysis, "experiments")
+            db.commit()
+        return exp_list.model_dump()
 
     from app.schemas.experiment import ExperimentListPacket
     return ExperimentListPacket(
@@ -1181,6 +1364,29 @@ def get_project_experiments(
         experiments=[],
         active_experiment_count=0,
     ).model_dump()
+
+
+@router.get("/projects/{project_id}/experiments/{experiment_id}")
+def get_single_project_experiment(
+    project_id: str,
+    experiment_id: str,
+    org_id: str = Depends(get_tenant_context),
+    db: Session = Depends(get_db)
+):
+    """
+    Retrieves a single experiment by ID with tenant security.
+    """
+    analysis = db.query(ProjectAnalysis).filter(
+        ProjectAnalysis.organization_id == org_id,
+        ProjectAnalysis.project_id == project_id,
+        ProjectAnalysis.status == "COMPLETED"
+    ).order_by(ProjectAnalysis.created_at.desc()).first()
+
+    experiments = (analysis.experiments or {}).get("experiments", []) if (analysis and isinstance(analysis.experiments, dict)) else []
+    match = next((e for e in experiments if e.get("experiment_id") == experiment_id or e.get("id") == experiment_id), None)
+    if not match:
+        raise HTTPException(status_code=404, detail="Experiment not found")
+    return match
 
 
 @router.post("/projects/{project_id}/experiments/{experiment_id}/start")

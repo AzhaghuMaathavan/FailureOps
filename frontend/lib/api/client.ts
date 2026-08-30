@@ -468,6 +468,20 @@ export const apiClient = {
     return request<any>(`/api/interventions?projectId=${encodeURIComponent(projectId)}`);
   },
 
+  async promoteIntervention(projectId: string = 'aurora', interventionId: string) {
+    return request<any>('/api/interventions', {
+      method: 'POST',
+      body: JSON.stringify({ projectId, interventionId }),
+    });
+  },
+
+  async toggleActionItem(projectId: string = 'aurora', interventionId: string, itemId: string, completed?: boolean) {
+    return request<any>('/api/interventions', {
+      method: 'PATCH',
+      body: JSON.stringify({ projectId, interventionId, itemId, completed }),
+    });
+  },
+
   async getExperiments(projectId: string = 'aurora'): Promise<any> {
     return request<any>(`/api/experiments?projectId=${encodeURIComponent(projectId)}`);
   },

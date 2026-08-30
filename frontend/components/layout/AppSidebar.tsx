@@ -37,7 +37,26 @@ import { isNavItemActive } from '@/lib/navigation';
 export const AppSidebar: React.FC = () => {
   const pathname = usePathname();
   const { project, user, logout } = useApp();
-  const projectId = project.id;
+  const pathProjectId = pathname?.match(/\/projects\/([^\/]+)/)?.[1];
+  const projectId = pathProjectId || project.id || 'aurora';
+  const [activeProject, setActiveProject] = React.useState<any>(project);
+
+  React.useEffect(() => {
+    let mounted = true;
+    if (projectId) {
+      import('@/lib/api/client').then(({ apiClient }) => {
+        apiClient.getProject(projectId).then((p) => {
+          if (mounted && p && p.id) setActiveProject(p);
+        }).catch(() => {
+          if (mounted) setActiveProject(project);
+        });
+      });
+    }
+    return () => {
+      mounted = false;
+    };
+  }, [projectId, project]);
+
   const navRef = React.useRef<HTMLElement>(null);
 
   React.useLayoutEffect(() => {
@@ -187,15 +206,15 @@ export const AppSidebar: React.FC = () => {
       <div className="shrink-0 mx-3 mb-2 p-2.5 rounded-xl bg-card border border-border shadow-card">
         <div className="flex items-center justify-between gap-2 min-w-0">
           <span className="text-[10px] font-mono font-medium text-muted-foreground uppercase tracking-wider truncate">
-            {project.name}
+            {activeProject?.name || projectId}
           </span>
-          <RiskBadge level={project.health} />
+          <RiskBadge level={activeProject?.health || 'WATCH'} />
         </div>
         <p className="mt-1 text-xs font-mono font-bold text-destructive truncate">
-          {project.failureRisk}% risk · {project.predictedNextFailure}
+          {activeProject?.failureRisk ?? 0}% risk · {activeProject?.predictedNextFailure || 'Awaiting Analysis'}
         </p>
         <div className="mt-2 pt-2 border-t border-border flex items-center justify-between gap-2">
-          <PrivacyBadge level={project.privacyLevel} />
+          <PrivacyBadge level={activeProject?.privacyLevel || 'ORGANIZATION'} />
           <Link
             href={`/projects/${projectId}/radar`}
             className={`text-[10px] font-semibold text-primary hover:text-primary-hover whitespace-nowrap ${chromeLink} rounded-md`}

@@ -2,8 +2,8 @@
 
 import React, { useEffect, useState } from 'react';
 import Link from 'next/link';
-import { useParams } from 'next/navigation';
-import { ArrowRight, Calculator, CheckCircle2, FlaskConical, X } from 'lucide-react';
+import { useParams, useRouter } from 'next/navigation';
+import { ArrowRight, Calculator, CheckCircle2, Circle, FlaskConical, Loader2, X } from 'lucide-react';
 import { apiClient } from '@/lib/api/client';
 import { cn } from '@/lib/utils';
 import {
@@ -20,10 +20,12 @@ import {
 
 export default function InterventionsPage() {
   const params = useParams();
+  const router = useRouter();
   const projectId = (params?.id as string) || 'aurora';
   const [interventions, setInterventions] = useState<any[]>([]);
   const [selectedBreakdown, setSelectedBreakdown] = useState<any | null>(null);
   const [loading, setLoading] = useState(true);
+  const [promotingId, setPromotingId] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
 
   const loadData = async () => {
@@ -37,6 +39,36 @@ export default function InterventionsPage() {
       setError(err.message || 'Failed to load intervention plan.');
     } finally {
       setLoading(false);
+    }
+  };
+
+  const handlePromote = async (interventionId: string) => {
+    try {
+      setPromotingId(interventionId);
+      await apiClient.promoteIntervention(projectId, interventionId);
+      router.push(`/projects/${projectId}/experiment`);
+    } catch (err: any) {
+      setError(err?.message || 'Failed to promote intervention to experiment.');
+    } finally {
+      setPromotingId(null);
+    }
+  };
+
+  const handleToggleActionItem = async (interventionId: string, itemId: string) => {
+    try {
+      setInterventions((prev) =>
+        prev.map((item) => {
+          if (item.intervention_id !== interventionId && item.id !== interventionId) return item;
+          const completed = item.completed_action_items || [];
+          const updated = completed.includes(itemId)
+            ? completed.filter((id: string) => id !== itemId)
+            : [...completed, itemId];
+          return { ...item, completed_action_items: updated };
+        })
+      );
+      await apiClient.toggleActionItem(projectId, interventionId, itemId);
+    } catch (err: any) {
+      console.error('Failed to toggle action item:', err);
     }
   };
 
@@ -67,9 +99,10 @@ export default function InterventionsPage() {
         title="Interventions"
         description="Moves ranked by empirical success in similar Failure DNA neighborhoods."
         action={{
-          label: 'Promote to experiment',
-          href: `/projects/${projectId}/experiment`,
-          icon: <FlaskConical className="h-3.5 w-3.5" aria-hidden="true" />,
+          label: promotingId ? 'Promoting…' : 'Promote primary',
+          disabled: !primary || Boolean(promotingId),
+          onClick: () => primary && handlePromote(primary.intervention_id || primary.id),
+          icon: promotingId ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <FlaskConical className="h-3.5 w-3.5" aria-hidden="true" />,
         }}
       />
 
@@ -164,17 +197,32 @@ export default function InterventionsPage() {
 
                     {actions.length > 0 && (
                       <div className="mt-4 space-y-2">
-                        <h4 className="text-[11px] font-bold uppercase tracking-wider text-foreground">Action Plan</h4>
+                        <h4 className="text-[11px] font-bold uppercase tracking-wider text-foreground">Action Plan (Interactive Steps)</h4>
                         <div className="space-y-1.5">
-                          {actions.map((act: string, idx: number) => (
-                            <div
-                              key={idx}
-                              className="flex items-start gap-2 rounded-xl border border-border/60 bg-surface-feed/70 p-2.5 text-xs font-medium text-foreground"
-                            >
-                              <CheckCircle2 className="mt-0.5 h-3.5 w-3.5 shrink-0 text-success" aria-hidden="true" />
-                              <span>{act}</span>
-                            </div>
-                          ))}
+                          {actions.map((act: string, idx: number) => {
+                            const itemId = `step_${idx}`;
+                            const isDone = (item.completed_action_items || []).includes(itemId);
+                            return (
+                              <button
+                                key={idx}
+                                type="button"
+                                onClick={() => handleToggleActionItem(item.intervention_id || item.id, itemId)}
+                                className={cn(
+                                  'flex w-full cursor-pointer items-start gap-2.5 rounded-xl border p-2.5 text-left text-xs font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring',
+                                  isDone
+                                    ? 'border-success/30 bg-success/10 text-foreground'
+                                    : 'border-border/60 bg-surface-feed/70 text-foreground hover:bg-card',
+                                )}
+                              >
+                                {isDone ? (
+                                  <CheckCircle2 className="mt-0.5 h-3.5 w-3.5 shrink-0 text-success" aria-hidden="true" />
+                                ) : (
+                                  <Circle className="mt-0.5 h-3.5 w-3.5 shrink-0 text-muted-foreground/50" aria-hidden="true" />
+                                )}
+                                <span className={isDone ? 'line-through text-muted-foreground' : ''}>{act}</span>
+                              </button>
+                            );
+                          })}
                         </div>
                       </div>
                     )}
@@ -199,13 +247,24 @@ export default function InterventionsPage() {
                     <span className="font-mono text-xs font-semibold text-success">
                       Expected Reduction: −{item.expected_risk_reduction || 15} pts
                     </span>
-                    <Link
-                      href={`/projects/${projectId}/experiment`}
-                      className="inline-flex min-h-11 items-center gap-1 text-xs font-semibold text-primary hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                    <button
+                      type="button"
+                      disabled={promotingId === (item.intervention_id || item.id)}
+                      onClick={() => handlePromote(item.intervention_id || item.id)}
+                      className="inline-flex min-h-11 cursor-pointer items-center gap-1.5 text-xs font-semibold text-primary hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:opacity-50"
                     >
-                      <span>Launch Experiment</span>
-                      <ArrowRight className="h-3.5 w-3.5" aria-hidden="true" />
-                    </Link>
+                      {promotingId === (item.intervention_id || item.id) ? (
+                        <>
+                          <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                          <span>Promoting…</span>
+                        </>
+                      ) : (
+                        <>
+                          <span>Promote & Launch</span>
+                          <ArrowRight className="h-3.5 w-3.5" aria-hidden="true" />
+                        </>
+                      )}
+                    </button>
                   </div>
                 </article>
               );
