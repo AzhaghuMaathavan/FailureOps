@@ -25,27 +25,36 @@ def extract_json(text: str) -> Dict[str, Any]:
     except Exception:
         pass
         
-    # 2. Extract outermost {...} block
-    first_brace = text.find('{')
-    last_brace = text.rfind('}')
-    if first_brace != -1 and last_brace > first_brace:
-        candidate = text[first_brace : last_brace + 1]
-        try:
-            return json.loads(candidate)
-        except Exception:
-            # Try removing trailing commas
-            cleaned_candidate = re.sub(r',\s*([\]}])', r'\1', candidate)
-            try:
-                return json.loads(cleaned_candidate)
-            except Exception:
-                pass
-            
-    # 3. Aggressive extraction if it got cut off (e.g., partial JSON)
-    match_answer = re.search(r'"answer"\s*:\s*"((?:[^"\\]|\\.)*)"', text, re.DOTALL | re.IGNORECASE)
-    if match_answer:
-        ans = match_answer.group(1).replace('\\"', '"').replace('\\n', '\n')
-        return {"answer": ans, "cited_evidence_ids": []}
+    # 2. Balanced bracket JSON extraction
+    for match in re.finditer(r'\{', text):
+        start_idx = match.start()
+        brace_count = 0
+        in_string = False
+        escape = False
+        
+        for i in range(start_idx, len(text)):
+            ch = text[i]
+            if ch == '"' and not escape:
+                in_string = not in_string
+            elif not in_string:
+                if ch == '{':
+                    brace_count += 1
+                elif ch == '}':
+                    brace_count -= 1
+                    if brace_count == 0:
+                        candidate = text[start_idx : i + 1]
+                        try:
+                            return json.loads(candidate)
+                        except Exception:
+                            # Try removing trailing commas
+                            cleaned = re.sub(r',\s*([\]}])', r'\1', candidate)
+                            try:
+                                return json.loads(cleaned)
+                            except Exception:
+                                break
+            escape = (ch == '\\' and not escape)
 
+    # 3. Fallback: extract extracted_items array
     match_extracted = re.search(r'"extracted_items"\s*:\s*(\[[\s\S]*?\])', text)
     if match_extracted:
         try:
@@ -54,8 +63,15 @@ def extract_json(text: str) -> Dict[str, Any]:
         except Exception:
             pass
 
+    # 4. Fallback: extract answer string
+    match_answer = re.search(r'"answer"\s*:\s*"((?:[^"\\]|\\.)*)"', text, re.DOTALL | re.IGNORECASE)
+    if match_answer:
+        ans = match_answer.group(1).replace('\\"', '"').replace('\\n', '\n')
+        return {"answer": ans, "cited_evidence_ids": []}
+
     logger.warning(f"Could not parse valid JSON from response: {text[:200]}...")
     raise ValueError("Failed to extract JSON from LLM response")
+
 
 
 def call_llm(system_prompt: str, user_prompt: str, json_mode: bool = False, timeout: float = 90.0, max_tokens: int = 2048, return_metrics: bool = False) -> Any:
