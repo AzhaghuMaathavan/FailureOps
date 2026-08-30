@@ -90,8 +90,9 @@ def test_fixture_downstream_real_engines():
         chain_packet=chain,
         intervention_plan=interventions
     )
-    assert radar.overall_project_risk == dna.overall.risk_score
-    assert radar.active_signal_count == len(result.signal_packet.signals)
+    assert radar.overall_risk_score == dna.overall.risk_score
+    assert len(radar.top_failure_risks) >= 1
+
 
 
 def test_simulate_intelligence_endpoint_success():

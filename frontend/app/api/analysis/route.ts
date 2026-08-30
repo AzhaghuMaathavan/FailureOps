@@ -20,6 +20,32 @@ export async function POST(req: NextRequest) {
     // Verify tenant authorization
     authorizeProjectAccess(session, validated.projectId);
 
+    if ((body as any)?.simulate) {
+      const data = await ragFetch<any>(
+        `/api/v1/test/intelligence/fixture`,
+        session,
+        {
+          method: 'POST',
+          body: JSON.stringify({
+            project_id: validated.projectId,
+            fixture_version: (body as any)?.fixtureVersion || '1.0',
+          }),
+        }
+      );
+      return apiSuccess({
+        jobId: data.analysis_id,
+        analysisId: data.analysis_id,
+        projectId: data.project_id,
+        isSimulated: data.is_simulated,
+        source: data.source,
+        fixtureVersion: data.fixture_version,
+        status: data.status,
+        message: data.message,
+        metrics: data.metrics,
+        createdAt: new Date().toISOString(),
+      }, 200);
+    }
+
     const data = await ragFetch<any>(
       `/api/v1/projects/${encodeURIComponent(validated.projectId)}/analysis`,
       session,
@@ -32,6 +58,7 @@ export async function POST(req: NextRequest) {
         }),
       }
     );
+
     return apiSuccess({
       jobId: data.analysis_id,
       analysisId: data.analysis_id,

@@ -198,11 +198,12 @@ export const apiClient = {
       status: string;
       message: string;
       metrics?: any;
-    }>('/api/analysis/simulate', {
+    }>('/api/analysis', {
       method: 'POST',
-      body: JSON.stringify({ projectId, fixtureVersion }),
+      body: JSON.stringify({ projectId, simulate: true, fixtureVersion }),
     });
   },
+
 
 
   async getAnalysisStatus(jobId: string, projectId: string = 'aurora') {
