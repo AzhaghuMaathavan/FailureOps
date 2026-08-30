@@ -192,6 +192,46 @@ def retrieve_project_evidence_candidates(
         if d not in results_by_dimension:
             results_by_dimension[d] = []
 
+    # Guarantee multi-document representation for all uploaded documents in the project
+    seen_doc_ids = set()
+    for chunks_list in results_by_dimension.values():
+        for chk in chunks_list:
+            d_id = chk.get("document_id")
+            if d_id:
+                seen_doc_ids.add(d_id)
+
+    try:
+        from app.models.document import Document
+        from app.models.chunk import Chunk
+        all_docs = db.query(Document).filter(
+            Document.project_id == project_id,
+            Document.organization_id == organization_id
+        ).all()
+        for doc in all_docs:
+            if doc.id not in seen_doc_ids:
+                doc_chunks = db.query(Chunk).filter(Chunk.document_id == doc.id).order_by(Chunk.chunk_index).limit(2).all()
+                if doc_chunks:
+                    st = doc.document_type or "PRODUCT_PLAN"
+                    target_dim = "TECHNICAL" if st == "ENGINEERING_METRICS" else ("TEAM" if st == "TEAM_OPERATIONS" else ("CUSTOMER" if st == "CUSTOMER_FEEDBACK" else ("FINANCIAL" if st == "PRODUCT_METRICS" else "STRATEGY")))
+                    for c in doc_chunks:
+                        lin = dict(c.lineage or {})
+                        lin["document_name"] = doc.filename
+                        lin["document_type"] = st
+                        lin["source_type"] = st
+                        c_dict = {
+                            "id": c.id,
+                            "chunk_id": c.id,
+                            "document_id": doc.id,
+                            "content": c.content,
+                            "lineage": lin,
+                            "rerank_score": 5.0,
+                            "hybrid_score": 0.5,
+                            "bm25_score": 0.5
+                        }
+                        results_by_dimension[target_dim].append(c_dict)
+    except Exception as e:
+        logger.warning(f"[evidence_retriever] Supplemental document chunk representation error: {e}")
+
     duration = time.time() - t0
 
     operational_metrics = {
@@ -201,3 +241,4 @@ def retrieve_project_evidence_candidates(
     }
 
     return results_by_dimension, operational_metrics
+
