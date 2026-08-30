@@ -1,5 +1,4 @@
 """RAG Embeddings Subsystem: NVIDIA Nemotron 2048-dim embedding generation."""
-from app.services.embedding_service import EmbeddingService
-from app.services.llm_key_manager import get_active_nvidia_key
+from app.services.embedding_service import generate_embeddings, get_api_key, embed_query
 
-__all__ = ["EmbeddingService", "get_active_nvidia_key"]
+__all__ = ["generate_embeddings", "get_api_key", "embed_query"]
