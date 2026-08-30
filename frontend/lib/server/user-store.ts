@@ -147,11 +147,12 @@ export const userStore = {
 
   getUserById(id: string): UserRecord | null {
     loadUsers();
-    for (const u of usersCache.values()) {
+    for (const u of Array.from(usersCache.values())) {
       if (u.id === id) return u;
     }
     return null;
   },
+
 
   async createUser(input: {
     name: string;

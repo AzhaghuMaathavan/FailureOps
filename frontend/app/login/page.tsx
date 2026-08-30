@@ -1,20 +1,33 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useEffect, Suspense } from 'react';
 import Link from 'next/link';
-import { useRouter } from 'next/navigation';
-import { Lock, Mail, ArrowRight, Shield, CheckCircle2, AlertCircle } from 'lucide-react';
+import { useRouter, useSearchParams } from 'next/navigation';
+import { Lock, Mail, ArrowRight, Eye, EyeOff, ShieldCheck, CheckCircle2, AlertCircle } from 'lucide-react';
 import { FxMark, btnPrimary, focusRing } from '@/components/landing/chrome';
 import { PublicNavbar } from '@/components/landing/PublicNavbar';
 import { PublicFooter } from '@/components/landing/PublicFooter';
+import { apiClient } from '@/lib/api/client';
+import { useApp } from '@/context/AppContext';
 import { cn } from '@/lib/utils';
 
-export default function LoginPage() {
+function LoginContent() {
   const router = useRouter();
+  const searchParams = useSearchParams();
+  const { refreshUser } = useApp();
+
   const [email, setEmail] = useState('lead.architect@aurora.tech');
-  const [password, setPassword] = useState('••••••••••••');
+  const [password, setPassword] = useState('password123');
+  const [showPassword, setShowPassword] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [successBanner, setSuccessBanner] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (searchParams.get('reset') === 'success') {
+      setSuccessBanner('Your password has been successfully reset. Please sign in with your new credentials.');
+    }
+  }, [searchParams]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -22,11 +35,17 @@ export default function LoginPage() {
     setError(null);
 
     try {
-      // Simulate quick auth check and redirect to dashboard
-      await new Promise((resolve) => setTimeout(resolve, 400));
+      const res = await apiClient.login(email, password);
+
+      if (res?.requiresVerification) {
+        router.push(`/verify?email=${encodeURIComponent(email)}`);
+        return;
+      }
+
+      await refreshUser();
       router.push('/dashboard');
-    } catch (err) {
-      setError('Unable to authenticate. Please check your credentials.');
+    } catch (err: any) {
+      setError(err?.message || 'Unable to authenticate. Please check your credentials.');
       setLoading(false);
     }
   };
@@ -50,6 +69,13 @@ export default function LoginPage() {
                 Sign in to your FailureOps X intelligence workspace
               </p>
             </div>
+
+            {successBanner && (
+              <div className="p-3 rounded-xl bg-success/15 border border-success/30 text-success text-xs flex items-center gap-2">
+                <CheckCircle2 className="w-4 h-4 shrink-0" />
+                <span>{successBanner}</span>
+              </div>
+            )}
 
             {error && (
               <div className="p-3 rounded-xl bg-destructive/15 border border-destructive/30 text-destructive text-xs flex items-center gap-2">
@@ -84,27 +110,34 @@ export default function LoginPage() {
                   <label className="text-xs font-mono font-bold uppercase tracking-wider text-muted-foreground">
                     Password
                   </label>
-                  <button
-                    type="button"
-                    onClick={() => alert('Password reset link sent to registered email address.')}
-                    className="text-xs text-primary hover:text-primary-hover transition-colors font-medium"
+                  <Link
+                    href="/forgot-password"
+                    className="text-xs text-primary hover:text-primary-hover transition-colors font-medium cursor-pointer"
                   >
                     Forgot password?
-                  </button>
+                  </Link>
                 </div>
                 <div className="relative flex items-center">
                   <Lock className="w-4 h-4 text-muted-foreground absolute left-3.5" />
                   <input
-                    type="password"
+                    type={showPassword ? 'text' : 'password'}
                     required
                     value={password}
                     onChange={(e) => setPassword(e.target.value)}
                     className={cn(
-                      'w-full bg-surface-feed border border-border rounded-xl pl-10 pr-4 py-2.5 text-sm font-medium text-foreground outline-none',
+                      'w-full bg-surface-feed border border-border rounded-xl pl-10 pr-10 py-2.5 text-sm font-medium text-foreground outline-none',
                       focusRing
                     )}
                     placeholder="••••••••••••"
                   />
+                  <button
+                    type="button"
+                    onClick={() => setShowPassword((prev) => !prev)}
+                    className="absolute right-3 text-muted-foreground hover:text-foreground cursor-pointer p-1"
+                    aria-label={showPassword ? 'Hide password' : 'Show password'}
+                  >
+                    {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                  </button>
                 </div>
               </div>
 
@@ -132,5 +165,19 @@ export default function LoginPage() {
 
       <PublicFooter />
     </div>
+  );
+}
+
+export default function LoginPage() {
+  return (
+    <Suspense
+      fallback={
+        <div className="min-h-screen bg-background text-foreground flex items-center justify-center">
+          <div className="animate-spin rounded-full size-8 border-t-2 border-primary" />
+        </div>
+      }
+    >
+      <LoginContent />
+    </Suspense>
   );
 }

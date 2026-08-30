@@ -31,7 +31,12 @@ export function apiSuccess<T>(data: T, status: number = 200) {
   );
 }
 
-export function apiError(error: unknown, fallbackMessage: string = 'An error occurred while processing the request.') {
+export function apiError(
+  error: unknown,
+  fallbackMessage: string = 'An error occurred while processing the request.',
+  status: number = 500
+) {
+
   const requestId = generateRequestId();
 
   // Log full internal error details securely to server stdout/audit log
@@ -133,8 +138,9 @@ export function apiError(error: unknown, fallbackMessage: string = 'An error occ
       message: fallbackMessage,
       requestId,
     },
-    { status: 500 }
+    { status }
   );
+
 }
 
 export function apiRateLimitExceeded(resetSeconds: number) {

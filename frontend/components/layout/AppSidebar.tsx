@@ -24,6 +24,8 @@ import {
   Sparkles,
   MessageSquare,
   Stethoscope,
+  User,
+  LogOut,
   type LucideIcon,
 } from 'lucide-react';
 import { useApp } from '@/context/AppContext';
@@ -34,8 +36,17 @@ import { isNavItemActive } from '@/lib/navigation';
 
 export const AppSidebar: React.FC = () => {
   const pathname = usePathname();
-  const { project } = useApp();
+  const { project, user, logout } = useApp();
   const projectId = project.id;
+
+  const initials = user?.name
+    ? user.name
+        .split(' ')
+        .map((n) => n[0])
+        .join('')
+        .toUpperCase()
+        .slice(0, 2)
+    : 'FX';
 
   const navigation: { group: string; items: { name: string; href: string; icon: LucideIcon; badge?: string }[] }[] = [
     {
@@ -64,6 +75,7 @@ export const AppSidebar: React.FC = () => {
         { name: 'Historical Cases', href: '/historical/atlas', icon: Database },
         { name: 'Validated Learnings', href: '/memory', icon: Shield },
         { name: 'Global Search', href: '/search', icon: Search },
+        { name: 'Profile & Identity', href: '/profile', icon: User },
         { name: 'Settings & Privacy', href: '/settings', icon: Settings },
         { name: 'Foundation Debug', href: '/debug', icon: Stethoscope },
       ],
@@ -97,13 +109,13 @@ export const AppSidebar: React.FC = () => {
       </div>
 
       <nav className="flex-1 min-h-0 overflow-y-auto no-scrollbar px-2 py-1 space-y-4" aria-label="Primary">
-        {navigation.map(section => (
+        {navigation.map((section) => (
           <div key={section.group} className="space-y-0.5">
             <h5 className="px-2.5 pb-1 text-[9px] font-bold tracking-[0.08em] text-subtle uppercase">
               {section.group}
             </h5>
             <div className="space-y-0.5">
-              {section.items.map(item => {
+              {section.items.map((item) => {
                 const isActive = isNavItemActive(pathname, item.href);
                 const Icon = item.icon;
 
@@ -144,15 +156,16 @@ export const AppSidebar: React.FC = () => {
         ))}
       </nav>
 
-      <div className="shrink-0 m-3 p-3 rounded-xl bg-card border border-border shadow-card">
+      {/* Project Status Snippet */}
+      <div className="shrink-0 mx-3 mb-2 p-2.5 rounded-xl bg-card border border-border shadow-card">
         <div className="flex items-center justify-between gap-2 min-w-0">
           <span className="text-[10px] font-mono font-medium text-muted-foreground uppercase tracking-wider truncate">
             {project.name}
           </span>
           <RiskBadge level={project.health} />
         </div>
-        <p className="mt-1.5 text-xs font-mono font-bold text-destructive truncate">
-          {project.failureRisk}% risk  ·  {project.predictedNextFailure}
+        <p className="mt-1 text-xs font-mono font-bold text-destructive truncate">
+          {project.failureRisk}% risk · {project.predictedNextFailure}
         </p>
         <div className="mt-2 pt-2 border-t border-border flex items-center justify-between gap-2">
           <PrivacyBadge level={project.privacyLevel} />
@@ -163,6 +176,35 @@ export const AppSidebar: React.FC = () => {
             Radar →
           </Link>
         </div>
+      </div>
+
+      {/* User profile & Logout bar */}
+      <div className="shrink-0 p-3 border-t border-sidebar-border bg-sidebar/50 flex items-center justify-between gap-2">
+        <Link
+          href="/profile"
+          className="flex items-center gap-2 min-w-0 hover:opacity-85 transition-opacity cursor-pointer"
+        >
+          <div className="size-7 rounded-lg bg-primary text-primary-foreground font-mono text-[11px] font-bold flex items-center justify-center shrink-0">
+            {initials}
+          </div>
+          <div className="min-w-0 flex flex-col text-left">
+            <span className="text-[11px] font-bold text-foreground truncate max-w-[110px]">
+              {user?.name || 'Staff Lead'}
+            </span>
+            <span className="text-[9px] text-muted-foreground truncate max-w-[110px]">
+              {user?.email || 'lead.architect@aurora.tech'}
+            </span>
+          </div>
+        </Link>
+        <button
+          type="button"
+          onClick={logout}
+          aria-label="Sign out"
+          title="Sign out of FailureOps X"
+          className="p-1.5 rounded-lg text-muted-foreground hover:text-destructive hover:bg-destructive/15 transition-colors cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-destructive"
+        >
+          <LogOut className="w-4 h-4" />
+        </button>
       </div>
     </aside>
   );

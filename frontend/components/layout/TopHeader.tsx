@@ -13,6 +13,7 @@ import {
   Sparkles,
 } from 'lucide-react';
 import { useApp } from '@/context/AppContext';
+import { UserProfileDropdown } from '@/components/profile/UserProfileDropdown';
 
 const iconBtn =
   'inline-flex items-center justify-center size-8 rounded-lg bg-surface-feed border border-border text-muted-foreground hover:text-foreground hover:border-primary/40 transition-colors duration-150 cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring';
@@ -117,18 +118,7 @@ export const TopHeader: React.FC = () => {
           )}
         </button>
 
-        <div className="flex items-center gap-2 pl-2 border-l border-border">
-          <div
-            className="size-8 rounded-lg bg-primary text-primary-foreground font-mono text-[10px] font-bold flex items-center justify-center shadow-primary-glow"
-            aria-hidden="true"
-          >
-            FX
-          </div>
-          <div className="hidden xl:flex flex-col text-left">
-            <span className="text-[11px] font-semibold leading-none text-foreground">Staff Intelligence</span>
-            <span className="text-[10px] text-muted-foreground leading-tight mt-0.5 font-mono">Enclave Online</span>
-          </div>
-        </div>
+        <UserProfileDropdown />
       </div>
     </header>
   );
